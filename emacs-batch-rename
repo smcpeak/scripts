@@ -8,7 +8,7 @@ fi
 
 # generate file list (use "$@" so we maintain delimiters despite embedded spaces)
 tmp=/tmp/batch-rename.$$
-ls "$@" >$tmp || exit 2
+ls -d "$@" >$tmp || exit 2
 
 # edit it
 emacsclient $tmp || exit 2

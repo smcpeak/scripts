@@ -1,0 +1,14 @@
+#!/bin/sh
+# remove several modules at a time
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 modules..."
+  exit
+fi
+
+while [ "$1" != "" ]; do
+  echo "removing $1..."
+  rmmod $1 || exit
+  
+  shift
+done

@@ -1,0 +1,12 @@
+#!/bin/sh
+# read a manpage file
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 manpage-file.N"
+  echo "  (where N is usually 1)"
+fi
+
+# the nroff processor understands manpage commands, the
+# '-man' macro package is needed for them, and more is
+# a pager
+nroff -man $1 | more

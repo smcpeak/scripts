@@ -1,0 +1,13 @@
+#!/bin/sh
+# prepend a string to every line of stdin
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 string-to-prepend"
+  echo "  reads stdin, writes stdout"
+  exit
+fi
+
+str="$1"
+
+# use sed
+sed "s/^/$1/"

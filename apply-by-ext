@@ -1,0 +1,51 @@
+#!/bin/sh
+# apply a converter to a list of files, yielding output
+# files with changed extensions
+
+# check usage
+if [ "$4" = "" ]; then
+
+cat <<EOF
+usage: $0 [-n] filter-cmd start-ext result-ext files...
+  options:
+    -n: don't really do it, just print what I'm going to do
+  filter-cmd:
+    must take its input file as its first argument
+    and the output file as its second arg
+  start-ext:
+    extension all files have; it should not include the dot
+  result-ext:
+    resulting extension (again, no dot)
+EOF
+
+fi
+
+
+# process options
+fake=0
+if [ "$1" = "-n" ]; then
+  fake=1
+  shift
+fi
+
+# grab fixed-position args
+filter_cmd="$1"
+start_ext="$2"
+result_ext="$3"
+shift
+shift
+shift
+
+while [ "$1" != "" ]; do
+  # construct result filename
+  result=`echo $1 | sed "s/$start_ext/$result_ext/"`
+
+  # execute filter command
+  echo "$filter_cmd $1 $result"
+  if [ "$fake" = "0" ]; then
+    $filter_cmd $1 $result || exit
+  fi
+
+  # on to next file
+  shift
+done

@@ -1,0 +1,10 @@
+#!/bin/false
+# this isn't meant to be run, rather it is to be sourced
+
+setenv QTDIR /usr/local/qt2
+setenv MANPATH ${MANPATH}:${QTDIR}/doc/man
+set path = ( ${QTDIR}/bin $path )
+setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:${QTDIR}/lib
+setenv CPLUS_INCLUDE_PATH ${QTDIR}/include:${CPLUS_INCLUDE_PATH}
+
+

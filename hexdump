@@ -1,12 +1,38 @@
-#! /bin/csh -f
-# program to get a reasonable hex dump of a file
+#!/bin/sh
+# hexdump a file
 
-if ( "$1" == "" ) then
-  echo usage: $0 filename
-  exit 1
-endif
+# usage
+if [ "$1" = "" ]; then
+  echo "usage: $0 file-to-dump"
+  exit
+fi
+filename=$1
 
-od -txC $1
+#
+# formatting; see hexdump(1) for a lousy description.  what I
+# understand is:
+#   "%06.6_ax   " means show the offset in hex with 6 digits, then 3 spaces
+#   16/1          means 16 chars per line
+#   "%02X "       means 2-digit hex char output, separated by spaces
+#   "   "         means 3 spaces separating hex and ascii outputs
+#   "%_p"         means ascii output with '.' for binary, no spaces
+#   "\n"          ends the line
+#
+fmt=/tmp/$USER.hexdump.format
+cat >$fmt <<EOF
+"%06.6_ax   "  16/1 "%02X "
+"   " "%_p" 
+"\n"
+EOF
 
+# failed attempts to put a space between first and last 8 chars
+#fmt=/tmp/$USER.hexdump.format
+#cat >$fmt <<EOF
+#"%06.6_ax   "  8/2 "%02X "
+#"   " "%_p" 
+#"\n"
+#EOF
 
+# hexdump
+/usr/bin/hexdump -f $fmt $filename
 

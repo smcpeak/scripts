@@ -1,0 +1,10 @@
+#!/bin/sh
+# mount a cd image file on /cdimage
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 cd-image-file"
+  exit
+fi
+
+# do the mount by way of sudo
+sudo /usr/local/sbin/mount-cd-image $1

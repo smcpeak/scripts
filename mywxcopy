@@ -1,0 +1,21 @@
+#!/bin/sh
+# wxcopy that also sets the "selection", at least temporarily...
+
+# first, wxcopy itself, which copies to cut buffer 0
+if wxcopy; then
+  true        # proceed
+else
+  exit 1      # stop here
+fi
+
+# now, run a modified version of xcutsel for a few seconds so I
+# can copy the contents..
+xcutsel-cut-sel &
+
+# write down the process id
+xcutsel_pid=$!
+
+# fork off another process to kill xcutsel eventually
+(sleep 20 ; kill $xcutsel_pid) &
+
+# that should be it..

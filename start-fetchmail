@@ -8,5 +8,5 @@ unsetenv MAILUSER
 unsetenv MAILHOST
 unsetenv MAILNAME
 
-fetchmail --daemon 900
+fetchmail --daemon 300
 

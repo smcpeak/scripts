@@ -1,0 +1,21 @@
+#!/bin/sh
+# given the name of a file, create a url suitable for
+# insertion into an index.html in this directory
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 file [...]"
+  exit
+fi
+
+sep="$1"
+shift
+
+while [ "$1" != "" ]; do
+  # get filename without directory stuff
+  bn=`basename $1`
+  
+  # write url (expect people to add their own separators)
+  echo '<a href="'${1}'">'${bn}'</a>'
+
+  shift
+done

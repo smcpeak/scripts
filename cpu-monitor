@@ -1,0 +1,107 @@
+#!/usr/bin/perl -w
+# script to monitor CPU usage (among other things) at much finer
+# granularity than load average
+
+use strict 'subs';
+use IO::Handle;
+
+# flush all output immediately
+STDOUT->autoflush(1);
+
+# start by sampling counters
+@prev = getTickCounters();
+
+# drop into infinite loop
+while (1) {
+  # wait a moment
+  sleep(1);
+
+  # sample again
+  @next = getTickCounters();
+
+  # compute differences
+  @ticks = elementwiseSubtract($#next + 1, @next, @prev);
+  ($user, $nice, $system, $idle, $disk) = @ticks;
+  $duty = $user + $nice + $system;
+  $total = $duty + $idle;
+
+  #print("user=$user nice=$nice system=$system idle=$idle\n");
+
+  # compute usages
+  printf("\rcpu %s   sys %s   hda $disk  ",
+         pctString($duty * 100 / $total),
+         pctString($system * 100 / $total));
+
+  # replace prev with next
+  @prev = @next;
+}
+
+
+# --------------- subroutines ------------------
+# get current value of tick counters
+#   /proc/stat's first line: "cpu" user nice system idle
+sub getTickCounters {
+  # open the file
+  open(IN, "</proc/stat") or die;
+
+  # extract cpu fields from first line
+  my ($dontCare, $user, $nice, $system, $idle) =
+    split(' ', <IN>);
+
+  # extract disk field from second line
+  my ($dontCare2, $disk) = split(' ', <IN>);
+
+  # close the file
+  close(IN) or die;
+
+  # return relevant fields
+  return ($user, $nice, $system, $idle, $disk);
+}
+
+
+# return a percentage as a 3-char string
+sub pctString {
+  ($val) = @_;
+  
+  if ($val < 0) {
+    return "<0%";
+  }
+  elsif ($val < 100) {
+    return sprintf("%02d%%", $val);
+  }
+  elsif ($val == 100) {
+    return "100";
+  }
+  else {
+    return ">C%";
+  }
+}
+
+
+# return a subarray
+sub subarray {
+  ($start, $count, @array) = @_;
+
+  my @ret = ();
+  for ($i = 0; $i < $count; $i++) {
+    $ret[$i] = $array[$i + $start];
+  }
+
+  return @ret;
+}
+
+
+# return an array computed by subtracting elements of one from another
+sub elementwiseSubtract {
+  ($count, @arrays) = @_;
+
+  @left = subarray(0, $count, @arrays);
+  @right = subarray($count, $count, @arrays);
+
+  my @ret = ();
+  for ($i = 0; $i < $count; $i++) {
+    $ret[$i] = $left[$i] - $right[$i];
+  }
+
+  return @ret;
+}

@@ -1,0 +1,28 @@
+#!/bin/sh
+# rename a set of files by applying a line filter to
+# each name which yields the name to rename-to
+
+# check usage
+if [ "$2" = "" ]; then
+  echo "usage: $0 filter-program files..."
+  exit
+fi
+
+# grab program name
+filter="$1"
+echo "filter program is $filter"
+shift
+
+# process filenames
+for fname in "$@" ; do
+  # generate new name
+  newname=`echo $fname | $filter`
+
+  # rename and try not to clobber anything
+  # if it fails, stop immediately
+  echo "renaming $fname to $newname"
+  mv -i $fname $newname || exit
+done
+
+
+

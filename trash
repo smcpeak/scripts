@@ -6,7 +6,7 @@ use strict;
 if (@ARGV < 1) {
   print("usage: $0 [options] file-to-delete ...\n",
         "  options:\n",
-        "    -d     debug mode\n",
+        "    -d     debug mode (echo commands)\n",
         "    -f     fake mode (don't really do anything)\n",
         "    --     stop processing options\n");
   exit(0);

@@ -1,0 +1,6 @@
+#!/bin/sh
+# start the cpu-monitor in a tiny xterm
+
+# use 'xload' title since that's already one KDE knows to not
+# put decorations on
+xterm -title xload -geometry 33x1+0-13 +sb -e cpu-monitor

@@ -1,0 +1,11 @@
+#!/bin/sh
+# all the things I do as 'scott' when I boot my machine
+
+echo "connectivity monitor..."
+monitor-connectivity >> ~/doc/logs/connectivity-log 2>&1 &
+
+echo "email fetcher..."
+start-fetchmail
+
+echo "mixer settings..."
+aumix -L

@@ -8,7 +8,10 @@ $myname =~ s%.*/%%;   # strip path component
 if (@ARGV < 1) {
   print("usage: $myname filename.tar.gz\n",
         "   or: $myname filename.tar.bz2\n",
-        "unpacks contents of file into current directory\n",
+        "   or: $myname filename.zip\n",
+        "   or: $myname filename.tar\n",
+        "   or: $myname filename.deb\n",
+        "unpacks contents of file into a dir off current directory\n",
         "($myname will create a directory if necessary)\n");
   exit(0);
 }
@@ -21,17 +24,32 @@ if (! -e $archive) {
 }
 
 
+# for some archiving methods (.deb right now), I need an
+# absolute path
+if ($archive =~ /^\//) {     # already absolute
+  $archiveAbsolute = $archive;
+}
+else {                       # relative to cwd
+  $pwd = `pwd`;
+  chomp($pwd);
+  $archiveAbsolute = $pwd . "/" . $archive;
+  #print("absolute name of archive is $archiveAbsolute\n");
+}
+
+
 # figure out what the name is, without the extension(s)
 $prefix = $archive;
 $tarred = ($prefix =~ s/\.tar$//);
 $gzipped = ($prefix =~ s/(\.tar\.gz)|(\.tgz)$//);
 $bzipped = ($prefix =~ s/(\.tar\.bz2)|(\.tbz2)$//);
-if (!($tarred || $gzipped || $bzipped)) {
+$pkzipped = ($prefix =~ s/(\.zip)|(\.ZIP)$//);
+$debbed = ($prefix =~ s/\.deb$//);
+if (!($tarred || $gzipped || $bzipped || $pkzipped || $debbed)) {
   # extension not recognized..
   print("I don't recognize the extension of $archive.\n");
   exit(1);
 }
-if ($tarred + $gzipped + $bzipped != 1) {
+if ($tarred + $gzipped + $bzipped + $pkzipped + $debbed != 1) {
   die "multiply-archived?  I'm confused...\n";
 }
 
@@ -62,8 +80,17 @@ if ($tarred) {
 elsif ($gzipped) {
   $res = system("(cd ..; gunzip -c $archive) | tar xvf -");
 }
-else {
+elsif ($bzipped) {
   $res = system("(cd ..; bunzip2 -c $archive) | tar xvf -");
+}
+elsif ($pkzipped) {
+  $res = system("cd ..; unzip -d $dir $archive");
+}
+elsif ($debbed) {
+  $res = system("ar t $archiveAbsolute && ar x $archiveAbsolute");
+}
+else {
+  die("oops");
 }
 
 if ($res != 0) {

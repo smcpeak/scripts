@@ -1,0 +1,10 @@
+#!/bin/sh
+# mount a cd image file on /mnt
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 cd-image-file"
+  exit
+fi
+
+# do the mount
+mount -t iso9660 -o ro,loop=/dev/loop0 "$1" /mnt

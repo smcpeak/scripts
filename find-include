@@ -1,0 +1,48 @@
+#!/bin/sh
+# find where an include file is
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 include-file-name.h"
+  exit
+fi
+
+# script arguments
+inc=$1		  
+
+# temporary file name
+tmp=/tmp/find-inc.tmp.$$.cc
+
+# make a test .cc file
+cat >$tmp <<EOF
+// $tmp
+// test file to find $inc
+
+// sure to make compiler unhappy
+#define int @
+
+// now include the file and watch the fireworks
+#include <$inc>
+
+EOF
+
+# compile it, get only the error msg relating to the file of interest
+line=`(g++ -o /dev/null -c $tmp 2>&1) | grep $inc | head -1`
+
+# clean up
+rm $tmp
+
+# throw away other parts of the line that are irrelevant (first sed
+# throws away anything before the first '/', and second sed throws
+# away everything after the ':')
+trimmed=`echo $line | sed 's#^[^/]*/#/#' | sed 's#:.*$##'`
+
+if echo $trimmed | grep $inc >/dev/null 2>&1 ; then
+  # as expected
+  echo $trimmed
+  exit 0
+else
+  # maybe the include file wasn't found?  just echo the entire line
+  echo $line
+  exit 1
+fi
+

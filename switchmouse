@@ -8,3 +8,6 @@ else
   sudo /sbin/switchmouse $*
 fi
 
+# since it's an important variable also, report which
+# display(s) are active
+grep disp /etc/XF86Config
