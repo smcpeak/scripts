@@ -1,0 +1,2 @@
+#! /bin/csh -f
+rlogin si.ucsc.edu -l tmcpeak

@@ -1,0 +1,8 @@
+#!/bin/sh
+# turn an xterm into a logging window
+
+# show some context
+tail -30 /var/log/messages | head -20
+
+# now read the rest of the file, plus any future additions
+exec tail -f /var/log/messages

@@ -1,0 +1,12 @@
+#! /bin/csh -f
+switch (`uname`)
+  case "HP-UX":
+    who -R
+    breaksw;
+  case "ULTRIX":
+    who
+    breaksw;
+  default:
+    who
+    breaksw;
+endsw

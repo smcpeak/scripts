@@ -1,0 +1,25 @@
+#!/bin/csh -f
+
+if ("a$1" == "a") then
+  echo "Usage: check machine_list_file [command-to-run]"
+  exit 0
+endif
+
+  if (-e $1) then
+    set filename=$1
+  else if (-e ~/scripts/machname/$1) then
+    set filename=~/scripts/machname/$1
+  else
+    echo "Cannot find filename $1"
+    exit 1
+  endif
+
+  if ("$2" == "") then
+    set check_command=w
+  else
+    set check_command=$2
+  endif
+
+  foreach mname (`cat $filename`)
+    checkone $mname $check_command &
+  end

@@ -1,0 +1,6 @@
+#!/bin/sh
+# given a file of research references etc. in the format I keep them,
+#   yield the references
+
+grep '^\[.*\]'
+	      

@@ -1,59 +1,111 @@
-#! /bin/csh -f
+#!/usr/bin/perl -w
 # script to gunzip and untar a file
+# rewritten in perl so I could easily add support for bzip2
 
-set myname = `echo $0 | sed 's#.*/##'`
-if ( "$1" == "" ) then
-  echo "usage: $myname filename.tar.gz"
-  echo "  unpacks contents of file into current directory"
-  echo "  ($myname will create a directory if necessary)"
-  exit
-endif
+# check usage
+$myname = $0;
+$myname =~ s%.*/%%;   # strip path component
+if (@ARGV < 1) {
+  print("usage: $myname filename.tar.gz\n",
+        "   or: $myname filename.tar.bz2\n",
+        "unpacks contents of file into current directory\n",
+        "($myname will create a directory if necessary)\n");
+  exit(0);
+}
+$archive = $ARGV[0];
+
+
+# verify file is there
+if (! -e $archive) {
+  die("$myname: $archive does not exist\n");
+}
+
 
 # figure out what the name is, without the extension(s)
-set prefix = `echo $1 | sed 's/.tar.gz//' | sed 's/.tgz//'`
-#echo prefix is $prefix
+$prefix = $archive;
+$tarred = ($prefix =~ s/\.tar$//);
+$gzipped = ($prefix =~ s/(\.tar\.gz)|(\.tgz)$//);
+$bzipped = ($prefix =~ s/(\.tar\.bz2)|(\.tbz2)$//);
+if (!($tarred || $gzipped || $bzipped)) {
+  # extension not recognized..
+  print("I don't recognize the extension of $archive.\n");
+  exit(1);
+}
+if ($tarred + $gzipped + $bzipped != 1) {
+  die "multiply-archived?  I'm confused...\n";
+}
+
+#print("prefix is $prefix\n");
+
+
+# strip any leading path.. the idea is I can name a tarball
+# in another directory but have it unpacked where I am now
+$nameOnly = $prefix;
+$nameOnly =~ s%.*/%%;
+
 
 # make a new directory into which to unpack things
-set dir = $prefix
-while ( -e $dir )
-  set dir = ${dir}a
-end
-mkdir $dir
-cd $dir
+$dir = $nameOnly;
+while (-e $dir) {
+  $dir = "${dir}a";    # rename to avoid collisions
+}
+mkdir($dir,0777) or die("$myname: failed to create $dir: $!\n");
+chdir($dir) or die("$myname: failed to chdir to $dir: $!\n");
+
 
 # uncompress and extract into created directory
-gunzip -c ../$1 | tar xvf -
+# (must "cd .." first so $archive is known to be the
+# right name)
+if ($tarred) {
+  $res = system("(cd ..; cat $archive) | tar xvf -");
+}
+elsif ($gzipped) {
+  $res = system("(cd ..; gunzip -c $archive) | tar xvf -");
+}
+else {
+  $res = system("(cd ..; bunzip2 -c $archive) | tar xvf -");
+}
+
+if ($res != 0) {
+  print("$myname: extraction failed with exit code $?\n");
+  exit($?);
+}
+
 
 # see if the tar file made its own directory inside mine
-if ( `ls | wc -l` == "1" ) then
+@ls = `ls`;
+if (@ls == 1) {
   # it made its own; let's just use that
-  set itsname = `ls`
-  if ( "$itsname" == "$dir" ) then
+  $itsname = $ls[0];
+  chomp($itsname);
+  if ($itsname eq $dir) {
     # my name and its match; must reconcile
-    cd ..
-    set tempdir = untargz_temp_dir
-    if ( -e $tempdir ) then
-      echo "${myname}: $tempdir already exists, darn"
-      exit 1
-    endif
-    mv $dir $tempdir
-    mv ${tempdir}/${itsname} ./${itsname}
-    rmdir $tempdir
-  else if ( -e ../${itsname} ) then
-    echo "${myname}: I want to move the unpacked files into $itsname,"
-    echo "${myname}: but that echo file/dir already exists."
-    echo "${myname}: So, I left them in ${dir}."
-    cd ..
-  else
-    mv $itsname ../${itsname}
-    cd ..
-    rmdir $dir
-  endif
-
-else
+    chdir("..") or die $!;
+    $tempdir = "untargz_temp_dir.$$";
+    if (-e $tempdir) {
+      print("$myname: $tempdir already exists, darn\n");
+      exit(1);
+    }
+    system("mv $dir $tempdir")==0 or die;
+    system("mv ${tempdir}/${itsname} ./${itsname}")==0 or die;
+    rmdir("$tempdir") or die $!;
+  }
+  elsif (-e "../${itsname}") {
+    print("$myname: I want to move the unpacked files into $itsname,\n",
+          "$myname: but that echo file/dir already exists.\n",
+	  "$myname: So, I left them in ${dir}.\n");
+    chdir("..") or die $!;
+  }
+  else {
+    # easy case; no name collision
+    system("mv $itsname ../${itsname}")==0 or die;
+    chdir("..") or die $!;
+    rmdir($dir) or die $!;
+  }
+}
+else {
   # it did not make its own dir, so tell the user where we put it
-  echo "${myname}: The tar file $1 did not make its own directory,"
-  echo "${myname}: so I left all its files in ${dir}."
-  cd ..
-endif
-
+  print("$myname: The tar file $archive did not make its own directory,\n",
+        "$myname: so I left all its files in ${dir}.\n");
+  chdir("..") or die $!;
+}

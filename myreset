@@ -1,0 +1,12 @@
+#!/bin/sh
+# reset the terminal to sane state
+
+# first, do what I discovered: 0x0F counteracts 0x0E
+perl -e '{ print("\x0F"); }'
+
+# then do the normal reset (which doesn't do much..)
+#/usr/bin/reset
+
+# this is annoying..
+stty -ixon -ixoff
+

@@ -1,0 +1,27 @@
+#!/bin/csh -f
+
+# prepend stdin to arg1
+
+# check arg1
+if ("a$1" == "a") then
+  echo "Usage: prepend file_to_modify < file_to_prepend (stdin)"
+
+else
+  # gotta be able to use ~
+  unset noglob
+  
+  # get user input before anything, so if they cancel we dont kill stuff
+  cat >! ~/.prepend.head
+
+  # now we safely have user input. Blindly perform the op.
+  cat $1 >! ~/.prepend.tail
+  cat ~/.prepend.head >! $1
+  cat ~/.prepend.tail >> $1
+
+  # clean up by deleting our temp files
+  rm -f ~/.prepend.head
+  rm -f ~/.prepend.tail
+
+endif
+
+  

@@ -1,0 +1,19 @@
+#! /bin/csh -f
+
+switch (`uname`)
+  case "HP-UX":
+    ps -ef
+    breaksw;
+
+  case "ULTRIX":
+    ps -aux
+    breaksw;
+
+  case "AIX":
+    ps -al
+    breaksw;
+
+  default:
+    ps -aux
+    breaksw;
+endsw

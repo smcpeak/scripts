@@ -1,0 +1,4 @@
+#! /bin/csh -f
+foreach afile (`cat 105machines`)
+ping $afile 1 1
+end

@@ -1,0 +1,119 @@
+#!/usr/bin/perl -w
+# script to move a file to 'trash' instead of actually deleting it
+
+use strict;
+
+if (@ARGV < 1) {
+  print("usage: $0 [options] file-to-delete ...\n",
+        "  options:\n",
+        "    -d     debug mode\n",
+        "    -f     fake mode (don't really do anything)\n",
+        "    --     stop processing options\n");
+  exit(0);
+}
+
+# default options
+my $debugMode = 0;
+my $fakeMode = 0;
+
+# process options
+while ($ARGV[0] =~ /^-/) {
+  my $a = shift(@ARGV);
+  if ($a eq "-d") {
+    $debugMode = 1;
+  }
+  elsif ($a eq "-f") {
+    $fakeMode = 1;
+  }
+  elsif ($a eq "--") {
+    last;
+  }
+  else {
+    die("$0: unknown option $a\n");
+  }
+}
+
+
+# verify all arguments exist
+for (my $i = 0; $i < @ARGV; $i++) {
+  my $fname = $ARGV[$i];
+  if (! -e $fname) {
+    die("$0: $fname does not exist (stopping before doing anything)\n");
+  }
+}
+
+# get username
+my $user = `whoami`;
+chomp($user);
+if (! $user) {
+  die("$0: failed to retrieve username\n");
+}
+
+while (my $fname = shift(@ARGV)) {
+  # if $fname has trailing slashes, remove them
+  $fname =~ s%/+$%%;
+
+  # determine the full pathname for this file
+  if ($fname !~ m%^/% ) {
+    # this is a relative path.. find out where we are now
+    my $wd = `pwd`;
+    chomp($wd);
+
+    # prepend that to fname
+    $fname = "$wd/$fname";
+    if ($debugMode) {
+      print("full path: $fname\n");
+    }
+
+    # collapse any occurrances of "dir/../"
+    $fname =~ s%[^/]+/\.\./%%g;
+  }
+
+  # make sure things still make sense
+  if (! -e $fname) {
+    die("$0: $fname existed before but doesn't now.. ?!?! (aborting)\n");
+  }
+
+  # get the pathname part of the name
+  my $path = $fname;
+  $path =~ s%/[^/]*$%%;
+
+  # create the directory into which we will move this
+  my $destPath = "/trash/${user}${path}";
+  run("mkdir -p $destPath");
+
+  # move the file to the trash
+  run("mv -f $fname $destPath");
+}
+
+exit(0);
+
+
+sub run {
+  my ($cmd) = @_;
+
+  if ($debugMode) {
+    print("executing: $cmd\n");
+  }
+  if ($fakeMode) {
+    return;
+  }
+
+  my $res = system($cmd);
+  if ($res != 0) {
+    my $sig = $res & 0xff;
+    my $code = $res >> 8;
+    die("$0: command `$cmd' failed with " .
+	($sig? "signal $sig" : "exit code $code") .
+	" (aborting)\n");
+  }
+}
+
+
+# ---- trash -----
+  # figure out a suffix that will be considered the file's
+  # 'logical name'.  e.g. /home/scott/foo/bar is considered
+  # to be foo/bar
+  #$logical = $fname;
+  #$logical =~ s%^/home/scott%%;
+  #$logical =~ s%^/ex/scott%%;

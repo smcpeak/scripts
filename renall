@@ -1,0 +1,14 @@
+#! /bin/csh -f
+# rename all files that contain $1 so that $2 is substituted for $1
+
+if ( "$2" == "" ) then
+  echo usage: $0 from-ext to-ext
+  exit
+endif
+
+foreach fn (*${1}*)
+  set destfname = `echo $fn | sed s/$1/$2/`
+  echo mv $fn $destfname
+  mv $fn $destfname
+end
+

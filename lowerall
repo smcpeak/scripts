@@ -10,7 +10,6 @@ fi
 for name in $namelist ; do
   dest=`echo $name | tolower` ;
   if [ $name != $dest ] ; then
-    echo mv $name $dest ;
     mv $name $dest ;
   fi
 done

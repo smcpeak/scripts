@@ -1,0 +1,3 @@
+#! /bin/csh -f
+
+xsnow -nosanta -nowind -notrees -wsnowdepth 200 -ssnowdepth 999 $* &

@@ -1,0 +1,6 @@
+#! /bin/csh -f
+echo Zeroth arg: $0
+echo First arg: $1
+echo 2nd arg: $2
+echo Third arg: $3
+echo All args: "$*"

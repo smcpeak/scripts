@@ -1,0 +1,27 @@
+#!/bin/csh -f
+
+# idea is to execute this command line (foo.c is some source):
+#   % ccrun foo.c [arg1 [arg2..]] [ < inputstream ]
+
+# do argument checking
+if ("a$1" == "a") then
+  echo 'Usage: foo.c [arg1 [arg2..]] [ < inputstream ]'
+  exit (1)
+endif
+
+# make sure I can get my path with ~
+unset noglob
+
+# compile the source file
+gcc $1 -o ~/temp/ccrun.output.exe
+
+# run the compiled binary
+if ($status <=  0) then
+  ~/temp/ccrun.output.exe "$*"
+  # use the quotes to prevent globbing of "*"
+  # I hope that this will automatically handle any pending stdin
+
+else
+  echo "$0: Errors while compiling file $1."
+
+endif

@@ -1,0 +1,6 @@
+#!/bin/csh -f
+if ( -e $1 ) then
+echo it exists
+else
+echo it does not exist
+endif

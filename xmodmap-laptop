@@ -1,0 +1,7 @@
+#!/bin/sh
+# setup keys for laptop keyboard
+
+xmodmap-make.caps.another.ctrl
+
+xmodmap-use.windows.keys
+

@@ -1,0 +1,9 @@
+#! /bin/csh -f
+# script to portably report list of all jobs
+
+# turns out this works
+#/bin/ps -ef
+
+ps aux --forest --cols 1000
+
+

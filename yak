@@ -1,0 +1,7 @@
+#! /bin/csh -f
+
+while (1)
+  echo 'yak'
+  sleep 10
+end
+

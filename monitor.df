@@ -1,0 +1,8 @@
+#!/bin/csh -f
+# script to monitor free disk space
+
+while ( 1 )
+  df .
+  sleep 10
+end
+

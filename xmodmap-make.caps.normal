@@ -1,0 +1,18 @@
+#!/bin/sh
+
+xmodmap - <<EOF
+          !
+          ! make Caps_Lock do its usual job
+          ! (it is unknown to me whether the integer that appears
+          ! below is portable)
+          !
+          keycode 66 = Caps_Lock
+          clear Lock
+          add Lock = Caps_Lock
+          
+          ! on the assumption we're doing this after Caps was
+          ! acting as Control, reset Control's modifiers
+          clear Control
+          add Control = Control_L Control_R
+EOF
+

@@ -1,0 +1,29 @@
+#!/bin/sh
+# setup my desktop stuff
+
+# arg... kde doesn't respect geometry!  stupid..
+
+# clock
+xclock -digital -bg '#d000d000d000' -geometry 191x29+0--6 &
+sleep 1
+
+# load
+xload -geometry 191x40+0-13 &
+sleep 1
+
+# xbiff
+/home/scott/bin/xbiff-nobeep -file ~/Mailbox -update 30 -geometry 48x48+181--5 &
+sleep 1
+
+# logs
+xterm -geometry 142x24+161--19 -title logs -e setup-logs &
+sleep 1
+
+# mp3
+xterm -geometry 80x24+0-23 -title mp3 -e setup-mp3s &
+sleep 1
+
+# pine
+xterm -geometry 80x24-1-24 -title pine -e setup-pine &
+sleep 1
+

@@ -1,0 +1,12 @@
+#!/bin/csh -f
+# save a manpage to ~/man, with the ^H-based formatting removed
+
+if ( "$1" == "" ) then
+  echo "usage: $0 command"
+  echo "  saves manpage for 'command' to ~/man/command"
+  exit 0
+endif
+
+set noclobber
+
+man $* | sed 's/.//g' > ~/man/$1

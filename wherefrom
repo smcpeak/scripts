@@ -1,0 +1,7 @@
+#! /bin/csh -f
+
+who.gen | grep $user | head -1 | sed "s/.*(//" | sed "s/).*//" \
+  | sed "s/:.*//" | sed "s/Berk.*/Berkeley.EDU/" \
+  | sed "s/berk.*/Berkeley.EDU/" \
+  | sed "s/hip.*/HIP.Berkeley.EDU/"
+

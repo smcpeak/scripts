@@ -1,0 +1,4 @@
+#!/bin/sh
+# grep, but without the annoying error reports
+
+grep $* 2>/dev/null

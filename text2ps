@@ -1,0 +1,12 @@
+#!/bin/sh
+# convert text to postscript
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 file.txt > file.ps"
+  exit 0
+fi
+
+enscript --output=- $1
+
+
+

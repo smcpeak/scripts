@@ -1,0 +1,117 @@
+#!/bin/sh
+# script to monitor connectivity to the internet
+
+# state variables, to report changes in connectivity
+connected=1
+lastConnected=0
+
+
+# -- options --
+# where to send the ping reports
+pingOut=/dev/null
+
+# delay between attempts, in seconds
+#   was 300 (5 mins) for a while, but that was missing intermittent ~1 min
+#   outages, so I am dropping it to 60 secs to hopefully catch those
+delay=60
+
+
+# -- where to send output --
+report()
+{
+  # echo to terminal
+  echo "$*"
+
+  # send to the log
+  #   facility: user (would want 'net' but that doesn't exist)
+  #   level: info
+  #   tag: "mon-conn"
+  logger -p user.info -t mon-conn "$*"
+}
+
+
+# -- always executed when script exits (unless SIGKILL) --
+onExit()
+{
+  report "stopped monitoring" `date`
+}
+trap onExit EXIT
+
+
+# -- main loop --
+report "began monitoring" `date` "with delay $delay secs"
+while true; do
+  # use IP addresses instead of DNS names because the latter
+  # incur a huge overhead when we're not connected
+  #   171.64.14.237 is www.stanford.edu
+  #   128.32.25.12 is www.berkeley.edu
+  if ping -c 2 171.64.14.237 >> $pingOut 2>&1 || \
+     ping -c 2 128.32.25.12  >> $pingOut 2>&1 ; then
+    # we are connected
+    #echo "we are connected"
+    if [ "$connected" != "1" ]; then
+      # we just now became connected
+      downtime="$[ $SECONDS - $lastConnected ]"
+
+      # compute downtime as hrs/min/sec
+      hrs="$[ $downtime / 3600 ]"
+      mins="$[ ($downtime % 3600) / 60 ]"
+      secs="$[ $downtime % 60 ]"
+
+      # report it
+      report "connectivity up:" `date` "-- was down $downtime secs ($hrs:$mins:$secs)"
+      connected=1
+    fi
+
+  else
+    # we are not connected
+    #echo "we are not connected"
+    if [ "$connected" = "1" ]; then
+      # we just now become disconnected
+      msg="connectivity down: "`date`";"
+      lastConnected=$SECONDS
+      connected=0
+
+      # first, check whether this outage includes my router -- I've seen
+      # several instances of being able to see my router but not the
+      # rest of the net (including, e.g. nameservers 24.1.80.{33,34}
+      # (this basically assumes router visibility is constant throughout
+      # the outage, which isn't necessarily true, but probably is close
+      # enough for my purposes)
+      if ping -c 2 24.14.146.1 >> $pingOut 2>&1 ; then
+        # this is the "unexpected" case (at least to me)
+        # (the captions here are short because I want the line saying how
+        # long we were down to be the longest in the logs, so they stand out)
+        msg="$msg rvis=YES"
+
+        # can I ping the nameserver?
+        if ping -c 2 24.1.80.33 >> $pingOut 2>&1 ; then
+          msg="$msg nsvis=YES"
+
+      	  # I also want to know if the nameserver will respond to my queries
+      	  if dig @24.1.80.33 www.stanford.edu >> $pingOut 2>&1 ; then
+      	    msg="$msg dig=YES"
+      	  else
+      	    msg="$msg dig=no"
+      	  fi
+
+        else
+          msg="$msg nsvis=no"
+        fi
+
+      else
+        msg="$msg rvis=no"
+      fi
+
+      # finally, after constructing the message, let's report it
+      report $msg
+    fi
+  fi
+
+  # wait a while before trying it again
+  sleep $delay
+done
+
+
+# ------- trash -------
+  #if [ -f "conn" ]; then

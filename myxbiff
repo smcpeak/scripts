@@ -1,0 +1,4 @@
+#!/bin/sh
+# xbiff with my options
+
+/home/scott/bin/xbiff-nobeep -file ~/Mailbox -update 30

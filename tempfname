@@ -1,0 +1,10 @@
+#! /bin/csh -f
+# script to generate and output a temp file name
+
+set name = /tmp/`whoami`.
+
+while ( -e $name )
+  set name = ${name}a
+end
+
+echo $name

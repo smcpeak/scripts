@@ -1,0 +1,7 @@
+echo Siamak: `ping siamak.hip 1 1 | grep packets`
+echo John: `ping ganbare.hip 1 1 | grep packets`
+echo Chuck: `ping hacienda.hip 1 1 | grep packets`
+echo Eric: `ping joemama.hip 1 1 | grep packets`
+finger smodjtah@parker.eecs
+finger johnloff@uclink
+finger charles@csua | head

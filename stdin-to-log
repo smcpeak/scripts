@@ -1,0 +1,13 @@
+#!/bin/sh
+# just grab whatever is on stdin and append it to a logfile
+
+secs=`date +%s`
+fn=/tmp/$USER.$secs.log
+echo "args: $*" >> $fn
+exec cat >> $fn
+#cat >> $fn
+
+# who is calling this?
+#echo "my pid is $$" >> $fn
+#/home/scott/scripts/pssall >> $fn
+

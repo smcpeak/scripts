@@ -1,0 +1,4 @@
+#! /bin/csh -f
+    setenv FMHOME /usr/local/framedir
+    set path=( $FMHOME/bin $path )
+    source $FMHOME/fminit/env.csh

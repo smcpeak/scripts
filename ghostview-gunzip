@@ -1,0 +1,80 @@
+#! /bin/csh -f
+# gunzips argument and passes it to ghostview
+
+if ( "$1" == "" ) then
+  echo usage: $0 filename.ps.gz
+  exit
+endif
+
+# generate a temp filename
+set name = `tempfname`
+
+# uncompress the file
+gunzip -c $1 > $name
+
+# run ghostview
+ghostview $name
+
+# delete the temporary file
+rm $name
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

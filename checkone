@@ -1,0 +1,27 @@
+#! /bin/csh -f
+
+if ("a$1" == "a") then
+  echo "Usage: checkone machine_name command"
+  exit 1
+endif
+
+if ("a$2" == "a") then
+#  set runcmd = w
+  set runcmd = psusersnotme
+else
+  set runcmd = $2
+endif
+
+unset noglob
+source ~/scripts/setos
+
+# strategy: since I know there are a bunch of other checkone
+#	    processes running, and they will finish very close
+#	    to one another, I put all output in one file and
+# 	    send it all to the screen at once so no other
+#	    process can interfere with the output
+
+echo ------------- $1 ----------------- >! ~/temp/$1.output
+$remshellcmd $1 $runcmd >> ~/temp/$1.output
+
+cat ~/temp/$1.output

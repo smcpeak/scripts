@@ -1,0 +1,11 @@
+#!/bin/sh
+# convert postscript into HP Deskjet 500 (monochrome) PCL language
+
+if [ -t 0 ]; then
+  # stdin is a tty, so print usage
+  echo "usage: $0 <infile.ps >outfile.pcl"
+  exit 0
+fi
+
+gs -sDEVICE=djet500 -sPAPERSIZE=letter -dNOPAUSE \
+   -dSAFER -sOutputFile=- -q - $*

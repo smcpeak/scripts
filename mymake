@@ -1,4 +1,5 @@
-#! /bin/sh
+#! /usr/sww/bin/bash --norc
+##! /bin/sh
 # script to watch a make and simultaneously write to file
 
 if [ -e Makefile ] ; then

@@ -1,0 +1,21 @@
+#!/bin/sh
+# play a set of files
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 files.."
+  exit
+fi
+   
+# renice this shell invocation so sound doesn't get interrupted
+# by occasional processor activity
+#   -5 skips on ghostview pgup/dn
+#   -10 skips occasionally on pgup/dn
+#   -15 adequate??
+~/bin/console-renice -15 $$
+
+while [ "$1" != "" ]; do
+  echo "playing $1"
+  ~/bin/xaudio/xaudio "$1"
+  sleep 2
+  shift
+done

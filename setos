@@ -1,0 +1,18 @@
+switch (`uname`)
+  case "HP-UX":
+    set os = 'hp';
+    set remshellcmd = 'remsh';
+    breaksw;
+  case "ULTRIX":
+    set os = 'dec';
+    set remshellcmd = 'rsh';
+    breaksw;
+  case "IRIX":
+    set os = 'sgi';
+    set remshellcmd = 'rsh';
+    breaksw;
+  default:
+    set os = 'unk';
+    set remshellcmd = 'rsh';
+    breaksw;
+endsw

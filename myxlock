@@ -1,0 +1,4 @@
+#!/bin/sh
+# how I like to leave my screen (at home)
+
+xlock -nolock -mode blank

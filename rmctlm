@@ -1,0 +1,4 @@
+#! /bin/csh -f
+# remove ^M from stdin
+
+sed 's///g'

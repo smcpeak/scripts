@@ -1,0 +1,33 @@
+#!/bin/sh
+# mvsym: move a file or directory, leaving behind a symlink to its new home
+
+# known failure case: mv somewhere/something .
+echo "WARNING: this still is not fully debugged..."
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 old-name new-name-or-dir"
+  echo "  moves old-name to new-name, then creates a symlink called"
+  echo "  old-name that points to new-name"
+  exit
+fi
+
+# strip trailing slashes since they will confuse me later
+src=`echo $1 | sed 's#/$##'`
+dest=`echo $2 | sed 's#/$##'`
+
+# debugging
+#echo "moving $src to $dest"
+
+if [ -d $dest ]; then
+  # destination is a directory
+  # we need to know the name of 'src's name, without the path
+  srcname=`echo $src | sed 's#.*/##'`
+  #echo "srcname is $srcname"
+
+  # move and install forwarding symlink
+  mv $src $dest && ln -s $dest/$srcname $src
+else
+  # destination is a filename, easy case
+  mv $src $dest && ln -s $dest $src
+fi
+

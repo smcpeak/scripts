@@ -1,0 +1,10 @@
+#! /bin/csh -f
+# run lyx
+
+# change current directory so it can find textclass.lst
+# (among others?)
+cd ~/lyx/share/lyx
+
+# run it (caller should put this script into background if desired)
+~/lyx/bin/lyx
+

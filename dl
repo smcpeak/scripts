@@ -2,11 +2,14 @@
 # script to download (via http) a file
 
 if ("$1" == "") then
-  echo usage: $0 url
+  echo usage: $0 url [filename]
   exit
 endif
 
-set fname = `echo "$1" | sed 's%.*/%%'`
+set fname = $2
+if ("$fname" == "") then
+  set fname = `echo "$1" | sed 's%.*/%%'`
+endif
 echo downloading to $fname
 
 lynx -dump "$1" > $fname

@@ -1,0 +1,4 @@
+#!/bin/csh -f
+# script to sum integers presented one line at a time
+
+awk '{ a += $1; printf "%d\n", a }' | tail -1

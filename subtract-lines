@@ -1,0 +1,46 @@
+#!/usr/bin/perl -w
+# subtract from file1 all lines that appear in file2
+
+use strict;
+
+if (@ARGV != 2) {
+  print("usage: $0 source-file file-with-lines-to-remove\n",
+        "  note: files must already be sorted!\n");
+  exit(0);
+}
+my ($src, $rmfname) = @ARGV;
+
+# slurp all of src into an array
+open(SRC, "<$src") or die("can't open $src: $!\n");
+my @srcLines = <SRC>;
+close(SRC) or die;
+
+# slurp remove-file into an array, also
+open(RMFILE, "<$rmfname") or die("can't open $rmfname: $!\n");
+my @rmLines = <RMFILE>;
+close(RMFILE) or die;
+
+# initialize access iterators
+my $srcIndex = 0;
+my $rmIndex = 0;
+
+# loop until either is done
+while ($srcIndex < @srcLines && $rmIndex < @rmLines) {
+  my $srcLine = $srcLines[$srcIndex];
+  my $rmLine = $rmLines[$rmIndex];
+
+  if ($srcLine eq $rmLine) {
+    # throw away (don't emit) this source line
+    $srcIndex++;
+  }
+  elsif ($srcLine lt $rmLine) {
+    # $srcLine can't be in remove-file because we're already
+    # past it in that file; therefore we emit $srcLine
+    print($srcLine);
+    $srcIndex++;
+  }
+  else {    # must be: $srcLine gt $rmLine
+    # this $rmLine has done all it can, let's get the next
+    $rmIndex++;
+  }
+}

@@ -1,0 +1,75 @@
+#!/usr/bin/perl -w
+# script to delete a file, and leave it its place a .nothere file
+# telling me where I moved it
+
+if (@ARGV < 2) {
+  print("usage: $0 where-moved file-or-dir...\n");
+  exit 0;
+}
+
+$whereMoved = shift(@ARGV);
+
+while ($fname = shift(@ARGV)) {
+  # verify the file or directory exists
+  if (! -e $fname) {
+    print("$0: $fname doesn't exist, skipping...\n");
+    next;
+  }
+
+  # try to prevent accidental bad stuff
+  if (-d $fname &&
+      $fname !~ m%/$%) {
+    # fname names a directory but the user didn't include a
+    # trailing slash.. might be a mistake, so let's skip it
+    print("$0: $fname is a directory; use a trailing slash.  skipping...\n");
+    next;
+  }
+
+  # strip the usual archive suffixes (not sure that this is a
+  # great idea.. basically I want to cut down on really long
+  # filenames, and in some sense 'nothere' is a different form
+  # of archving than, say, 'tar.gz'.. might get rid of this at
+  # some point..)
+  $base = $fname;
+  $base =~ s/\.tar\..*$//;
+  $base =~ s/\.t[gb]z$//;
+  $base =~ s%/+$%%;         # strip any trailing slashes
+
+  # construct the .nothere name
+  if (-d $fname) {
+    $nothere = "${base}.dir.nothere";
+  }
+  else {
+    $nothere = "${base}.nothere";
+  }
+
+  # verify we're not going to clobber anything
+  if (-e $nothere) {
+    print("$0: file $nothere already exists; remove it first (skipping..)\n");
+    next;
+  }
+
+  # tell the user what we're doing
+  print("removing $fname and creating $nothere...\n");
+	   
+  # debugging -- skip actions
+  #next;
+
+  # make the nothere file
+  open(NOTHERE, ">$nothere") or die("$0: failed to open $nothere; aborting\n");
+  print NOTHERE ("$whereMoved\n");
+  close(NOTHERE) or die;
+
+  # remove the original file
+  if (-d $fname) {
+    $code = system("rm -rf $fname");
+    if ($code != 0) {
+      die("$0: `rm -rf $fname' failed, aborting\n");
+    }
+  }
+  else {
+    unlink($fname) or die("$0: failed to remove $fname\n");
+  }
+}
+
+

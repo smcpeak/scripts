@@ -1,0 +1,24 @@
+#!/bin/sh
+# reset the ps/2 mouse..
+
+# The idea is to send the mouse a signal to get it out of
+# the 'unhappy' state it sometimes ends up in under X..
+# I read the device driver sources in
+#   /usr/src/linux/drivers/char/pc_keyb.{c,h}
+# which controls the ps/2 mouse, and could not understand
+# fully the protocol.  However, the end of pc_keyb.c
+# contains an initialization section which suggests
+# some of the protocol.
+#
+# The only part of it I was able to get working is the
+# 'reset' function, 0xff.  I experimented with several
+# of the other functions, and for the most part was only
+# able to get the mouse from the happy state (after reset)
+# to the unhappy state I was familiar with.  So, I've
+# decided at least for now to settle for the happy state,
+# even though I'd still like finer-grained control over
+# mouse speed...
+
+# send 0xff to the mouse
+perl -e 'print("\xff")' >/dev/mouse
+			

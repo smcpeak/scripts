@@ -1,0 +1,72 @@
+#!/usr/bin/perl -w
+# rename a bunch of files to match names in a file.  model is
+# I do an ls to retrieve the names, send that to a file, edit it,
+# then run this script to rename the files to what I've edited
+
+use strict 'subs';     # no barewords
+use English;           # CHILD_ERROR, etc.
+sub readFile;
+
+
+if (@ARGV < 2) {
+  print("usage: $0 new-names-file files...\n");
+  exit(0);
+}
+
+# interpret arguments
+$newNamesFile = shift @ARGV;
+@oldNames = @ARGV;
+
+# open new-names file
+@newNames = readFile($newNamesFile);
+
+# count names in each
+$numNewNames = @newNames;
+$numOldNames = @oldNames;
+
+# editing often introduces extra empty lines to the end of the file
+#if ($numNewNames != $numOldNames) {
+#  print("$0: error: new-names-file has $numNewNames names, but\n",
+#        "$0:        $numOldNames names were specified on the command line\n");
+#  exit(2);
+#}
+
+for ($i = 0; $i < $numNewNames && $i < $numOldNames; $i++) {
+  # chop the newline off of the new name, if present
+  chomp($newNames[$i]);
+
+  print("renaming $oldNames[$i] -> $newNames[$i]\n");
+  if (!rename($oldNames[$i], $newNames[$i])) {
+    print("$0: error: failed to rename $oldNames[$i] -> $newNames[$i]\n");
+    exit(2);
+  }
+}
+
+exit(0);
+
+
+
+
+
+# read the contents of a file into an array of newline-terminated lines
+sub readFile {
+  my ($fname) = @_;
+
+  open(FD, "$fname")    or die("can't open $fname for reading: $!\n");
+  my @ret = <FD>;
+  close(FD)             or die("can't close $fname: $!\n");
+
+  return @ret;
+}
+
+# run a command, and bail if it fails
+sub run {
+  my $cmd;
+  while ($cmd = shift @_) {
+    print("executing: $cmd\n");
+    $result = system($cmd);
+    if ($result != 0) {    # error
+      exit($result);
+    }
+  }
+}

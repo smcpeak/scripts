@@ -1,0 +1,23 @@
+#!/usr/bin/perl -w
+# take as input a text file using the convention that
+# two successive <LF>s represent a paragraph break but
+# a single <LF> doesn't mean anything, and write out
+# a text file such that <LF> means paragraph break
+
+# read in the entire input
+@lines = <STDIN>;
+
+# collapse it into a single string
+$file = join("", @lines);
+
+# remove single LFs
+$file =~ s/([^\n])\n([^\n])/$1 $2/g;
+
+# collaps multiple spaces after nonpunctuation
+$file =~ s/([^.?!;:"',])  +/$1 /g;
+
+# collapse double LFs into single LFs
+$file =~ s/\n\n/\n/g;
+
+# write it out
+print($file);

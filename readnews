@@ -1,0 +1,4 @@
+#!/bin/sh
+# read news
+
+rtin -g york.cs.berkeley.edu -p 6119

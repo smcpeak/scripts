@@ -1,0 +1,10 @@
+#!/bin/sh
+# switch which mouse we're using
+
+if [ "$1" = "" ]; then
+  echo "usage: switchmouse [ps2|serial]"
+  exit
+else
+  sudo /sbin/switchmouse $*
+fi
+

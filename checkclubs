@@ -1,0 +1,8 @@
+#! /bin/csh -f
+
+finger smcpeak@clubs.cs &
+finger mcpeak@clubs.cs &
+finger scott@clubs.cs &
+finger smcpeak@now.cs &
+finger mcpeak@now.cs &
+finger scott@now.cs &

@@ -1,9 +1,28 @@
 #! /bin/csh -f
 # remove ^M from all files in dir
 
+if ( "$1" == "" ) then
+  echo "usage: $0 files-to-strip"
+  exit
+endif
+
+# if a previous run died on an error, we need to clean the
+# temp file, because otherwise this run will die too
+rm -f strip13all.tmp
+
 foreach fn ($*)
-  strip13 < $fn > strip13all.tmp
-  rm $fn
-  mv strip13all.tmp $fn
+  echo $fn
+  if ( -d $fn ) then
+    echo "$fn is a directory; automatic recursion not implemented"
+  else
+    strip13 < $fn > strip13all.tmp || goto error
+    rm $fn || goto error
+    mv strip13all.tmp $fn || goto error
+  endif
 end
+exit 0
+
+error:
+echo "error with file $fn"
+exit
 

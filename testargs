@@ -1,0 +1,9 @@
+#! /bin/csh -f
+# test arguments
+
+echo number of arguments: ${#argv}
+
+@ last = ( ${#argv} - 1 )
+echo last = $last
+echo last argument: $argv[${last}]
+echo last argument: $argv[${#argv}]

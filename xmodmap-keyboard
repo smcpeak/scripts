@@ -1,0 +1,8 @@
+#!/bin/sh
+# setup keys for external keyboard
+
+# assuming I was previously using laptop arrangement..
+xmodmap-make.caps.normal
+			     
+# some programs (emacs!) are not happy...
+xmodmap-dont.use.windows.keys

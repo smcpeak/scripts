@@ -1,0 +1,40 @@
+#! /bin/csh -f
+
+# check arguments
+if ("a$3" == "a") then
+  echo "Usage: mon2 machine login [interval]"
+  exit 1
+endif
+
+# set default interval if not set
+if ("a$3" == "a") then
+  set interval = 60
+else
+  set interval = $3
+endif
+
+# set default
+set current = 0
+set machine = $1
+set login = $2
+unset noglob
+
+while (1)
+  set newval = `finger @$machine | grep -c $login`
+
+  if ($current < 1) then
+    if ($newval > 0) then
+      set current = 1
+      echo "$login has logged in at $machine" >> ~/log
+    endif
+  endif
+
+  if ($current > 0) then
+    if ($newval < 1) then
+      set current = 0
+      echo "$login has logged out from $machine" >> ~/log
+    endif
+  endif
+
+  sleep $interval
+end

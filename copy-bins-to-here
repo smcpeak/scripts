@@ -1,0 +1,6 @@
+#!/bin/sh
+# copy a list of binaries, specified at the command-line, to .
+
+for cmd in $*; do
+  cp `which $cmd` .
+done

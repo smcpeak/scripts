@@ -1,0 +1,4 @@
+#!/usr/bin/perl -w
+# echo a formfeed character
+
+print "\x0c";

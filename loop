@@ -1,0 +1,25 @@
+#! /bin/csh -f
+
+# check arguments
+if ("a$1" == "a") then
+  echo "Usage: loop command [output_file [interval_seconds]]"
+  exit 1
+endif
+
+if ("a$2" == "a") then
+  set outfile = "loop.rpt"
+else
+  set outfile = "$2"
+endif
+
+if ("a$3" == "a") then
+  set interval = 60
+else
+  set interval = $3
+endif
+
+unset noclobber
+while (1)
+  "$1 > $outfile"
+  sleep $interval
+end

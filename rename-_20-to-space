@@ -1,0 +1,15 @@
+#!/bin/sh
+# rename files (typically mp3s) that netscape saves with
+#   '_20' in the name, to instead use the space character
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 filenames..."
+  exit
+fi
+
+while [ "$1" != "" ]; do
+  newname=`echo "$1" | sed 's/_20/ /g'`
+  echo "$newname"
+  mv -i "$1" "$newname" || exit
+  shift
+done

@@ -1,0 +1,4 @@
+#! /bin/csh
+set lno = `grep -n '#! /bin/sh' $1 | sed s/:.\*//`
+tail +$lno $1 > $1.trim
+

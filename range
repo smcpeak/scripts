@@ -1,0 +1,11 @@
+#!/usr/bin/perl -w
+# output a range of integer values
+
+if (@ARGV < 2) {
+  print("usage: $0 start end\n");
+  exit(0);
+}
+
+for ($i = $ARGV[0]; $i <= $ARGV[1]; $i++) {
+  print("$i\n");
+}

@@ -1,0 +1,42 @@
+#!/bin/csh -fex
+#  -f: no .cshrc
+#  -e: stop on any error
+#  -x: echo before execution
+# do an sww build of sftpd
+
+cd /usr/sww/build/safetp
+rm -rf sftpd
+
+# needed on starlite because my domainname==mammoth check doesn't work
+setenv CVSROOT ~/cvsroot
+cvs checkout sftpd
+cd sftpd
+
+switch (`hostname | sed 's/\..*//'`)
+case "helius":
+  setenv PLATFORM SunOS.SPARC
+  breaksw
+
+case "hpux":
+  setenv PLATFORM HP-UX.PARISC
+  breaksw
+
+case "starlite":
+  setenv PLATFORM linux
+  breaksw
+
+case "eos":
+  setenv PLATFORM SunOS.i386
+  breaksw
+
+default:
+  echo "I do not recognize this host."
+  exit 2
+endsw
+
+gmake alldb
+
+provider
+
+sc/swwcopybins
+

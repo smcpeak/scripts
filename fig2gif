@@ -1,0 +1,17 @@
+#!/bin/csh -f
+# convert a fig to a gif
+
+if ( "$2" == "" ) then
+  echo "usage: $0 fname-prefix mag-as-float"
+  echo " e.g.: $0 sftpd.arch 1.2"
+  exit
+endif
+
+# first, write a pcx because fig2dev can't write gif (apparently..)
+fig2dev -L pcx -m $2 ${1}.fig ${1}.pcx
+
+# then convert to gif
+convert ${1}.pcx ${1}.gif
+
+# then remove the pcx
+rm ${1}.pcx

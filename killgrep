@@ -1,0 +1,17 @@
+#!/bin/csh -f
+
+if ("$1" == "") then
+  echo 'usage: killgrep some_string_that_appears_in_ps_list'
+  exit 0
+endif
+
+set pid = `/bin/ps -ef | grep $1 | grep -v grep | awk '{print $2}'`
+
+if ("$pid" == "") then
+  echo 'grep returned nothing'
+  exit 1
+endif
+
+kill -9 $pid
+exit $status
+

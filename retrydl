@@ -1,0 +1,23 @@
+#!/bin/sh
+# keep trying to download a url until it succeeds
+
+if [ "$3" = "" ]; then
+  echo "usage: $0 url destfname retrydelay"
+  exit
+fi
+
+url="$1"
+destfname="$2"
+retrydelay="$3"
+
+finished=0
+while [ "$finished" = "0" ]; do
+  echo "trying..."
+  lynx -dump "$url" > "$destfname" && finished=1 ;
+  if [ "$finished" = "0" ]; then
+    sleep $retrydelay
+  fi
+done
+
+
+

@@ -1,0 +1,49 @@
+#!/usr/bin/perl -w
+# script to apply a stdin->stdout filter/transform to a file or set of files
+
+use strict 'subs';      # no barewords
+use English;            # CHILD_ERROR, etc.
+
+if (@ARGV < 2) {
+  print("usage: $0 filter-program files...\n");
+  print(" e.g.: $0 \"sed 's/some/thing/g'\" *.c\n");
+  exit(0);
+}
+
+$filter = shift @ARGV;
+while ($fname = shift @ARGV) {
+  if (-d $fname) {
+    print("$0: skipping directory $fname\n");
+    next;
+  }
+
+  @output = `$filter <$fname`;
+  if ($CHILD_ERROR > 0) {
+    $stat = $CHILD_ERROR >> 8;
+    $sig = $CHILD_ERROR & 127;
+    print("$0: The command\n",
+          "$0:   $filter <$fname\n");
+    if ($sig != 0) {
+      print("$0: died on signal $sig\n");
+    }
+    else {
+      print("$0: failed with exit status $stat.\n");
+    }
+    exit(2);
+  }
+
+  writeFile($fname, @output);
+}
+
+exit(0);
+
+
+# write an array to a file; array elts are assumed to have newlines
+sub writeFile {
+  my ($fname, @lines) = @_;
+
+  open(FD, "> $fname")  or die("can't open $fname for writing: $!\n");
+  print FD (join("", @lines));
+  close(FD)             or die("can't close $fname: $!\n");
+}
+

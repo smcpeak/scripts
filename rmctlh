@@ -1,4 +1,8 @@
 #! /bin/csh -f
 # remove ^H from stdin
+# specifically, (any char) followed by ^H is stripped
+# this also has the side effect of causing any other
+#   embedded control characters to be displayed with '^'
+#   notation as well, because I use cat -v
 
-sed 's/.//g'
+cat -v | sed 's/.^H//g'

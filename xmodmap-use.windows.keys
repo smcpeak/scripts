@@ -1,0 +1,28 @@
+#!/bin/sh
+# attach reasonable key bindings to the annoying "Windows" keys,
+# which have the following codes and meanings under windoze:
+#   code 115: left Windows key - like pressing Start
+#   code 116: right Windows key - also like Start
+#   code 117: context menu - like right-click
+# unfortunately, this means that Emacs misinterprets ctrl-alt-foo
+# as ctrl-alt-hyper-foo... !
+
+xmodmap - <<EOF
+          !
+          ! name Windows keys  
+          ! (you can't make up arbitrary keysym names,
+          ! unfortunately.. so I'm stuck with these rather
+          ! odd names..)
+          !
+          keycode 115 = Hyper_L
+          keycode 116 = Hyper_R
+          keycode 117 = Super_R
+
+          !
+          ! bind them
+          ! (Mod1 means Alt)
+          !
+          add Mod1 = Hyper_L
+          add Control = Hyper_R
+          add Lock = Super_R
+EOF

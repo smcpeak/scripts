@@ -1,0 +1,15 @@
+#!/bin/sh
+# turn an xterm into an mp3-playing window
+
+# get to right directory
+cd ~/mp3
+
+# set priority
+console-renice -15 $$
+
+# disable auto-title setting
+DONT_STITLE=1
+export DONT_STITLE
+
+# start shell
+exec tcsh

@@ -1,0 +1,51 @@
+#! /bin/csh -f
+
+# check arguments
+if ("a$1" == "a") then
+  echo "Usage: monitor command [output_file [interval_seconds]]"
+  exit 1
+endif
+
+# set default interval if not set
+if ("a$2" == "a") then
+  set interval = 60
+else
+  set interval = $2
+endif
+
+# set default interval if not set
+if ("a$2" == "a") then
+  set interval = 60
+else
+  set interval = $2
+endif
+
+# get initial value and print it so user knows what it started as
+set value = `$1`
+if ($status > 0) then
+  echo "$0: Command $1 exited with status $status"
+  exit $status
+endif
+echo $value
+
+# enter loop to just print the value if it changes
+set testvalue = `$1`
+if ($status > 0) then
+  echo "$0: Command $1 exited with status $status"
+  exit $status
+endif
+
+while (1)
+  sleep $interval
+  set testvalue = `$1`
+  if ($status > 0) then
+    echo "$0: Command $1 exited with status $status"
+    exit $status
+  endif
+
+  if ("$value" == "$testvalue") then
+  else
+    set value = "$testvalue"
+    echo $value
+  endif
+end

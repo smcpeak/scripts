@@ -1,0 +1,14 @@
+#!/bin/sh
+# undo effect of xmodmap-use.windows.keys
+# I'm having trouble in emacs with a normal keyboard
+#  when they're set..?
+
+xmodmap - <<EOF
+          !
+          ! assume Windows keys already have names, and
+          ! simply unbind the 'modifiers'
+          !
+          remove Mod1 = Hyper_L
+          remove Control = Hyper_R
+          remove Lock = Super_R
+EOF

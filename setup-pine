@@ -1,0 +1,15 @@
+#!/bin/sh
+# make an xterm into a pine window
+
+# to home dir
+cd
+
+# run pine
+pine
+
+# disable auto-title
+DONT_STITLE=1
+export DONT_STITLE
+
+# if it exits, leave me with a shell
+exec tcsh

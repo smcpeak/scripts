@@ -1,0 +1,31 @@
+#!/bin/sh
+# take a postscript file as stdin, clean up the crap
+# that ms-Windows puts in it when it generates ps, and
+# output result to stdout (note that Windows has many
+# more tricks to make .ps unusable; this script only
+# counteracts the simplest of Bill's ploys, so the result
+# still has a decent chance of being worthless)
+
+# make temp file names
+tmp1=/tmp/clean-ps.1.$$
+tmp2=/tmp/clean-ps.2.$$
+
+# first, throw away ^[ stuff (usually: 1st line, 2nd-to-last,
+# and last line)
+grep -v '^' > $tmp1
+
+# now throw away first line if it starts with '@'
+if (head -1 $tmp1 | grep '^@' >/dev/null) ; then
+  # throw it away
+  tail +2 $tmp1 > $tmp2
+else
+  # keep it (does this ever happen?)
+  mv $tmp1 $tmp2
+fi
+
+# throw away any CRs, send result to stdout
+sed 's///g' < $tmp2
+
+# kill temp files
+rm -f $tmp1
+rm -f $tmp2

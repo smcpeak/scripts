@@ -1,0 +1,3 @@
+#! /bin/csh -f
+
+psall | grep -v root | grep -v sys | grep -v daemon | grep -v lp

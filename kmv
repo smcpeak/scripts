@@ -1,0 +1,14 @@
+#! /bin/csh -f
+
+whoami
+exit 0
+
+set r = `ps -ef | grep vnsd | grep $user | grep -v grep | \
+  gfmt -9 | tail +2 | head -1`
+if ( "a$r" == "a" ) then
+  echo not mine or nonexistent
+else
+  echo pid is $r, killing...
+  kill $r
+endif
+

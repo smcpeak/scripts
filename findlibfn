@@ -1,0 +1,21 @@
+#! /bin/csh -f
+# find a function among a list of libraries
+
+if ( "$1" == "" ) then
+  echo $0 function-name library-list
+  exit
+endif
+
+# grab name to search for
+set funcname = $1
+
+# shift arguments, to have a convenient name for library-list
+shift
+set liblist = ( $* )
+
+foreach libname ( $liblist )
+  # see if the library contains the string; if so, print a message
+  listlibfns $libname | grep $funcname && echo "--- ^^^ $libname ^^^ ---"
+end
+
+

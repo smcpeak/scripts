@@ -1,0 +1,4 @@
+#!/bin/sh
+# convert lf-terminated text to crlf-terminated text
+
+sed 's/$//'

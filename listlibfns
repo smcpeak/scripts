@@ -1,0 +1,25 @@
+#! /bin/csh -f
+# script to list the functions defined in a library
+
+if ( "$1" == "" ) then
+  echo usage: $0 filename.a
+  exit
+endif
+
+# make up a temporary filename
+set tempfname = /tmp/${user}.listlibfns.tmp
+
+# retrieve the contents of the library
+set contents = `ar -t $1`
+
+# for each component object file, list its functions
+foreach c ( $contents )
+  # extract the object file to a temporary file
+  ar -p $1 $c > $tempfname
+
+  # list the contents of that object file
+  gnm $tempfname
+end
+
+# erase the temporary file
+rm $tempfname

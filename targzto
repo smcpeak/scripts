@@ -1,0 +1,13 @@
+#! /bin/csh -f
+# script to tar and gunzip a directory, with a specified destination file
+
+if ( "$2" == "" ) then
+  echo usage: $0 directory-name final-tarball-name.tar.gz
+  exit
+endif
+
+# I often screw up and put a trailing slash in the name
+# (by using tcsh filename completion); this fixes it
+set d = `echo $1 | sed 's#/$##'`
+
+tar cvf - $d | gzip -c > $2

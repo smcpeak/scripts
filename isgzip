@@ -1,0 +1,21 @@
+#! /bin/csh -f
+# script to determine if a file is in gzip format
+# return value (exit code):
+#   0 file is gzip format
+#   1 file is not gzip format, or error
+
+if ( "$1" == "" ) then
+  echo usage: $0 suspect-filename
+  exit 1
+endif
+
+set firstLine = `hexdump $1 | head -1`
+#echo "firstLine = $firstLine"
+
+if ( "$firstLine[2]" == "1f" && "$firstLine[3]" == "8b" ) then
+  # it's gzip, most likely
+  exit 0
+else
+  # not gzip
+  exit 1
+endif

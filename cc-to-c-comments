@@ -1,0 +1,21 @@
+#!/usr/bin/perl -w
+# script to translate C++ // comments to C /**/ comments
+# bugs:
+#   confuses "//" with ""//""
+#   will translate a // inside a /**/, which will prematurely
+#     terminate the outer /**/
+
+$lineno = 0;
+while ($line = <STDIN>) {
+  $lineno++;
+  if ($line =~ m'".*//.*"') {
+    # punting for now
+    print STDOUT ("$0: warning: line $lineno may contain // in quotes\n");
+    print STDOUT $line
+  }
+  else {
+    # replace // with /**/
+    $line =~ s{//(.*)}{/*$1 */};
+    print STDOUT $line;
+  }
+}

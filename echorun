@@ -1,0 +1,10 @@
+#!/bin/sh
+# echo a command, and then execute it
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 command [args...]"
+  exit
+fi
+
+echo "$@"
+"$@"

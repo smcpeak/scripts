@@ -1,0 +1,4 @@
+#! /bin/csh -f
+unset noglob
+grep -v "since" ~/.plan >! ~/.logout_temp_file
+cat ~/.logout_temp_file >! ~/.plan

@@ -1,0 +1,19 @@
+#!/usr/bin/perl -w
+# diff a set of files, by doing it pairwise
+
+if (@ARGV < 2) {
+  print("usage: $0 files..\n",
+        "  does a diff on each adjacent pair of files\n");
+  exit(0);
+}
+
+for ($i=0; $i < @ARGV-1; $i++) {
+  $f1 = $ARGV[$i];
+  $f2 = $ARGV[$i+1];
+
+  # why couldn't I just print here?  it doesn't output
+  # until the very end..!
+  system("echo '------ diff $f1 $f2 -------'");
+  system("diff --brief $f1 $f2");
+  #system("echo foo!!");
+}

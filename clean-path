@@ -1,0 +1,17 @@
+#!/bin/csh -f
+# get a clean path, then emit it
+
+# clean path completely
+set path = ( )
+
+# get the path set in /etc/login.defs
+set path = (/usr/local/bin /bin /usr/bin)
+
+# get the path additions in /etc/csh.login
+source /etc/csh.login
+
+# and finally my path stuff
+source ~/.cshrc
+
+# and echo it
+echo $path

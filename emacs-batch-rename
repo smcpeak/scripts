@@ -1,0 +1,20 @@
+#!/bin/sh
+# batch-rename the files in this directory
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 files..."
+  exit
+fi
+
+# generate file list (use "$@" so we maintain delimiters despite embedded spaces)
+tmp=/tmp/batch-rename.$$
+ls "$@" >$tmp || exit 2
+
+# edit it
+emacsclient $tmp || exit 2
+
+# apply it
+batch-rename $tmp "$@" || exit 2
+
+# remove the file list
+rm $tmp

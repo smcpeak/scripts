@@ -1,0 +1,5 @@
+#!/bin/sh
+# turn off the machine
+
+sudo shutdown -h now
+

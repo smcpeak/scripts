@@ -1,0 +1,216 @@
+#!/usr/bin/perl -w
+# script to play mp3s using playlists
+
+use strict 'subs';
+
+# top loop is the argument-processing loop; arguments are
+# parameter-settings, mp3s or playlists
+$nontrivialArgs = 0;
+while ($arg = shift(@ARGV)) {
+  # parameter-setting arguments
+  if ($arg =~ /^-/) {               # starts with '-'
+    @nameAndValue = ($arg =~ /^-(.*)=(.*)$/);
+    if (@nameAndValue != 2) {
+      print STDERR ("Malformed argument: $arg.\n",
+                    "Arguments should be of form -name=value.\n");
+      next;                         # skip to next argument
+    }
+    ($name, $value) = @nameAndValue;
+
+    if (!defined($$name)) {
+      print STDERR ("There is no parameter named ``$name''.\n");
+      next;
+    }
+
+    # set the parameter
+    $$name = $value;
+  }
+
+  # mp3 files directly
+  elsif ($arg =~ /[mM][pP]3$/) {    # ends with mp3 or MP3
+    $nontrivialArgs++;
+    playMp3($arg);
+  }
+
+  # all others we assume are playlists
+  else {
+    $nontrivialArgs++;
+    playList($arg);
+  }
+}
+
+
+if ($nontrivialArgs == 0) {
+  # the user probably just typed $0 without any args
+  print <<EOF;
+usage: $0 ( -parameter=value | song.mp3 | playlist.txt )*
+  parameters:
+    random       0: play playlists in normal order
+                 1: play playlists in random order
+
+  song.mp3:
+    just play the mp3 file
+
+  playlist.txt:
+    open the playlist file and play its contents to completion
+
+All arguments are processed in left-to-right order, doing the
+specified action as it is encountered.  Among other things,
+this means that 'random' only affects playlists, and not songs
+specified on the command line.
+EOF
+}
+
+exit(0);
+
+
+# --------------------- subroutines ---------------------
+sub playMp3 {
+  ($mp3fname) = @_;
+
+  if (! -f $mp3fname) {                              
+    # handle this error specially since I can detect it
+    # now, and interpreting error codes is always dicey
+    print STDERR ("Error: $mp3fname is not a file.\n");
+    return;
+  }
+
+  print("playing: $mp3fname\n");
+  system('/home/scott/bin/xaudio/xaudio "' . $mp3fname . '" 2>/dev/null');
+}
+
+
+sub playList {
+  ($listfname) = @_;
+
+  if (!open(LIST, "<$listfname")) {
+    print STDERR ("Error: Failed to open $listfname: $!\n");
+    return;
+  }
+
+  # default parameters
+  $random = 0;       # when true, we play songs from playlists in random order
+
+  # list of mp3s and playlists
+  @playlist = ();
+  
+  # process the entire file, setting parameters and collecting
+  # names of mp3s and playlists
+  $startparams = 0;
+  $endparams = 0;
+  $lineNo = 0;
+  while ($line = <LIST>) {
+    chomp($line);
+    $lineNo++;
+
+    # blank line or comment
+    if (!$line || $line =~ /^\s*#/) {
+      next;
+    }
+
+    # parameters start
+    elsif ($line =~ /^\s*startparams/) {
+      if ($startparams > 0) {
+        print STDERR ("$lineNo: Can only have one `startparams' directive per playlist.\n");
+        next;
+      }
+      $startparams++;
+    }
+
+    # parameters end
+    elsif ($line =~ /^\s*endparams/) {
+      if ($startparams == 0) {
+        print STDERR ("$lineNo: Must have `startparams' before `endparams'.\n");
+        next;
+      }
+      if ($endparams > 0) {
+        print STDERR ("$lineNo: Can only have one `endparams' directive per playlist.\n");
+        next;
+      }
+      $endparams++;
+    }
+
+
+    # global parameter
+    if ($startparams > $endparams) {
+      @nameAndValue = ($line =~ /^\s*(\S+)\s*=\s*(.*)$/);
+                              #      ^^^^^   ^   ^^^^
+                              #      name    =   value
+
+      if (@nameAndValue != 2) {
+        print STDERR ("$lineNo: Parameters must be of form `name = value'.\n");
+        next;
+      }			      
+      ($name, $value) = @nameAndValue;
+      
+      if (!defined($$name)) {
+        print STDERR ("$lineNo: `$name' is not a parameter I recognize.\n");
+        next;
+      }
+
+      # set the value
+      # (letting the user have direct access to my variables is of
+      # course questionable, but since it avoids the need for explicit
+      # translation between user and program namespaces, I think it
+      # is a good way to do it)
+      $$name = $value;
+    }
+
+    # playlist or mp3 file
+    else {
+      if ($line !~ /\@end/) {     # this is my end code
+        push(@playlist, $line);
+      }
+      else {
+        last;
+      }
+    }
+  }
+
+  close(LIST) or die;
+
+
+  # now, process the list of mp3s and playlists
+  if ($random == 1) {
+    print STDERR ("For now, random is unimplemented.\n");
+  }
+
+  # debugging: print list of songs
+  #for ($i = 0; $i < @playlist; $i++) {
+  #  print("$i: $playlist[$i]\n");
+  #}
+
+  for ($i = 0; $i < @playlist; $i++) {
+    $name = $playlist[$i];
+
+    if ($name =~ /[mM][pP]3$/) {    # ends with mp3 or MP3
+      playMp3($name);
+    }
+    else {
+      # spawn a new instance of this script, so parameter changes
+      # in that instance do not affect those in this one
+
+      # I want to change to the directory where the playlist lives
+      # since I expect its filenames to be relative to its location
+      #$cwd = `pwd`;
+
+      $code = system($0, $name);
+      if ($code != 0) {
+       	$exit_value  = $code >> 8;
+	$signal_num  = $code & 127;
+
+        # for now, just print what happened
+        print("`$0 $name' failed with exit=$exit_value, signal=$signal_num\n");
+      }
+    }
+  }
+}
+
+
+
+
+
+
+
+
+

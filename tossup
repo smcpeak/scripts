@@ -1,0 +1,12 @@
+#! /bin/csh -f
+# script to 'toss up' a file onto the screen in an xedit window
+
+if ( "$1" == "" ) then
+  echo "usage: tossup filename [xedit arguments...]"
+  exit
+endif
+
+set fname = $1
+shift
+
+xedit -geometry 885x315+59+101 $fname $*

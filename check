@@ -1,0 +1,26 @@
+#!/bin/csh -f
+
+if ("a$1" == "a") then
+  echo "Usage: check machine_list_file [command-to-run]"
+else
+
+  if ("a$2" == "a") then
+    set check_command=w
+  else
+    set check_command=$2
+  endif
+
+  foreach mname (`cat $1`)
+    echo "----------------- $mname ------------------"
+    if (1 <= `ping $mname | grep -c alive`) then
+      if ("`uname`" == "HP-UX") then
+        remsh $mname $check_command
+      else
+        rsh $mname $check_command
+      endif
+    else
+      echo "$mname is down."
+    endif
+  end
+endif
+unset check_command

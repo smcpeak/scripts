@@ -1,0 +1,4 @@
+#! /bin/csh -f
+# remove ^M from files
+
+sed 's///'
