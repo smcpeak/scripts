@@ -1,0 +1,62 @@
+#! /bin/csh -f
+# script to handle data files via MIME interface or whatever
+
+# since Netscape starts this with a mostly empty environment
+#   crc, gs                   /usr/sww/bin
+#   ghostview, acroread       /usr/sww/X11/bin
+#   sed, ls, sleep            /usr/bin
+#   isgzip                    ~/scripts
+set path = ($path /usr/sww/bin /usr/sww/X11/bin /usr/bin ~/scripts)
+
+# the PRINTER variable is needed for acroread to print correctly
+setenv PRINTER lws510
+
+set log = ~/handle-mime.log
+echo $0 $* started on `date` >> $log
+
+if ( "$1" == "" ) then
+  echo usage: $0 file-to-display
+  exit
+endif
+
+set ext = `echo $1 | sed 's/.*\.//'`
+echo extension is $ext >> $log
+
+# turns out that netscape silently strips the .gz without
+# bothering to uncompress it; so let's check for that
+isgzip $1 ; set isgzipReturn = $status
+#echo "isgzipReturn = $isgzipReturn"
+if ( "$isgzipReturn" == "0" ) then
+  # yes, it appears to be gzip
+  echo $1 appears to be gzip, uncompressing... >> $log
+
+  # to make gzip happy, append a .gz extension, then
+  # let gzip remove it during uncompression
+  mv $1 ${1}.gz
+  gunzip ${1}.gz
+
+  # now, we should have a file by the same name as $1,
+  # and the same extension ($ext), but uncompressed!
+endif
+
+# compare the extension to those we know about
+if ( "$ext" == "ps" ) then
+  # postscript file
+  ghostview $1
+
+else if ( "$ext" == "pdf" ) then
+  # portable document format
+  acroread $1
+
+else
+  # fall back on editing it
+  echo "unknown extension $ext, editing it with emacs (via emacsclient)..."
+
+  # redirect so the "Waiting for Emacs...Done" message is supressed
+  emacsclient $1 > /dev/null
+
+endif
+
+
+echo $0 $* finished on `date` >> $log
+

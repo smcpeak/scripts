@@ -1,0 +1,14 @@
+#! /bin/csh -f
+# report files containing ^M (decimal 13) characters
+
+if ( "$1" == "" ) then
+  echo usage: $0 files-to-check
+  exit
+endif
+
+foreach fn ( $* )
+  if ( `cat -tev $fn | grep '\^M' | wc -l` > 0 ) then
+    echo $fn
+  endif
+end
+
