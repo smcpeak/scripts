@@ -1,0 +1,11 @@
+#! /bin/csh -f
+# script to convert a .fig (xfig) file to a .ps (postcript) file,
+#   in landscape mode, letter-size paper, and possibly some other crap
+
+if ( "$2" == "" ) then
+  echo "usage: $0 input.fig output.ps"
+  exit
+endif
+
+fig2dev -Lps -P -z Letter -m 1.000000 -l xxx \
+  -n $2 -x 0 -y 0 $1 $2

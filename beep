@@ -1,0 +1,4 @@
+#! /bin/csh -f
+# command to beep the speaker
+
+echo 
