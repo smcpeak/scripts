@@ -1,0 +1,59 @@
+#! /bin/csh -f
+# script to gunzip and untar a file
+
+set myname = `echo $0 | sed 's#.*/##'`
+if ( "$1" == "" ) then
+  echo "usage: $myname filename.tar.gz"
+  echo "  unpacks contents of file into current directory"
+  echo "  ($myname will create a directory if necessary)"
+  exit
+endif
+
+# figure out what the name is, without the extension(s)
+set prefix = `echo $1 | sed 's/.tar.gz//' | sed 's/.tgz//'`
+#echo prefix is $prefix
+
+# make a new directory into which to unpack things
+set dir = $prefix
+while ( -e $dir )
+  set dir = ${dir}a
+end
+mkdir $dir
+cd $dir
+
+# uncompress and extract into created directory
+gunzip -c ../$1 | tar xvf -
+
+# see if the tar file made its own directory inside mine
+if ( `ls | wc -l` == "1" ) then
+  # it made its own; let's just use that
+  set itsname = `ls`
+  if ( "$itsname" == "$dir" ) then
+    # my name and its match; must reconcile
+    cd ..
+    set tempdir = untargz_temp_dir
+    if ( -e $tempdir ) then
+      echo "${myname}: $tempdir already exists, darn"
+      exit 1
+    endif
+    mv $dir $tempdir
+    mv ${tempdir}/${itsname} ./${itsname}
+    rmdir $tempdir
+  else if ( -e ../${itsname} ) then
+    echo "${myname}: I want to move the unpacked files into $itsname,"
+    echo "${myname}: but that echo file/dir already exists."
+    echo "${myname}: So, I left them in ${dir}."
+    cd ..
+  else
+    mv $itsname ../${itsname}
+    cd ..
+    rmdir $dir
+  endif
+
+else
+  # it did not make its own dir, so tell the user where we put it
+  echo "${myname}: The tar file $1 did not make its own directory,"
+  echo "${myname}: so I left all its files in ${dir}."
+  cd ..
+endif
+

@@ -1,0 +1,10 @@
+#! /bin/csh -f
+# script to dump contents of a .tar.gz file
+
+if ( "$1" == "" ) then
+  echo usage: $0 filename.tar.gz
+  exit
+endif
+
+gunzip -c $1 | tar tf -
+
