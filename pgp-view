@@ -1,0 +1,41 @@
+#!/bin/sh
+# view a file that possibly is signed/encrypted with pgp
+# it is expected that the message begins with "-----BEGIN PGP",
+# as this is the start of a PGP block
+
+tmp="$HOME/tmp/msg.$$"
+tmp2="$HOME/tmp/extra.$$"
+umask 077
+touch "$tmp" || exit $?
+chmod 600 "$tmp" || exit $?
+touch "$tmp2" || exit $?
+chmod 600 "$tmp2" || exit $?
+
+if pgp -f 2>$tmp2 >$tmp; then
+  # ok
+  if grep "not a PGP file" $tmp2 >/dev/null; then
+    echo "(PGP thinks it's not in the right format.)"
+  else
+    if grep "encrypted" $tmp2 >/dev/null; then
+      dest=`grep "Key for user ID" $tmp2 | sed 's/^.*: //'`
+      echo "(pgp: File is encrypted for $dest.)"
+    else
+      echo "(pgp: File is not encrypted.)"
+    fi
+    if grep "signature from" $tmp2 >/dev/null; then
+      sig=`grep "signature from" $tmp2 | sed 's/^.*from user \"//' | sed 's/\"//'`
+      echo "(pgp: File is signed by $sig)"
+    else
+      echo "(pgp: File is not signed.)"
+    fi
+  fi
+else
+  echo "(PGP had a nonzero exit status.)"
+fi
+echo
+
+cat $tmp
+rm $tmp
+rm $tmp2
+
+

@@ -1,0 +1,60 @@
+diagnostic: mvsym a b
+diagnostic: src is in cwd
+mv -i a b
+ln -s b a
+a
+a
+a
+b/
+-- sync --
+diagnostic: mvsym a b/c
+diagnostic: src is in cwd
+mv -i a b/c
+ln -s b/c a
+a
+a
+c
+a
+diagnostic: mvsym a b
+diagnostic: src is in cwd
+mv -i a b/a
+ln -s b/a a
+diagnostic: mvsym a b
+diagnostic: src is in cwd
+mv -i a b/a
+failed
+a
+diagnostic: mvsym a b
+diagnostic: src is in cwd
+mv -i a b/a
+ln -s b/a a
+-- sync --
+diagnostic: mvsym ../c a
+Can't handle relative src and dest where src has '..'.
+diagnostic: mvsym b/c a
+diagnostic: synthesizing ..'s ...
+mv -i b/c a
+ln -s ../a b/c
+c
+c@
+c
+-- sync --
+diagnostic: mvsym a /tmp/c
+diagnostic: dest fully qualified
+mv -i a /tmp/c
+ln -s /tmp/c a
+a
+diagnostic: mvsym b/a /tmp/c
+diagnostic: dest fully qualified
+mv -i b/a /tmp/c
+ln -s /tmp/c b/a
+a
+-- sync --
+diagnostic: mvsym b/a c/d
+diagnostic: synthesizing ..'s ...
+mv -i b/a c/d
+ln -s ../c/d b/a
+a
+a
+diagnostic: mvsym /b/a c/d
+Can't handle an absolute source but relative dest.

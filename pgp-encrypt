@@ -1,0 +1,10 @@
+#!/bin/sh
+# encrypt stdin -> stdout
+# arguments are list of recipients to encrypt for
+
+# -f: filter mode
+# -e: encrypt
+# -a: ascii output
+# -s: sign
+# -t: text input
+pgp -f -e -a -s -t "$@"

@@ -1,0 +1,8 @@
+#!/bin/sh
+# sign stdin -> stdout
+
+# -f: filter mode
+# -a: ascii output
+# -s: sign
+# -t: text input
+pgp -f -a -s -t

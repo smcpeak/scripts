@@ -1,33 +1,90 @@
 #!/bin/sh
 # mvsym: move a file or directory, leaving behind a symlink to its new home
+  
+verbose=0
+if [ "$1" = "-v" ]; then
+  verbose=1
+  shift
+fi
 
-# known failure case: mv somewhere/something .
-echo "WARNING: this still is not fully debugged..."
+if [ "$1" = "-t" ]; then                       
+  echo "testing mvsym ..."
+  mvsym-test | diff -c ~/scripts/mvsym-output -
+  exit
+fi
 
 if [ "$2" = "" ]; then
-  echo "usage: $0 old-name new-name-or-dir"
+  echo "usage: $0 [-v|-t] old-name new-name-or-dir"
   echo "  moves old-name to new-name, then creates a symlink called"
   echo "  old-name that points to new-name"
+  echo "  -v: verbose"
+  echo "  -t: self-test"
   exit
 fi
 
 # strip trailing slashes since they will confuse me later
-src=`echo $1 | sed 's#/$##'`
-dest=`echo $2 | sed 's#/$##'`
+src=`echo $1 | sed 's#/*$##'`
+dest=`echo $2 | sed 's#/*$##'`
 
 # debugging
-#echo "moving $src to $dest"
+diagnostic() {
+  if [ "$verbose" = 1 ]; then
+    echo "diagnostic:" "$@"
+  fi
+}
 
-if [ -d $dest ]; then
-  # destination is a directory
-  # we need to know the name of 'src's name, without the path
-  srcname=`echo $src | sed 's#.*/##'`
-  #echo "srcname is $srcname"
+diagnostic "mvsym $src $dest"
 
-  # move and install forwarding symlink
-  mv $src $dest && ln -s $dest/$srcname $src
-else
-  # destination is a filename, easy case
-  mv $src $dest && ln -s $dest $src
+
+# if destination is ".", replace it with a single explicit name
+if [ "$dest" = "." ]; then
+  dest=`basename "$src"`
+
+# if destination is a directory, explicitly add the src's basename
+elif [ -d "$dest" ]; then
+  dest="$dest"/`basename "$src"`
+
 fi
 
+
+# if the dest was fully qualified, it's a suitable link target
+if echo $dest | grep "^/" >/dev/null; then
+  diagnostic "dest fully qualified"
+  target="$dest"
+
+# known: dest is relative
+# if the source is in the current directory, then dest is a good
+# link target, because it will have correct relative path info
+elif echo $src | grep -v "/" >/dev/null; then
+  diagnostic "src is in cwd"
+  target="$dest"
+
+# known: source is not in cwd
+# if the source is absolute, but dest is relative (already known),
+# we're in trouble
+elif echo $src | grep "^/" >/dev/null; then
+  echo "Can't handle an absolute source but relative dest."
+  exit 2
+
+# known: both src and dest are relative
+# if source has some ".." we're still in trouble because we'd
+# have to come up with the name of the directory traversed by ".."
+elif echo $src | grep '\.\.' >/dev/null; then
+  echo "Can't handle relative src and dest where src has '..'."
+  exit 2
+
+# known: both are relative, but src doesn't have any ".."; so
+# we need to translate all directory names in src into ".." for
+# use as a link target (so the link, sitting where src does now,
+# will first ".." back to cwd and then be proper relative to dest)
+else
+  diagnostic "synthesizing ..'s ..."
+  tmp=`echo "$src" | sed 's#[^/]\+/\+#../#g'`
+  target=`dirname "$tmp"`/"$dest"
+fi
+
+echo mv -i "$src" "$dest"
+mv -i "$src" "$dest" || exit
+
+echo ln -s "$target" "$src"
+ln -s "$target" "$src" || exit

@@ -1,0 +1,84 @@
+#!/bin/sh
+# test 'mvsym' command
+
+# be paranoid while we try to get ourselves in a separate subdir
+cd ~/tmp || exit
+if [ ! -d mvsym-tmp ]; then
+  mkdir mvsym-tmp || exit
+fi
+cd mvsym-tmp || exit
+
+# we need to be so careful because this will be done many times:
+rm -rf *
+
+echo a > a
+mvsym -v a b
+cat a
+cat b
+rm -rf *
+
+mkdir b
+echo a > a
+ls -F
+ls -F b
+echo "-- sync --"
+mvsym -v a b/c
+cat a
+cat b/c
+ls -F b
+rm -rf *
+
+echo a > a
+ls -F
+mkdir b
+mvsym -v a b
+#yes n | mvsym -v a b || echo failed
+mvsym -v a b || echo failed
+ls -F b
+
+rm a
+mv b/a .
+mvsym -v a b/
+
+rm -rf *
+ls -F
+echo "-- sync --"
+mvsym -v ../c a
+
+ls -F
+mkdir b
+echo c > b/c
+mvsym -v b/c a
+cat a
+ls -F b
+cat b/c
+rm -rf *
+
+echo "-- sync --"
+echo a > a
+if [ -f /tmp/c ]; then
+  rm /tmp/c || exit
+fi
+mvsym -v a /tmp/c
+cat a
+rm /tmp/c
+rm -rf *
+
+mkdir b
+echo a > b/a
+mvsym -v b/a /tmp/c
+cat b/a
+rm /tmp/c
+rm -rf b
+ls
+
+echo "-- sync --"
+mkdir b
+echo a > b/a
+mkdir c
+mvsym -v b/a c/d
+cat b/a
+cat c/d
+rm -rf *
+
+mvsym -v /b/a c/d

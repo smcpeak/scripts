@@ -6,16 +6,16 @@ set -e
 
 mkdir ~/backup
 cd ~
-cp -al `/bin/ls | egrep -vw News\|backup\|bak\|bin\|bld\|dist\|distleetch\|lib\|madrone\|mp3\|nsmail\|share\|tmp\|vmware\|wrk` ~/backup
+cp -al `/bin/ls -a | egrep -vw News\|backup\|bak\|bin\|bld\|dist\|distleetch\|lib\|madrone\|mp3\|nsmail\|share\|tmp\|vmware\|wrk` ~/backup
 
 mkdir ~/backup/wrk
 cd ~/wrk
-cp -al `/bin/ls | egrep -vw cs164\|cplr\|harmonia\|safec\|sftpd\|gmp-3.1` ~/backup/wrk
+cp -al `/bin/ls -a | egrep -vw cs164\|cplr\|harmonia\|safec\|sftpd\|gmp-3.1` ~/backup/wrk
 
 mkdir ~/backup/wrk/cs164
 cd ~/wrk/cs164
-cp -al `/bin/ls | egrep -vw cool\|cool-cvs` ~/backup/wrk/cs164
+cp -al `/bin/ls -a | egrep -vw cool\|cool-cvs` ~/backup/wrk/cs164
 
 mkdir ~/backup/wrk/cplr
 cd ~/wrk/cplr
-cp -al `/bin/ls | egrep -vw parsgen\|harmonia\|ast` ~/backup/wrk/cplr
+cp -al `/bin/ls -a | egrep -vw parsgen\|harmonia\|ast` ~/backup/wrk/cplr

@@ -1,0 +1,10 @@
+#!/bin/sh
+# encrypt stdin -> stdout
+# with no arguments, this will prompt for recipients (?)
+
+# -f: filter mode
+# -e: encrypt
+# -a: ascii output
+# -s: sign
+# -t: text input
+pgp -f -e -a -s -t
