@@ -1,0 +1,5 @@
+#! /bin/csh -f
+# return host's ip address
+
+nslookup `hostname` | grep Address | tail -1 | fmt -1 | tail -1
+

@@ -1,0 +1,16 @@
+#! /bin/sh
+# convert all filenames to all-lowercase names
+
+if [ -n $1 ] ; then
+  namelist=* ;
+else
+  namelist=$1 ;
+fi
+
+for name in $namelist ; do
+  dest=`echo $name | tolower` ;
+  if [ $name != $dest ] ; then
+    mv $name $dest ;
+  fi
+done
+

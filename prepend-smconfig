@@ -1,0 +1,19 @@
+#! /bin/csh -f
+# prepend "#include "smconfig.h" to all .c files
+
+set tempname = smconfig.temp.h
+
+# for every .c file...
+foreach fname (*.c src/*.c src/*/*.c)
+  # make a copy that has what I want prepended
+  echo '#include "smconfig.h"' > $tempname
+  cat $fname >> $tempname
+
+  # remove the original file
+  rm $fname
+
+  # rename the temp to the original
+  mv $tempname $fname
+end
+
+

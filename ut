@@ -1,0 +1,5 @@
+#! /bin/csh -f
+# set title to user@host
+
+set title = "`whoami`@`hostname | sed 's/\..*//'`"
+stitle $title

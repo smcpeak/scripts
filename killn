@@ -1,0 +1,17 @@
+#! /bin/csh -f
+# kill by name
+
+if ( "$1" == "" ) then
+  echo usage: $0 process-to-kill "[kill signal]"
+  exit
+endif
+
+set pid = `psn $1 $0 | fmt -1 | head -2 | tail -1`
+if ( "$pid" == "" ) then
+  echo did not find a process name with substring $1
+  exit
+endif
+
+echo kill $2 $pid
+kill $2 $pid
+

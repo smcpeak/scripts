@@ -1,0 +1,9 @@
+#! /bin/csh -f
+# remove ^M from all files in dir
+
+foreach fn ($*)
+  strip13 < $fn > strip13all.tmp
+  rm $fn
+  mv strip13all.tmp $fn
+end
+

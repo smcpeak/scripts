@@ -1,0 +1,19 @@
+#! /bin/csh -f
+# swap two files
+
+if ( "$1" == "" || "$2" == "" ) then
+  echo usage: $0 file1 file2
+  echo this script swaps the two files\' names
+  exit
+endif
+
+set tempname = "swaptmpname"
+while (-e $tempname)
+  # just keep prepending 'a' until it's unique
+  set tempname = a$tempname
+end
+
+mv $1 $tempname
+mv $2 $1
+mv $tempname $2
+

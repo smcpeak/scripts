@@ -1,0 +1,12 @@
+#! /bin/csh -f
+# script to download (via http) a file
+
+if ("$1" == "") then
+  echo usage: $0 url
+  exit
+endif
+
+set fname = `echo "$1" | sed 's%.*/%%'`
+echo downloading to $fname
+
+lynx -dump "$1" > $fname

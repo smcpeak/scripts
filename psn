@@ -1,0 +1,15 @@
+#! /bin/csh -f
+# grep for a process
+
+if ( "$1" == "" ) then
+  echo usage: $0 string-to-grep-processes-for "[ps-to-ignore]"
+  exit
+endif
+
+if ( "$2" == "") then
+  ps -ef | grep $1 | grep -v grep | grep -v $0
+else
+  ps -ef | grep $1 | grep -v grep | grep -v $0 | grep -v $2
+endif
+
+

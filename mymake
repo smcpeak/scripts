@@ -1,0 +1,23 @@
+#! /bin/sh
+# script to watch a make and simultaneously write to file
+
+if [ -e Makefile ] ; then
+  # write a separator
+  echo '------' `date`: mymake $* '--------' >> make.out ;
+
+  # send stdout and stderr to tee, which will append (-a) the output
+  # to make.out, and also write it to the console stdout, so I can
+  # watch the progress; the "$@" is necessary (instead of $*) because
+  # make often has arguments like a="b c", which must still look like
+  # a single argument when make actually sees it
+  make "$@" 2>&1 | tee -a make.out ;
+
+else
+  echo There is no Makefile in `pwd` ;
+fi
+
+
+
+
+
+
