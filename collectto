@@ -1,0 +1,21 @@
+#! /bin/csh -f
+# collectto
+# collects all of stdin, and when that EOFs, writes to its argument
+# useful at the end of pipes, to write the output back to one
+#   of the input files, without clobbering the input until it
+#   is no longer needed
+
+# check arguments
+if ( "$1" == "" ) then
+  echo usage: $0 dest-file
+  exit
+endif
+
+# temp file for collecting stdin
+set tempfname = /tmp/collectto.$$
+
+# write all of stdin to the temp file
+cat > $tempfname
+
+# overwrite $1 with temp file
+mv -f $tempfname $1
