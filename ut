@@ -2,4 +2,10 @@
 # set title to user@host
 
 set title = "`whoami`@`hostname | sed 's/\..*//'`"
-stitle $title
+
+if ( "$1" == "" ) then
+  stitle $title
+else
+  stitle "${title}: ${1}"
+endif
+
