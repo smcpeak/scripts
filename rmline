@@ -1,0 +1,10 @@
+#!/bin/sh
+# strip (actually, comment-out) #line directives in C source input
+
+if [ "$1" = "-del" ]; then
+  # actually remove them entirely
+  exec grep -v '^#\(line\)\? [0-9]'
+else
+  # comment them out
+  exec sed 's,^#\(line\)\? [0-9],//#\1 ,'
+fi

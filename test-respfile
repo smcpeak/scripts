@@ -1,0 +1,39 @@
+#!/bin/sh
+# test how to process response (@...) files in bash
+
+# save current stdin (seems unnecessary)
+#exec 3<&0
+
+while [ "$1" != "" ]; do
+  case "$1" in
+    @*)
+      # response file
+
+      # strip '@'
+      fname=`echo "$1" | sed 's/^@//'`
+      echo "response file: $fname"
+
+      if [ -f "$fname" ]; then
+        # open it on stdin
+        exec 0<"$fname"
+
+        # read lines until EOF
+        while read; do
+          echo "response file arg: $REPLY"
+        done
+      else
+        echo "response file doesn't exist: $fname"
+      fi
+
+      ;;
+
+    *)
+      # ordinary argument
+      echo "argument: $1"
+  esac
+
+  shift
+done
+
+# restore stdin
+#exec 0<&3

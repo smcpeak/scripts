@@ -77,22 +77,22 @@ chdir($dir) or die("$myname: failed to chdir to $dir: $!\n");
 # (must "cd .." first so $archive is known to be the
 # right name)
 if ($tarred) {
-  $res = system("(cd ..; cat $archive) | tar xvf -");
+  $res = system("(cd ..; cat \"$archive\") | tar xvf -");
 }
 elsif ($gzipped) {
-  $res = system("(cd ..; gunzip -c $archive) | tar xvf -");
+  $res = system("(cd ..; gunzip -c \"$archive\") | tar xvf -");
 }
 elsif ($compressed) {
-  $res = system("(cd ..; uncompress -c $archive) | tar xvf -");
+  $res = system("(cd ..; uncompress -c \"$archive\") | tar xvf -");
 }
 elsif ($bzipped) {
-  $res = system("(cd ..; bunzip2 -c $archive) | tar xvf -");
+  $res = system("(cd ..; bunzip2 -c \"$archive\") | tar xvf -");
 }
 elsif ($pkzipped) {
-  $res = system("cd ..; unzip -d $dir $archive");
+  $res = system("cd ..; unzip -d \"$dir\" \"$archive\"");
 }
 elsif ($debbed) {
-  $res = system("ar t $archiveAbsolute && ar x $archiveAbsolute");
+  $res = system("ar t \"$archiveAbsolute\" && ar x \"$archiveAbsolute\"");
 }
 else {
   die("oops");
@@ -118,7 +118,7 @@ if (@ls == 1) {
       print("$myname: $tempdir already exists, darn\n");
       exit(1);
     }
-    system("mv $dir $tempdir")==0 or die;
+    system("mv \"$dir\" $tempdir")==0 or die;
     system("mv ${tempdir}/${itsname} ./${itsname}")==0 or die;
     rmdir("$tempdir") or die $!;
   }
@@ -130,7 +130,8 @@ if (@ls == 1) {
   }
   else {
     # easy case; no name collision
-    system("mv $itsname ../${itsname}")==0 or die;
+    #print("mv \"$itsname\" ../\"${itsname}\"\n");
+    system("mv \"$itsname\" ../\"${itsname}\"")==0 or die;
     chdir("..") or die $!;
     rmdir($dir) or die $!;
   }

@@ -1,0 +1,58 @@
+#!/bin/sh
+# add a bunch of files to cvs, but be smart about text vs binary
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 [-r] files..."
+  echo "   -r: recursively add directories"
+  exit
+fi
+
+recursive=false
+if [ "$1" = "-r" ]; then
+  recursive=true
+  shift
+fi
+
+while [ "$1" != "" ]; do
+  fname="$1"
+  shift
+
+  if [ "$fname" = CVS ]; then
+    # don't add the CVS metadata directory
+    continue
+  fi
+
+  if [ -d "$fname" ]; then
+    # it's a directory; add only if not already in repository
+    if [ -d "$fname/CVS" ]; then
+      # already in; don't add
+      true
+    else
+      echo cvs add "$fname"
+      cvs add "$fname"
+    fi
+
+    if $recursive; then
+      echo cd "$fname"
+      cd "$fname"
+      echo "$0" -r *
+      "$0" -r *
+      echo cd ..
+      cd ..
+    fi
+
+    continue
+  fi
+
+  # for the most part, trust 'file'
+  if file "$fname" | grep -w text >/dev/null; then
+    # text          
+    echo cvs add "$fname"
+    cvs add "$fname"
+  else
+    # binary            
+    echo cvs add -kb "$fname"
+    cvs add -kb "$fname"
+  fi
+done
+

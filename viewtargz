@@ -1,10 +1,27 @@
-#! /bin/csh -f
+#! /bin/sh
 # script to dump contents of a .tar.gz file
 
-if ( "$1" == "" ) then
-  echo usage: $0 filename.tar.gz
-  exit
-endif
+if [ "$1" = "" ]; then
+  echo "usage: $0 filename.tar.gz"
+  exit 0
+fi
 
-gunzip -c $1 | tar tf -
+case "$1" in
+  *.tar.bz2)
+    bunzip2 -c "$1" | tar tf -
+    ;;
+
+  *.zip|*.ZIP)
+    unzip -l "$1"
+    ;;
+
+  *.tar.gz|*.tgz)
+    gunzip -c "$1" | tar tf -
+    ;;
+    
+  *)
+    echo "I don't know how to view $1."
+    ;;
+esac
+
 

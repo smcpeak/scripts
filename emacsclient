@@ -1,0 +1,6 @@
+#!/bin/sh
+# my wrapper around emacsclient
+
+echo ""
+echo "Press C-x # when done..."
+exec /usr/bin/emacsclient "$@"

@@ -1,6 +1,11 @@
 #!/bin/sh
 # start the cpu-monitor in a tiny xterm
 
-# use 'xload' title since that's already one KDE knows to not
-# put decorations on
-xterm -title xload -geometry 33x1+0-13 +sb -e cpu-monitor
+if [ -f /etc/slack8 ]; then
+  # kde2: use kstart
+  kstart --type Dock xterm -geometry 38x1+0-13 +sb -e cpu-monitor
+else
+  # kde1: use 'xload' title since that's already one KDE knows to not
+  # put decorations on
+  xterm -title xload -geometry 38x1+0-13 +sb -e cpu-monitor
+fi

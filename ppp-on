@@ -1,0 +1,4 @@
+#!/bin/sh
+# turn on ppp connection
+
+exec sudo /etc/ppp/ppp-on "$@"

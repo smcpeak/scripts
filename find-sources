@@ -1,0 +1,9 @@
+#!/bin/sh
+# execute a find, looking for all files that I think of
+# as being source files
+
+find . -name '*.[cC]*' -o \
+       -name '*.[hH]*' -o \
+       -name '*.p[lm]*' -o \
+       -name 'Makefile' -o \
+       -name '*.sh'

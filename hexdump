@@ -4,9 +4,10 @@
 # usage
 if [ "$1" = "" ]; then
   echo "usage: $0 file-to-dump"
+  echo "  use '-' as the filename for stdin"
   exit
 fi
-filename=$1
+filename="$1"
 
 #
 # formatting; see hexdump(1) for a lousy description.  what I
@@ -21,7 +22,7 @@ filename=$1
 fmt=/tmp/$USER.hexdump.format
 cat >$fmt <<EOF
 "%06.6_ax   "  16/1 "%02X "
-"   " "%_p" 
+"   " "%_p"
 "\n"
 EOF
 
@@ -29,10 +30,15 @@ EOF
 #fmt=/tmp/$USER.hexdump.format
 #cat >$fmt <<EOF
 #"%06.6_ax   "  8/2 "%02X "
-#"   " "%_p" 
+#"   " "%_p"
 #"\n"
 #EOF
 
 # hexdump
-/usr/bin/hexdump -f $fmt $filename
+if [ "$filename" = "-" ]; then
+  /usr/bin/hexdump -f $fmt
+else
+  /usr/bin/hexdump -f $fmt $filename
+fi
+
 

@@ -1,25 +1,42 @@
 #!/bin/sh
 # display the source of a script
+# (or info on binaries)
 
 if [ "$1" = "" ]; then
   echo "usage: $0 script-name"
   exit
 fi
 
-name=$1
-
 # find source
 loc=`which "$1"`
 if [ "$?" != "0" ]; then
   echo "failed to locate $1"
   exit
-fi;
-
-# check file type
-if file $loc | grep "text" >/dev/null; then
-  # is a text file; cat it to screen
-  cat $loc
-else
-  # is not a text file
-  echo "$loc is not a text file"
 fi
+
+# show file info
+ls -ld "$loc"
+
+# if that's a link, show info for linked file
+if [ -L "$loc" ]; then
+  ls -ldL "$loc"
+fi
+
+# check file type (-L means dereference links)
+filetype=`file -L $loc`
+case "$filetype" in
+  *text*)
+    # is a text file: cat it to screen
+    cat $loc
+    ;;
+
+  *executable*)
+    # is a binary: show type and ldd info
+    echo "$filetype"
+    ldd "$loc"
+    ;;
+    
+  *)
+    echo "$filetype";
+    ;;
+esac

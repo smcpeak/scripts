@@ -1,0 +1,222 @@
+#!/bin/sh
+# run a command, sending stdout to one file and stderr to another,
+# but also sending both to this process' stdout/stderr, respectively
+
+# -outs [n]: print "out" to stdout, and "err" to stderr; exit $n
+if [ "$1" = "-outs" ]; then
+  echo "out"
+  echo "err" >&2
+  exit "$2"
+fi
+
+if [ "$1" != "-test" ]; then
+# the main script follows; test code is at the end
+
+
+if [ "$3" = "" ]; then
+cat <<EOF
+usage: $0 [options] stdout-file stderr-file cmd [args..]
+  options:
+    -a: both files are appended-to instead of being overwritten
+    -test: run an internal diagnostic on this script
+
+  If either file is '-', the corresponding output is not saved
+  to a file.
+
+  If both filenames are the same, output is properly sent to
+  a single file containing both outputs.
+EOF
+
+  exit 0
+fi
+
+tee=tee
+append=false
+if [ "$1" = "-a" ]; then
+  tee="tee -a"
+  append=true
+  shift
+fi
+
+
+stdoutFile="$1"
+stderrFile="$2"
+shift
+shift
+
+
+# special-case both files being "-"
+if [ "$stdoutFile" = "-" -a "$stderrFile" = "-" ]; then
+  # case 1
+  exec "$@"
+fi
+
+
+result=0
+handler() {
+  # this signal means the underlying command exit erroneously,
+  # though we don't know the code
+  result=2
+}
+trap handler SIGUSR1
+
+
+# save this script's pid so I can send it a signal from a subshell
+mypid=$$
+
+# run the command with tees to duplicate the data
+if [ "$stdoutFile" = "$stderrFile" ]; then
+  # case 2
+  
+  # this isn't right because this script's output is then entirely
+  # on stdout, even when the underlying program writes to stderr
+  #("$@" || kill -USR1 $mypid) 2>&1 | $tee "$stdoutFile"
+
+  # To preserve this script's output going to both stderr and stdout,
+  # but make the output file coherent, I need to force the tees into
+  # append mode.  That means manually deleting the file if it exists,
+  # if we're not in append mode generally.
+  if ! $append; then
+    rm -f "$stdoutFile"
+    
+    # when tee opens its output in append mode, the kernel ensures that
+    # every write does a seek to the end first, so no output will be
+    # lost (unless O_APPEND is broken, as it is over NFS...)
+    tee="tee -a"
+  fi
+
+  # now use the same command as case 5
+  exec 3>&1
+  exec 4>&2
+  (("$@" || kill -USR1 $mypid) | $tee "$stdoutFile" 1>&3) 2>&1 | $tee "$stdoutFile" >&4
+
+elif [ "$stderrFile" = "-" ]; then
+  # case 3
+  ("$@" || kill -USR1 $mypid) | $tee "$stdoutFile"
+
+elif [ "$stdoutFile" = "-" ]; then
+  # case 4
+  # dup stdout on fd 3, so I can explicitly send normal output there
+  # to avoid tee; then redirect error output to fd 1 so tee will catch
+  # it; this one is tricky, it's easy to forget the final 1>&2
+  exec 3>&1
+  ("$@" 1>&3 || kill -USR1 $mypid) 2>&1 | ($tee "$stderrFile" 1>&2)
+
+else
+  # case 5
+  # dup my stdout/err on fd 3,4
+  exec 3>&1
+  exec 4>&2
+  (("$@" || kill -USR1 $mypid) | $tee "$stdoutFile" 1>&3) 2>&1 | $tee "$stderrFile" >&4
+fi
+
+
+exit $result
+
+
+# end of main script
+fi
+
+# --------------- test code ----------------
+me="$0"
+
+#set -x
+set -e
+
+echo "out" >out.ok
+echo "err" >err.ok
+rm -f empty; touch empty
+cat out.ok err.ok >outerr.ok
+cat err.ok out.ok >errout.ok
+
+
+# run the -outs option, sending the outputs to the named files,
+# with given exit code; fail with code $4 or $4+1 if problem
+runit() {             
+  append=""
+  if [ "$1" = "-a" ]; then
+    append=-a
+    shift
+  fi
+
+  if [ $3 = 0 ]; then
+    "$me" $append "$1" "$2" "$me" -outs $3 >out 2>err || exit $4
+  else
+    "$me" $append "$1" "$2" "$me" -outs $3 >out 2>err && exit $4
+  fi
+  (diff out.ok out && diff err.ok err)        || exit $[ $4 + 1 ]
+}
+
+
+echo "-------- testing case 1 -------"
+runit - - 0  10
+runit - - 2  15
+
+echo "-------- testing case 2 -------"
+runit both both 0                                    20
+(diff outerr.ok both || diff errout.ok both) || exit 22
+runit both both 2                                    25
+(diff outerr.ok both || diff errout.ok both) || exit 27
+
+echo "-------- testing case 3 -------"
+runit left - 0             30
+(diff out.ok left) || exit 32
+runit left - 2             35
+(diff out.ok left) || exit 37
+
+echo "-------- testing case 4 -------"
+runit - right 0             40
+(diff err.ok right) || exit 42
+runit - right 2             45
+(diff err.ok right) || exit 47
+
+echo "-------- testing case 5 -------"
+runit left right 0          50
+(diff out.ok left) || exit  52
+(diff err.ok right) || exit 53
+runit left right 2          55
+(diff out.ok left) || exit  57
+(diff err.ok right) || exit 58
+
+
+echo "-------- testing case 5 in append mode-------"
+echo "left 1" >left
+cp left left.ok
+echo out >>left.ok
+
+echo "right 1" >right
+cp right right.ok
+echo err >>right.ok
+
+runit -a left right 0                                60
+(diff out.ok out && diff err.ok err)         || exit 62
+(diff left.ok left)                          || exit 63
+(diff right.ok right)                        || exit 64
+
+
+echo "-------- testing case 2 in append mode -------"
+echo "both 1" >both
+cp both both1.ok
+cp both both2.ok
+
+echo out >>both1.ok
+echo err >>both1.ok
+
+echo err >>both2.ok
+echo out >>both2.ok
+
+runit -a both both 0                               70
+(diff both1.ok both || diff both2.ok both) || exit 72
+
+
+# I only test 5 and 2 in append mode, since that's sufficient
+# for complete path coverage (I think)
+
+
+# done
+echo
+echo "tests pass"
+exit 0
+
+
+

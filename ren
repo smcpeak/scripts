@@ -1,0 +1,18 @@
+#!/bin/sh
+# rename a file; unlike 'mv' in that it will *not* simply
+# move a file to a new directory, unless you also say the
+# name of the file in the new directory (see 'move'); and,
+# -i is always passed to mv so it will ask before overwriting
+
+if [ "$#" != 2 ]; then
+  echo "usage: $0 source dest"
+  exit 0
+fi
+
+if [ -d "$2" ]; then
+  echo "ren: $2 is a directory; please specify a file name"
+  exit 1
+fi
+
+# let 'mv' handle it from here
+exec mv -i "$@"

@@ -57,9 +57,11 @@ cat >"$base.tmp.tex" <<EOF
 EOF
 
 # run latex
-latex "$base.tmp.tex"
+echo latex "$base.tmp.tex"
+latex "$base.tmp.tex" </dev/null
 
 # make the eps
+echo dvips -E "$base.tmp.dvi" -o "$base.eps"
 dvips -E "$base.tmp.dvi" -o "$base.eps"
 
 # clean up the mess

@@ -16,7 +16,7 @@ shift
 # process filenames
 for fname in "$@" ; do
   # generate new name
-  newname=`echo $fname | $filter`
+  newname=`echo "$fname" | $filter`
 
   if [ "$newname" = "$fname" ]; then
     echo "skipping $fname -- new name is identical"
@@ -24,7 +24,7 @@ for fname in "$@" ; do
     # rename and try not to clobber anything
     # if it fails, stop immediately
     echo "renaming $fname to $newname"
-    mv -i $fname $newname || exit
+    mv -i "$fname" "$newname" || exit
   fi
 done
 

@@ -8,7 +8,7 @@
 # anything suitable (didn't look all that hard..)
 
 if [ "$1" = "" ]; then
-  echo "usage: $0 mozilla-install-dir"
+  echo "usage: $0 mozilla-install-dir [jarfile]"
   exit 0
 fi
 
@@ -21,228 +21,101 @@ tmp=~/tmp/fix-moz-$$
 # link the plugins
 if [ ! -f $moz/plugins/rpnp.so ]; then
   echo "linking plugins"
-  ln ~/dist/plugins/* $moz/plugins
+  ln -s ~/dist/plugins/* $moz/plugins
 fi
 
-# explode comm.jar
-mkdir $tmp
-cd $tmp
-cp $moz/chrome/comm.jar /tmp/comm.jar.orig
-jar xvf $moz/chrome/comm.jar
+
+# begin modifying a jar file
+explode_jar() {
+  mkdir $tmp
+  cd $tmp
+  cp $moz/chrome/$1.jar /tmp/$1.jar.orig || exit
+  jar xvf $moz/chrome/$1.jar || exit
+}
+
+
+# finish modifying a jar file
+repackage_jar() {
+  cd $tmp
+  if [ `ls | wc -l` != 1 ]; then
+    echo "unexpected number of directories in jar file"
+    exit 2
+  fi
+  jar cvfM $1.jar * || exit
+
+  # replace old one
+  cp $1.jar $moz/chrome
+
+  # clean up
+  cd ..
+  rm -rf $tmp
+}
+
+
+if [ "$2" != "" ]; then
+  # just edit one jar file
+  explode_jar "$2"
+  echo "press enter when done editing..."
+  read
+  repackage_jar "$2"
+  exit 0
+fi
+
+
+# ------------------------ comm.jar --------------------------
+explode_jar comm
 
 cd content/navigator
 
-# rearrange menu bar
-patch -p0 <<EOF
-*** navigatorOverlay.xul.orig	Thu Oct 11 14:14:20 2001
---- navigatorOverlay.xul	Thu Oct 11 14:16:00 2001
-***************
-*** 166,171 ****
---- 166,228 ----
-
-    <!-- Menu -->
-    <menubar id="main-menubar" class="chromeclass-menubar">
-+     <menu id="BookmarksMenu" label="&bookmarksMenu.label;" accesskey="&bookmarksMenu.accesskey;"
-+           datasources="rdf:bookmarks rdf:files rdf:localsearch rdf:internetsearch"
-+           ref="NC:BookmarksRoot" flags="dont-test-empty" template="bookmarksMenuTemplate"
-+           oncommand="OpenBookmarkURL(event.target, document.getElementById('BookmarksMenu').database)">
-+       <template id="bookmarksMenuTemplate">
-+         <rule iscontainer="true" isempty="true"
-+               rdf:type="http://home.netscape.com/NC-rdf#Folder">
-+           <menupopup>
-+             <menu class="menu-iconic bookmark-item" uri="rdf:*"
-+                   type="rdf:http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-+                   label="rdf:http://home.netscape.com/NC-rdf#Name">
-+               <menupopup>
-+                 <menuitem label="&emptyItem.label;" disabled="true"/>
-+               </menupopup>
-+             </menu>
-+           </menupopup>
-+         </rule>
-+         <rule iscontainer="true">
-+           <menupopup>
-+             <menu class="menu-iconic bookmark-item" uri="rdf:*" label="rdf:http://home.netscape.com/NC-rdf#Name"
-+                   type="rdf:http://www.w3.org/1999/02/22-rdf-syntax-ns#type">
-+               <menupopup />
-+             </menu>
-+           </menupopup>
-+         </rule>
-+         <rule rdf:type="http://home.netscape.com/NC-rdf#BookmarkSeparator">
-+           <menupopup> 
-+             <menuseparator uri="rdf:*" />
-+           </menupopup>
-+         </rule>
-+         <rule>
-+           <menupopup>
-+             <menuitem class="menuitem-iconic bookmark-item" uri="rdf:*" 
-+                       label="rdf:http://home.netscape.com/NC-rdf#Name" 
-+                       status="rdf:http://home.netscape.com/WEB-rdf#status"/>
-+           </menupopup>
-+         </rule>
-+       </template>
-+       <menupopup>
-+         <!-- for some reason these don't work as command="" -->
-+         <menuitem key="addBookmarkKb"   observes="Browser:AddBookmark"/>
-+         <menuitem key="addBookmarkAsKb" observes="Browser:AddBookmarkAs"/>
-+         <menuseparator/>
-+         <menuitem key="manBookmarkKb"   observes="Browser:ManageBookmark"/>
-+         <menuseparator/>
-+       </menupopup>
-+     </menu>
-+ 
-+     <menu accesskey="&goMenu.accesskey;" label="&goMenu.label;" oncommand="gotoHistoryIndex(event);">
-+       <menupopup onpopupshowing="updateGoMenu(event);">
-+         <menuitem label="&goBackCmd.label;"    accesskey="&goBackCmd.accesskey;"    key="goBackKb"    command="Browser:Back"/>
-+         <menuitem label="&goForwardCmd.label;" accesskey="&goForwardCmd.accesskey;" key="goForwardKb" command="Browser:Forward"/>
-+         <menuitem label="&goHomeCmd.label;"    accesskey="&goHomeCmd.accesskey;"    command="Browser:Home" key="goHome"/>
-+         <menuseparator hidden="true"/>
-+       </menupopup>
-+     </menu>
-+ 
-      <menu id="menu_File">
-        <menupopup id="menu_FilePopup">
-          <menuitem label="&browserCmd.label;" accesskey="&browserCmd.accesskey;" key="key_newNavigator" command="cmd_newNavigator"/>
-***************
-*** 283,345 ****
-        </menupopup>
-      </menu>
-  
--     <menu accesskey="&goMenu.accesskey;" label="&goMenu.label;" oncommand="gotoHistoryIndex(event);">
--       <menupopup onpopupshowing="updateGoMenu(event);">
--         <menuitem label="&goBackCmd.label;"    accesskey="&goBackCmd.accesskey;"    key="goBackKb"    command="Browser:Back"/>
--         <menuitem label="&goForwardCmd.label;" accesskey="&goForwardCmd.accesskey;" key="goForwardKb" command="Browser:Forward"/>
--         <menuitem label="&goHomeCmd.label;"    accesskey="&goHomeCmd.accesskey;"    command="Browser:Home" key="goHome"/>
--         <menuseparator hidden="true"/>
--       </menupopup>
--     </menu>         
--     
--     <menu id="BookmarksMenu" label="&bookmarksMenu.label;" accesskey="&bookmarksMenu.accesskey;" 
--           datasources="rdf:bookmarks rdf:files rdf:localsearch rdf:internetsearch" 
--           ref="NC:BookmarksRoot" flags="dont-test-empty" template="bookmarksMenuTemplate"
--           oncommand="OpenBookmarkURL(event.target, document.getElementById('BookmarksMenu').database)">
--       <template id="bookmarksMenuTemplate">
--         <rule iscontainer="true" isempty="true"
--               rdf:type="http://home.netscape.com/NC-rdf#Folder">
--           <menupopup>
--             <menu class="menu-iconic bookmark-item" uri="rdf:*" 
--                   type="rdf:http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
--                   label="rdf:http://home.netscape.com/NC-rdf#Name">
--               <menupopup>
--                 <menuitem label="&emptyItem.label;" disabled="true"/>
--               </menupopup>
--             </menu>
--           </menupopup>
--         </rule>
--         <rule iscontainer="true">
--           <menupopup>
--             <menu class="menu-iconic bookmark-item" uri="rdf:*" label="rdf:http://home.netscape.com/NC-rdf#Name"
--                   type="rdf:http://www.w3.org/1999/02/22-rdf-syntax-ns#type">
--               <menupopup />
--             </menu>
--           </menupopup>
--         </rule>
--         <rule rdf:type="http://home.netscape.com/NC-rdf#BookmarkSeparator">
--           <menupopup> 
--             <menuseparator uri="rdf:*" />
--           </menupopup>
--         </rule>
--         <rule>
--           <menupopup>
--             <menuitem class="menuitem-iconic bookmark-item" uri="rdf:*" 
--                       label="rdf:http://home.netscape.com/NC-rdf#Name" 
--                       status="rdf:http://home.netscape.com/WEB-rdf#status"/>
--           </menupopup>
--         </rule>
--       </template>
--       <menupopup>
--         <!-- for some reason these don't work as command="" -->
--         <menuitem key="addBookmarkKb"   observes="Browser:AddBookmark"/>
--         <menuitem key="addBookmarkAsKb" observes="Browser:AddBookmarkAs"/>
--         <menuseparator/>
--         <menuitem key="manBookmarkKb"   observes="Browser:ManageBookmark"/>
--         <menuseparator/>
--       </menupopup>
--     </menu>
--       
-    <menu id="tasksMenu"/>
-    
-    <menu accesskey="&helpMenuCmd.accesskey;" id="menu_Help"/>
---- 340,345 ----
+cat <<EOF
+Starting editor on navigatorOverlay.xul:
+  Rearrange the menu bar, putting Bookmarks and Go first,
+  search for "<!-- Menu -->".
+  Also, delete the "Send Page..." option from the File menu (if present).
 EOF
+emacsclient navigatorOverlay.xul
 
-# remove forward, reload, stop
-# disable urlbar popup junk
-# remove component bar (mail/news/composer/...)
-patch -p0 <<EOF
-*** navigator.xul.orig	Thu Oct 11 14:20:28 2001
---- navigator.xul	Thu Oct 11 14:22:19 2001
-***************
-*** 148,171 ****
-                         tooltip="aTooltip" tooltiptext="&backButton.tooltip;">
-            <menupopup context="" onpopupshowing="BrowserBackMenu(event);"/>
-          </toolbarbutton>
--         
--         <toolbarbutton id="forward-button" type="menu-button" class="toolbarbutton-1"
--                        label="&forwardButton.label;" crop="right"
--                        oncommand="if (event.target==this) BrowserForward(); else gotoHistoryIndex(event);"
--                        observes="canGoForward" context="forwardMenu"
--                        tooltip="aTooltip" tooltiptext="&forwardButton.tooltip;">
--           <menupopup context="" onpopupshowing="BrowserForwardMenu(event);"/>
--         </toolbarbutton>
--         
--         <toolbarbutton id="reload-button" class="toolbarbutton-1"
--                        label="&reloadButton.label;" crop="right"
--                        oncommand="if (event.shiftKey) BrowserReloadSkipCache(); else BrowserReload();"  
--                        tooltip="aTooltip" tooltiptext="&reloadButton.tooltip;"/>
--                        
--         <toolbarbutton id="stop-button" class="toolbarbutton-1"
--                        label="&stopButton.label;" crop="right"
--                        oncommand="BrowserStop();" observes="canStop"  
--                        tooltip="aTooltip" tooltiptext="&stopButton.tooltip;"/>
-        </hbox>
-                  
-        <hbox id="nav-bar-inner" flex="1">
---- 148,153 ----
-***************
-*** 173,180 ****
-            <hbox flex="1" id="urlbar-container">
-              <textbox id="urlbar" class="plain" flex="1"
-                       type="autocomplete" searchSessions="history" 
-!                      timeout="50" maxrows="6" alwaysOpenPopup="true"
-!                      defaultSearchEngine="true" tabScrolling="true"
-                       showCommentColumn="true"
-                       tooltip="aTooltip" tooltiptext="&locationBar.tooltip;"
-                       ontextcommand="return handleURLBarCommand(userAction);"
---- 155,162 ----
-            <hbox flex="1" id="urlbar-container">
-              <textbox id="urlbar" class="plain" flex="1"
-                       type="autocomplete" searchSessions="history" 
-!                      timeout="50" maxrows="6" alwaysOpenPopup="false"
-!                      defaultSearchEngine="false" tabScrolling="true"
-                       showCommentColumn="true"
-                       tooltip="aTooltip" tooltiptext="&locationBar.tooltip;"
-                       ontextcommand="return handleURLBarCommand(userAction);"
-***************
-*** 369,375 ****
-    <statusbar id="status-bar" class="chromeclass-status"
-               ondragover="nsDragAndDrop.dragOver(event, contentAreaDNDObserver);"
-               ondragdrop="nsDragAndDrop.drop(event, contentAreaDNDObserver);">
--     <hbox id="component-bar"/>
-      <statusbarpanel id="statusbar-display" label="&statusText.label;" crop="right" flex="1"/>
-      <progressmeter class="progressmeter-statusbar" statusbar="true" id="statusbar-icon" mode="normal" value="0"/>
-      <statusbarpanel class="statusbarpanel-icononly" id="offline-status"/>
---- 351,356 ----
+cat <<EOF
+Starting editor on navigator.xul:
+  Remove forward, reload, stop buttons; search for "forward-button"
+    and delete the three buttons.
+  Disable urlbar popup: search for "urlbar" and change
+    alwaysOpenPopup to "false".
+  Remove component bar: search for "component-bar" and delete the line.
 EOF
+emacsclient navigator.xul
 
-# repackage comm.jar
-cd $tmp
-jar cvfM comm.jar content
+cd ../communicator
 
-# replace old one
-cp comm.jar $moz/chrome
+cat <<EOF
+Starting editor on contentAreaContextOverlay.xul:
+  Move the navigation entries to the top of the context menu;
+  search for "contentAreaContextMenu" and move Open below Navigation.
+EOF
+emacsclient contentAreaContextOverlay.xul
 
-# clean up
-cd ..
-rm -rf $tmp
+cat <<EOF
+Starting editor on platformCommunicatorOverlay.xul:
+  Delete the keybindings for key_close, key_closeWindow and key_quit.
+EOF
+emacsclient platformCommunicatorOverlay.xul
 
+repackage_jar comm
+
+
+# ------------------------ en-US.jar --------------------------
+explode_jar en-US
+
+cd locale/en-US/navigator
+
+cat <<EOF
+Starting editor on navigator-title.dtd:
+  Remove the build-id string from the two places it occurs.
+EOF
+emacsclient navigator-title.dtd
+
+repackage_jar en-US
+
+
+# -------------- end ----------------
 echo "All done.  Remember to grab the preferences bar from xulplanet.com."

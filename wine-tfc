@@ -1,0 +1,11 @@
+#!/bin/sh
+
+#./wine --winver win95 -- /dosd/Half-Life/hl.exe -console
+
+cd ~/wine/c/Half-Life
+if [ -f valve/pak1.pak ]; then
+  echo "Removing High-definition pack"
+  mv valve/pak1.pak ..
+fi
+wine -- hl.exe -console -game tfc
+

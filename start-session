@@ -1,0 +1,44 @@
+#!/bin/sh
+# all the things I do when I start an X session (for kde)
+
+# this finds the window id of the given window title
+grab_id() {
+  # clever way to sleep for less than a second
+  perl -e 'select(undef, undef, undef, 0.25);'
+
+  id=`xwininfo -name "$1" | grep "Window id" | awk '{ print $4 }'`
+  id=$id
+  if [ "$id" = "" ]; then
+    echo "Couldn't find the right window id"
+    exit 2
+  fi
+}
+
+# assume I'm running this from my first xterm
+stitle wrk
+
+cd $HOME
+rm -rf Desktop/Trash
+
+start-xclock
+start-cpu-monitor
+start-xbiff
+start-logwin
+
+# mp3
+xterm -geometry 80x24+0-32 -title mp3 -e sh -c 'stitle mp3; console-renice -15 $$; cd $HOME/mp3; exec bash' &
+grab_id mp3
+movewin $id -move 0 650
+
+# pine
+xterm -title pine -fn "-misc-fixed-medium-r-normal-*-15-*-*-*-*-*-iso8859-1" -e /bin/sh -c 'mypine; exec bash' &
+grab_id pine
+movewin $id -move 533 542 -size 739 430
+
+kmix
+
+# it turns out klipper is the horrible thing which brings up that
+# window when I select a URL text
+echo "Killing klipper..."
+psgrep klipper | awk '{ print $1 }' | xargs kill
+#killall klipper

@@ -1,0 +1,13 @@
+#!/bin/sh
+# read the contents of .cvsignore, and delete everything
+# that matches any line in it
+
+# open .cvsgnore
+exec 0<.cvsignore
+
+# read each line
+while read; do
+  # remove everything which matches
+  echo rm -f $REPLY
+  rm -f $REPLY
+done

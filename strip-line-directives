@@ -1,0 +1,4 @@
+#!/bin/sh
+# strip C's #line directives (actually, comment them out)
+
+sed 's,^[ 	]*#\(line\)\? ,//# ,'

@@ -1,0 +1,22 @@
+#!/bin/sh
+# start xclock the way I like
+
+if [ -f /etc/slack8 ]; then
+  # kde2: use kstart
+  kstart --type Tool xterm -geometry 122x24-0-0 -e logwin
+  sleep 1
+
+  # move it where I want it since kde doesn't respect geometry
+  id=`xwininfo -name logs | grep "Window id" | awk '{ print $4 }'`
+  id=$id
+  if [ "$id" = "" ]; then
+    echo "Couldn't find the right window id"
+    exit 2
+  fi
+
+  # 'movewin' is a program I wrote (~/wrk/learn/x/movewin.cc)
+  movewin $id -move 200 707 -lower
+
+else
+  echo "Not set up for kde1.."
+fi

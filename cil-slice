@@ -1,0 +1,17 @@
+#!/bin/sh
+# slice an input C file, using #pragmas already present
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 input.c"
+  exit 0
+fi
+
+set -x
+set -e
+
+cil=/home/scott/wrk/safec/cil
+
+cpp -I$cil/include -I$cil/include/gcc_2.95.3 "$1" > preprocessed.i
+
+$cil/obj/x86_LINUX/cilly.asm.exe --sliceGlobal --out sliced.c preprocessed.i
+

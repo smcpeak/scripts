@@ -2,6 +2,6 @@
 # run make in a loop
 
 while true; do
-  make "$@" | grep -v 'is up to date'
+  make "$@" 2>&1 | egrep -v 'is up to date|Nothing to be done for'
   sleep 1
 done

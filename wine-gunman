@@ -1,0 +1,5 @@
+#!/bin/sh
+
+cd ~/wine/c/Gunman
+wine -- gunman.exe -console
+

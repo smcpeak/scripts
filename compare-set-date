@@ -1,0 +1,61 @@
+#!/bin/sh
+# compare system date to that of a remote server, and set system
+# date if we're very inaccurate
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 remote-host [tolerance]"
+  echo "  tolerance is the minimum drift in seconds that prompts recalibration;"
+  echo "  it defaults to 300 (5 minutes)"
+  exit 0
+fi
+
+host="$1"
+shift
+
+tolerance=300
+if [ "$1" != "" ]; then
+  tolerance="$1"
+  shift
+fi
+
+
+# get remote date, in seconds since epoch (I assume we're all talking
+# about the same time zone)
+remoteText=`hose $host 13 --in cat`
+remoteSecs=`date -d "$remoteText" +%s`
+
+# get my seconds
+myText=`date`
+mySecs=`date -d "$myText" +%s`
+
+if expr $remoteSecs + $tolerance \< $mySecs \| \
+        $remoteSecs - $tolerance \> $mySecs       >/dev/null; then
+  echo "We're off by more than $tolerance seconds"
+  echo "Remote system says date is" $remoteText
+  echo "  but my system says it is" $myText
+
+  dest=`date -d "$remoteText" +%m%d%H%M%Y.%S`
+
+  if [ "$EUID" = 0 ]; then
+    echo "will set my system time to match remote host..."
+    logger "compare-set-date: changing date to" $remoteText
+    date $dest
+
+    again=`date +%s`
+    if [ $again != $remoteSecs ]; then
+      echo "that's weird: $again vs $remoteSecs"
+      echo "I don't think setting the date worked"
+    fi
+  else
+    echo "you could set the date locally with a command like:"
+    echo "  # date $dest"
+  fi
+else
+  echo "The dates seem reasonably close:"
+  echo "  remote:" $remoteText
+  echo "  local: " $myText
+fi
+
+
+
+

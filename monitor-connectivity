@@ -15,6 +15,15 @@ pingOut=/dev/null
 #   outages, so I am dropping it to 60 secs to hopefully catch those
 delay=60
 
+# gatekeeper.dec.com
+gatekeeper=204.123.2.2
+# www.berkeley.edu
+berkeley=169.229.131.109
+# nearest machine that is not inside my apartment
+gateway=12.232.144.1
+# first DNS server the DHCP server tells me about
+dns=216.148.227.68                               
+
 
 # -- where to send output --
 report()
@@ -43,10 +52,8 @@ report "began monitoring" `date` "with delay $delay secs"
 while true; do
   # use IP addresses instead of DNS names because the latter
   # incur a huge overhead when we're not connected
-  #   171.64.14.237 is www.stanford.edu
-  #   128.32.25.12 is www.berkeley.edu
-  if ping -c 2 171.64.14.237 >> $pingOut 2>&1 || \
-     ping -c 2 128.32.25.12  >> $pingOut 2>&1 ; then
+  if ping -c 2 $gatekeeper >> $pingOut 2>&1 || \
+     ping -c 2 $berkeley>> $pingOut 2>&1 ; then
     # we are connected
     #echo "we are connected"
     if [ "$connected" != "1" ]; then
@@ -78,18 +85,18 @@ while true; do
       # (this basically assumes router visibility is constant throughout
       # the outage, which isn't necessarily true, but probably is close
       # enough for my purposes)
-      if ping -c 2 24.14.146.1 >> $pingOut 2>&1 ; then
+      if ping -c 2 $gateway >> $pingOut 2>&1 ; then
         # this is the "unexpected" case (at least to me)
         # (the captions here are short because I want the line saying how
         # long we were down to be the longest in the logs, so they stand out)
         msg="$msg rvis=YES"
 
         # can I ping the nameserver?
-        if ping -c 2 24.1.80.33 >> $pingOut 2>&1 ; then
+        if ping -c 2 $dns >> $pingOut 2>&1 ; then
           msg="$msg nsvis=YES"
 
       	  # I also want to know if the nameserver will respond to my queries
-      	  if dig @24.1.80.33 www.stanford.edu >> $pingOut 2>&1 ; then
+          if dig @$dns www.stanford.edu >> $pingOut 2>&1 ; then
       	    msg="$msg dig=YES"
       	  else
       	    msg="$msg dig=no"

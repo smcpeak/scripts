@@ -1,0 +1,4 @@
+#!/bin/sh
+# add ctrl-Ms to line endings for DOS
+
+sed 's/$//'

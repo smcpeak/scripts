@@ -1,0 +1,32 @@
+#!/usr/bin/perl -w
+# check a bunch of links fed in on stdin (not HTML -- just the links themselves)
+
+use IO::Handle;
+STDOUT->autoflush(1);
+
+while (defined($line = <STDIN>)) {
+  chomp($line);
+  print("$line: ");
+
+  $start = time();
+  @headers = `lynx -head -dump -connect_timeout=30 "$line" 2>/dev/null`;    # does that quote $line?
+  $status = $?;
+  $end = time();
+  printf("(%d s) ", $end - $start);
+
+  if ($status != 0) {
+    printf("lynx exited with code %d\n", $status >> 8);
+    next;
+  }      
+  
+  $first = $headers[0];
+  chomp($first);
+  if ($first =~ /200/) {
+    print("ok\n");
+  }
+  else {
+    print("$first\n");
+  }
+}
+
+

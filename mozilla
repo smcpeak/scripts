@@ -1,0 +1,154 @@
+#!/bin/bash
+# run mozilla (/bin/bash for $[...] syntax)
+
+# this is for slack 7 install
+top=/home/scott/bin          
+
+# am I on slack 8?
+if [ -d /home/scott/opt ]; then
+  top=/home/scott/opt
+fi
+
+# defaults
+moz=$top/mozilla-1.0rc2
+
+# I hacked es1371 so this can default to yes!!
+flash=yes
+
+while [ "$1" != "" ]; do
+  case "$1" in
+    -3)
+      moz=$top/mozilla-0.9.3
+      ;;
+
+    -4)
+      moz=$top/mozilla-0.9.4
+      ;;
+
+    -5)
+      moz=$top/mozilla-0.9.5
+      ;;
+
+    -6)
+      moz=$top/mozilla-0.9.6
+      ;;
+
+    -8)
+      moz=$top/mozilla-0.9.8
+      ;;
+
+    -prev)
+      moz=$top/mozilla-20011011
+      ;;
+
+    -flash)
+      flash=yes
+      ;;
+      
+    -noflash)
+      flash=no
+      ;;
+  esac
+
+  shift
+done
+
+# remove buggy plugins
+rm -f $moz/plugins/ShockwaveFlash.class
+rm -f $moz/plugins/libflashplayer.so
+
+# optionally add them back in
+if [ "$flash" = "yes" ]; then
+  ln -s ~/dist/plugins/ShockwaveFlash.class $moz/plugins
+  ln -s ~/dist/plugins/libflashplayer.so $moz/plugins
+fi
+
+# if java isn't in, add it
+if [ ! -L $moz/plugins/libjavaplugin_oji*.so ]; then
+  echo "Linking java plugin.."
+  ln -s ~/dist/plugins/*java* $moz/plugins
+fi
+
+
+# It turns out Mozilla occasionally blows away my history file!
+#   see bug reports 77514, 102519, 94827
+# So I will save my history file each time it starts, *provided*
+# the new history is at least as long as the old one! (If the
+# history is so long it's being truncated, on average this should
+# save it every other time.)  I will automatically restore from
+# backup whenever the history file seems to have shrunk by more
+# than 5kbytes.
+bak=$HOME/bak/history.dat
+userdir=`echo $HOME/.mozilla/$USER/*`
+cur=$userdir/history.dat
+
+if [ ! -d $HOME/bak ]; then
+  # make this directory; I put my emacs backups here too, so it's
+  # a convenient place for me
+  mkdir $HOME/bak
+fi
+
+if [ ! -f $bak ]; then
+  echo "Backup history file doesn't exist; making initial backup."
+  cp -f $cur $bak
+elif [ ! -f $cur ]; then
+  echo "History file is gone!  Restoring from backup."
+  cp $bak $cur
+else
+  # interpreting the 5th field as the size may run afoul of
+  # some systems' "ls" which doesn't print group information...
+  # I don't know a simple solution
+  baksize=`ls -l $bak | awk '{ print $5 }'`
+  cursize=`ls -l $cur | awk '{ print $5 }'`
+
+  if [ $[ $baksize / 2 ] -gt $cursize ]; then
+    echo "Backup history file is more than twice as long as the old history!"
+    ls -l $cur
+    ls -l $bak
+    echo "Bailing so you can decide what to do."
+    exit 2
+  else
+    # normal case: silently replace backup with current history,
+    # thereby keeping it up-to-date
+    cp -f $bak $bak.bak
+    cp -f $cur $bak
+  fi
+fi
+
+
+# the java plugin makes a stupid trace file in my home dir.. so wait
+# a bit and then delete it (the plugins should still be happy; the
+# OS will keep the "idea" of the file around, even if the FS doesn't
+# have a name for it)
+# (see http://bugzilla.mozilla.org/show_bug.cgi?id=69822)
+hideTheTrace()
+{
+  # give mozilla a chance to start and register plugins
+  sleep 10
+
+  # bye bye stupid file
+  rm -f ~/plugin*trace
+}
+
+# this doesn't work; the file doesn't get created until a java app
+# actually runs, and I can't predict how long to wait for that
+#hideTheTrace &
+
+
+# one of the reasons for 'exec' here is so that I can freely edit
+# this script while mozilla is still running
+exec nohup $moz/mozilla -P scott >/dev/null 2>&1
+
+
+# shouldn't get here
+exit 1
+# -------- trash -----------
+# deal with problem of starting mozilla with sound playing
+if fuser /dev/dsp >/dev/null; then
+  echo "music is playing - shockwave disabled"
+  mv $moz/plugins/libflashplayer.so $moz 2>/dev/null
+else
+  #echo "music is not playing"
+  mv $moz/libflashplayer.so $moz/plugins 2>/dev/null
+fi
+

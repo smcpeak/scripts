@@ -1,8 +1,10 @@
 #!/bin/sh
 # just grab whatever is on stdin and append it to a logfile
 
+set -e
+
 secs=`date +%s`
-fn=/tmp/$USER.$secs.log
+fn=$HOME/tmp/$secs.log
 echo "args: $*" >> $fn
 exec cat >> $fn
 #cat >> $fn

@@ -5,17 +5,23 @@
 use strict 'subs';
 use IO::Handle;
 
-# configuration
-$showCpu = 1;
-$showSys = 1;
-$showHda = 1;
-$showHdb = 0;
-$showHdc = 0;
-$showEth0 = 1;
-$showNews = 0;
+# which displays to show
+$showCpu = 1;         # c: total cpu utilization
+$showSys = 1;         # s: cpu time spent in kernel mode
+$showTemp = 1;        # cpu core temp in degrees celsius
+$showHda = 1;         # a: requests per second to /dev/hda
+$showHdb = 1;         # b: ..............................b
+$showHdc = 0;         # c: ..............................c
+$showEth = 1;         # e: packets sent/received over eth0
+$showPpp = 0;         # p: ...........................ppp0
+$showNews = 0;        # n: # of unread news articles
+
+# configuration of some input sources
+$ethDevice = "eth0";
+$pppDevice = "ppp0";
 $unreadFile = "$ENV{HOME}/settings/num.unread.news";
-$showTemp = 1;
 $tempChip = "via686a-isa-6000";
+
 
 # flush all output immediately
 STDOUT->autoflush(1);
@@ -39,7 +45,8 @@ while (1) {
 
   # compute differences
   @ticks = elementwiseSubtract($#next + 1, @next, @prev);
-  ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, $sendCt, $recvCt) = @ticks;
+  ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, 
+   $sendCt, $recvCt, $pppSendCt, $pppRecvCt) = @ticks;
   $duty = $user + $nice + $system;
   $total = $duty + $idle;
 
@@ -76,8 +83,11 @@ while (1) {
   if ($showHdc) {
     $output .= "c$disk3 ";
   }
-  if ($showEth0) {
+  if ($showEth) {
     $output .= "e$sendCt/$recvCt ";
+  }
+  if ($showPpp) {
+    $output .= "p$pppSendCt/$pppRecvCt ";
   }
   if ($unread > 0) {
     $output .= "n$unread ";
@@ -119,21 +129,29 @@ sub getTickCounters {
   # open /proc/net/dev also, to get network device stats
   open(IN, "</proc/net/dev") or die;
 
-  # read the lines, filter for eth0
-  my @eth0Lines = grep(/eth0/, <IN>);
-  close(IN) or die;
-  my ($recvCt, $sendCt) = (0,0);    # values in case there is no eth0
-  if (@eth0Lines > 0) {
-    my $eth0 = $eth0Lines[0];
+  # values in case there is no matching device
+  my ($recvCt, $sendCt) = (0,0);
+  my ($pppRecvCt, $pppSendCt) = (0,0);
 
-    # read the fields, and select the send/receive packet counters
-    $eth0 =~ s/.*://;     # strip leading "eth0:"
-    my @fields = split(' ', $eth0);
-    ($recvCt, $sendCt) = ($fields[1], $fields[9]);
+  # read the lines, filter for eth0 or ppp0
+  while ($line = <IN>) {
+    if ($line =~ /$ethDevice/) {
+      $line =~ s/.*://;     # strip leading "eth0:"
+      my @fields = split(' ', $line);
+      ($recvCt, $sendCt) = ($fields[1], $fields[9]);
+    }
+    elsif ($line =~ /$pppDevice/) {
+      $line =~ s/.*://;     # strip leading "ppp0:"
+      my @fields = split(' ', $line);
+      ($pppRecvCt, $pppSendCt) = ($fields[1], $fields[9]);
+    }
   }
 
+  close(IN) or die;
+
   # return relevant fields
-  return ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, $sendCt, $recvCt);
+  return ($user, $nice, $system, $idle, $disk1, $disk2, $disk3,
+          $sendCt, $recvCt, $pppSendCt, $pppRecvCt);
 }
 
 
@@ -144,7 +162,7 @@ sub readCpuTemp {
   #print ("readCpuTemp called\n");
   if ($showTemp) {
     if ($tempReadDelay-- == 0) {
-      $line = `sensors $tempChip | grep 'CPU Temp'`;
+      $line = `sensors $tempChip 2>/dev/null | grep 'CPU Temp'`;
       #print ("line is $line\n");
       ($ret) = ($line =~ /^CPU Temp: \+(\d+\.\d.)C/);
       if (!$ret) {

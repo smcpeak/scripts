@@ -1,0 +1,34 @@
+#!/bin/sh
+# fix the KDE kicker when strange things make extra crap appear there
+
+# get pid
+if [ "$1" = "" ]; then
+  # the leading space prevents it from seeing this script's pid,
+  # and should also work after kde initially starts, where the
+  # name is something like "kdeinit: kicker"
+  pid=`psgrep ' kicker' | awk '{ print $1 }'`
+  pid=$pid
+  if [ "$pid" = "" ]; then
+    echo "failed to find kicker's pid .."
+    exit 2
+  fi
+else
+  # let user specify on command line
+  pid=$1
+fi
+echo pid is $pid
+
+# bail on error now
+set -e
+
+# kill kicker
+kill $pid
+sleep 1
+
+# rewrite Applets= line to have just the two things I want
+cd ~/.kde/share/config
+mv -f kickerrc kickerrc.bak
+sed 's/^Applets=.*$/Applets=KMenuButton_1,Applet_1/' < kickerrc.bak > kickerrc
+
+# restart kicker (puts itself into background)
+/opt/kde/bin/kicker

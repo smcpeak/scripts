@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# example:
+#   convert -pen '#00ff00' \
+#           -font '-*-times-...-*' \
+#           -draw 'text 0,10 "hello world"' \
+#           -crop 100x30+0+0 \
+#           blank.gif hello.gif
+
+if [ "$6" = "" ]; then
+  echo "usage: $0 font size width height output.gif text"
+  exit
+fi
+
+font="$1"
+size="$2"
+width="$3"
+height="$4"
+output="$5"
+text="$6"
+
+convert -pen '#000000' -font "-*-$font-*-*-*-*-$size-*-*-*-*-*-*-*" \
+        -draw 'text 0,10 "'"$text"'"' -crop ${width}x${height}+0+0 blank.gif "$output"

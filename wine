@@ -1,0 +1,35 @@
+#!/bin/sh
+# run wine
+
+winedir=/home/scott/bld/winehq
+
+while [ "$1" != "" ]; do
+  case "$1" in
+    -prev)
+      winedir=/home/scott/bld/wine-20010510
+      ;;
+
+    -hq)
+      winedir=/home/scott/bld/winehq
+      ;;
+
+    -winex)
+      winedir=/home/scott/bld/winex
+      ;;
+
+    *)
+      break
+      ;;
+  esac
+  shift
+done
+
+if [ "$LD_LIBRARY_PATH" = "" ]; then
+  export LD_LIBRARY_PATH=$winedir:$winedir/dlls
+else
+  export LD_LIBRARY_PATH=$winedir:$winedir/dlls:$LD_LIBRARY_PATH
+fi
+
+# do NOT change dir to $winedir -- that prevents TFC from working!
+exec $winedir/wine "$@"
+

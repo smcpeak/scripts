@@ -1,0 +1,11 @@
+#!/bin/sh
+
+#./wine --winver win95 -- /dosd/Half-Life/hl.exe -console
+
+cd ~/wine/c/Half-Life
+if [ ! -f valve/pak1.pak ]; then
+  echo "Installing High-definition pack"
+  mv ../pak1.pak valve
+fi
+wine -- hl.exe -console
+

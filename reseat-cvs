@@ -1,0 +1,24 @@
+#!/bin/sh
+# change the Root entry in a cvs tree systematically
+
+if [ "$1" = "" ]; then
+  cat <<EOF
+  usage: $0 new-CVSROOT
+
+  This script changes all of the Root files in a CVS
+  tree to point to a new place.
+
+  Example:
+    % cd ~/cil
+    % $0 :ext:manju.cs:/home/cvs-repository
+
+  Reminder: If you are switching from pserver to ext, remember to
+  set the CVS_RSH environment variable to "ssh".  
+EOF
+  exit 0
+fi
+                                                
+for fn in `find . -name Root -print | grep CVS/Root`; do
+  echo "$fn: was "`cat "$fn"`
+  echo "$1" > "$fn"
+done

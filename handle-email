@@ -1,0 +1,366 @@
+#!/bin/sh
+# called to handle my incoming email messages
+#   stdin: the email message, headers first as usual
+#   $1: who fetchmail thinks it's from
+#   $2: the name of the local user who ran fetchmail
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 from-addr local-user < message"
+  exit
+fi
+
+from="$1"
+localUser="$2"
+
+# send any output this script generates to a file
+exec >>"$HOME/tmp/var/handle-email.err" 2>&1
+
+# where (directory) to put spam messages
+spamDir="$HOME/tmp/var/spam"
+
+# score threshold: anything greater or equal to this will be treated as spam
+threshold=4
+
+# some strings that are useful for spam detection
+freeMailSites='msn.com|yahoo|hotmail.com|mail.com|excite.com|lycos.com|aol.com|hotbot.com|public.com|compuserve.com'
+# had to remove 'ass' since lots of words have that in them somewhere
+# similar for 'cum'
+# (and I am avoiding -w since that means expanding word prefixes..)
+sexual='fuck|piss|cock|pervert|naked|britney|porn|pheromones|tits|nude'
+
+# less-suggestive, but significant if they occur frequently
+suggestive='amateur|adult|girl|prescription|zyban|viagra'
+
+# strings in the 'from' which automatically make it not spam
+friends="johnmcpeak|sunnemcpeak|toddmcpeak|smcpeak|\
+necula|mirabito|weimer|dsw|hurwitz|aclu.org|harmonia|gm3576"
+
+# these are grepped in the subject
+scoreTwo='income|scott.*mcpeak'
+scoreThree='mortgage.*rates|special.*offer'
+scoreFour='make.*money|output.*from.*cron'
+
+# these are grepped in the body
+scoreThreeBody='one  *time  *advertisement|eudoramail\.com|this is not spam'
+
+# specific known spammers who use consistent 'from' addresses
+spamFrom='customoffers.com|The Investment Journal|s.*t.*a.*y.*h.*a.*r.*d|choiceoffers\.smtp0\.net|investor relations'
+
+# send email message to a temporary file
+msg="$HOME/tmp/var/msg/msg.$$"
+cat >"$msg"
+
+# log some information about the email
+log="$HOME/tmp/var/handle-email.log"
+subject=`grep '^Subject:' <"$msg" 2>&1 | head -1 | cat`
+date=`date`
+echo "[$$] $date: email from $from, $subject" >>"$log"
+
+
+
+# -------- check some things which indicate spam --------
+# the idea is to set a variable to nonzero if the indicator
+# happens at all; and when nonzero, it should be a score which
+# will be added to the other scores and the total compared to
+# a threshold (nominally 3) to determine if the email is spam
+
+# nominal score assignment:
+#    1: possible
+#    2: probable
+#    3: nearly certain
+#    4: certain
+#   10: specific known source of spam
+# -100: for sure not spam
+
+# from a free email acct?
+if grep '^From:' <"$msg" | egrep "$freeMailSites" >/dev/null; then
+  fromFree=2
+else
+  fromFree=0
+fi
+
+# to a free email acct?
+if grep '^To:' <"$msg" | egrep "$freeMailSites" >/dev/null; then
+  toFree=2
+else
+  toFree=0
+fi
+
+# does the subject use uppercase letters but no lowercase letters?
+subjNoTag=`echo "$subject" | sed 's/^Subject://'`
+if (echo "$subjNoTag" | egrep '[A-Z]' >/dev/null) &&
+   ! (echo "$subjNoTag" | egrep '[a-z]' >/dev/null); then
+  subjAllCaps=2
+else
+  subjAllCaps=0
+fi
+
+# does the word "unsubscribe" appear in the body?
+if egrep -i 'unsubscribe' <"$msg" >/dev/null; then
+  hasUnsub=1
+else
+  hasUnsub=0
+fi
+
+# "!!" in message?
+if grep '!!' <"$msg" >/dev/null; then
+  twoBangs=1
+else
+  twoBangs=0
+fi
+
+# "$" in the subject?  exclude things that look like variable
+# interpolation: a dollar followed by a letter or open-brace
+# (the close-brace is there to make emacs happy)
+if echo "$subject" | egrep '(\$[^A-Za-z{}])|(\$$)' >/dev/null; then
+  dollar=1
+else
+  dollar=0
+fi
+
+# is this a report that a virus was cleaned?
+if grep 'The software detected a virus' <"$msg" >/dev/null; then
+  virusRept=10
+else
+  virusRept=0
+fi
+
+# "income" (or similar phrases)?
+if echo "$subject" | egrep -i "$scoreTwo" >/dev/null; then
+  income=2
+else
+  income=0
+fi
+
+# "special offer" (or similar phrases)?
+if echo "$subject" | egrep -i "$scoreThree" >/dev/null; then
+  specialOffer=3
+else
+  specialOffer=0
+fi
+
+# "one time advertisement" in body
+if egrep -i "$scoreThreeBody" <"$msg" >/dev/null; then
+  oneTimeAdvert=3
+else
+  oneTimeAdvert=0
+fi
+
+# known spammer
+if grep '^From:' <"$msg" | egrep -i "$spamFrom" >/dev/null; then
+  spammerSource=4
+else
+  spammerSource=0
+fi
+
+# "make money" (or similar phrases)?
+if echo "$subject" | egrep -i "$scoreFour" >/dev/null; then
+  makeMoney=4
+else
+  makeMoney=0
+fi
+
+# use of sexual words?  count lines which have them
+naughty=`egrep -i "$sexual" <"$msg" | wc -l`
+naughty=$[ $naughty ]
+
+# use of suggestive words?  count lines which have them
+suggCt=`egrep -i "$suggestive" <"$msg" | wc -l`
+suggCt=$[ $suggCt / 3 ]
+
+# does the word email appear too many times?
+#email=`egrep -i 'e-?mail' <"$msg" | wc -l`
+#email=$[ ( $email - 3 ) / 2 ]
+
+# "free!"?
+if egrep -i 'free.*!' <"$msg" >/dev/null; then
+  freeBang=1
+else
+  freeBang=0
+fi
+
+# does the email mention prices of things?  filter out the message-id
+# line since I've seen at least one email with "$7" in the message-id
+if grep -vi 'message-id' <"$msg" | egrep '\$[0-9][0-9]' >/dev/null; then
+  prices=1
+else
+  prices=0
+fi
+
+# is there a URL in the message which contains my email address?
+if grep -i 'http:.*?.*=smcpeak' <"$msg" >/dev/null; then
+  emailURL=2
+else
+  emailURL=0
+fi
+
+# too many spaces?  this is common when it's lots of spaces and
+# then a bracketed ID code from some common spam software
+if echo "$subject" | grep '              ' >/dev/null; then
+  manySpaces=3
+else
+  manySpaces=0
+fi
+
+# does the body have HTML links?
+# some weird, massively badly-formatted spam had "3D" before the
+# "=" in the link syntax...
+if egrep -i 'href=(3D)?"http:' <"$msg" >/dev/null; then
+  htmlLinks=1
+else
+  htmlLinks=0
+fi
+
+# does the body have HTML image references?
+if egrep -i '<img +src=' <"$msg" >/dev/null; then
+  imgSrc=1
+else
+  imgSrc=0
+fi
+
+# body use html tables?
+if grep -i '<table' <"$msg" >/dev/null; then
+  htmlTables=2
+else
+  htmlTables=0
+fi
+
+# body fails to mention me anywhere?
+if grep -v 'for <smcpeak' <"$msg" | grep smcpeak >/dev/null; then
+  bulk=0
+else
+  bulk=1
+
+  # to specific mailing lists that don't use my name in mailings?
+  if grep cs-grads <"$msg" >/dev/null; then
+    bulk=0
+  fi
+fi
+
+# is the "from" address a number?
+if egrep 'From: +[0-9]+@' <"$msg" >/dev/null; then
+  fromNumber=4
+else
+  fromNumber=0
+fi
+
+# does the body include javascript?
+if egrep -i '<SCRIPT LANGUAGE=(3d)?"JavaScript">' <"$msg" >/dev/null; then
+  javascript=4
+else
+  javascript=0
+fi
+
+# is the message in base64?
+#  if grep -i '^Content-Transfer-Encoding: base64' <"$msg" >/dev/null; then
+#    messageBase64=4
+#  else
+#    messageBase64=0
+#  fi
+# problem with attachments..
+messageBase64=0
+
+# does the message admit to being bulk?
+#  if grep -i '^precedence: bulk' <"$msg" >/dev/null; then
+#    bulkHeader=1
+#  else
+#    bulkHeader=0
+#  fi       
+# softdev classified same way, gets high score..
+bulkHeader=0
+
+
+# ---------- check for things which are *not* spam --------
+# email from Mom/Dad, which happens to originate at yahoo or aol
+if grep '^From:' <"$msg" | egrep "$friends" >/dev/null; then
+  friends=-100
+else
+  friends=0
+fi
+
+
+# -------------- decide what to do with the email -------------
+# compute score
+score=$[ $fromFree +          \
+         $toFree +            \
+         $subjAllCaps +       \
+         $hasUnsub +          \
+         $twoBangs +          \
+         $dollar +            \
+         $virusRept +         \
+         $income +            \
+         $specialOffer +      \
+         $oneTimeAdvert +     \
+         $spammerSource +     \
+         $makeMoney +         \
+         $naughty +           \
+         $suggCt +            \
+         $freeBang +          \
+         $prices +            \
+         $emailURL +          \
+         $manySpaces +        \
+         $htmlLinks +         \
+         $imgSrc +            \
+         $htmlTables +        \
+         $bulk +              \
+         $fromNumber +        \
+         $javascript +        \
+         $messageBase64 +     \
+         $bulkHeader +        \
+         $friends ]
+
+# log the analysis results
+echo "[$$] ($score) " \
+     "fromFree=$fromFree " \
+     "toFree=$toFree " \
+     "subjAllCaps=$subjAllCaps " \
+     "hasUnsub=$hasUnsub " \
+     "twoBangs=$twoBangs " \
+     "dollar=$dollar " \
+     "virusRept=$virusRept " \
+     "income=$income " \
+     "specialOffer=$specialOffer " \
+     "oneTimeAdvert=$oneTimeAdvert " \
+     "spammerSource=$spammerSource " \
+     "makeMoney=$makeMoney " \
+     "naughty=$naughty " \
+     "suggCt=$suggCt " \
+     "freeBang=$freeBang " \
+     "prices=$prices " \
+     "emailURL=$emailURL " \
+     "manySpaces=$manySpaces " \
+     "htmlLinks=$htmlLinks " \
+     "imgSrc=$imgSrc " \
+     "htmlTables=$htmlTables " \
+     "bulk=$bulk" \
+     "fromNumber=$fromNumber" \
+     "javascript=$javascript" \
+     "messageBase64=$messageBase64" \
+     "bulkHeader=$bulkHeader" \
+     "friends=$friends " >>"$log"
+
+# test against threshold
+if [ $score -ge $threshold ]; then
+  # spam!
+  ln "$msg" "$spamDir"         
+  # log it, unless it's that damned 'customoffers.com', in which case
+  # don't even pollute my log with that trash
+  if [ $spammerSource = 0 ]; then
+    logger -t handle-email "[$$] deflected spam (score $score) from $from, $subject"
+  fi
+  echo "^^^^^ SPAM! from $from, $subject" >>"$log"
+else
+  # legitimate email, I think
+
+  # deliver the email to my Mailbox
+  if ! /usr/sbin/sendmail -oem -f "$from" "$localUser" <"$msg"; then
+    # print a message to my log, but otherwise drop it on floor
+    # (relying on its being retained in $msg)
+    echo "[$$] qmail choked on message" >>"$log"
+  fi
+fi
+
+# remove the temporary message
+#rm "$msg"
+
+exit 0

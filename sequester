@@ -1,0 +1,11 @@
+#!/bin/sh
+# take a group of similarly-named files and stuff them all into a new
+# directory, named with the common prefix
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 filename-prefix"
+  exit 0
+fi
+
+mkdir "$1" || exit
+mv "$1"[-._\ ]* "$1"

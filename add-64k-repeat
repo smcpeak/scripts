@@ -1,0 +1,17 @@
+#!/bin/sh
+# add 65536 to a number until it surpasses some threshold
+
+if [ "$2" == "" ]; then
+  echo "usage: $0 start-val threshold"
+  exit 0
+fi
+
+#set -x
+
+n=$1
+t=$2
+
+while [ $n -lt $t ]; do
+  n=$[ $n + 65536 ]
+done
+echo $n

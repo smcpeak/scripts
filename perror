@@ -1,0 +1,10 @@
+#!/bin/sh
+# map numeric error code to message
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 errno-code"
+  echo "(note: may be very linux-specific)"
+  exit 0
+fi
+
+grep $1 /usr/include/asm/errno.h

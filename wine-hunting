@@ -1,0 +1,22 @@
+#!/bin/sh
+
+cd ~/wine/c/windows
+stitle hunting
+
+# reset trial period
+rm -f system/lcmmfu.cpl system/mmf.sys Runservice.exe mmfs.dll
+
+cd ~/wine/c/HuntingUnlimited
+
+# this ends up putting the relevant process in the background
+wine hu_launch.exe >/dev/null 2>&1
+
+echo "waiting 15 seconds for you to press \"Try it\""
+sleep 15
+
+# kill the cpu-chew processes: anything with name 'runservice.exe'
+echo "Killing runservice.exe processes"
+psall | grep runservice.exe | grep -v grep | awk '{ print $1 }' | xargs kill
+
+# start top so I can monitor heap usage
+top -d 3

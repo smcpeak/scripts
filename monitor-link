@@ -1,0 +1,23 @@
+#!/bin/sh
+# monitor ability to contact a given IP addr
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 remote-machine-name"
+  exit 0
+fi
+remote="$1"
+
+while true; do
+  if ping -c 3 "$remote" >/dev/null 2>&1; then
+    # we're connected
+    echo `date`": pinged $remote - OK"
+  else
+    # failed
+    echo `date`": no reply from $remote - DOWN"
+  fi
+
+  # 10 minutes for now
+  sleep 600
+done
+
+

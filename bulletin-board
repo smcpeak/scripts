@@ -1,0 +1,17 @@
+#!/bin/sh
+# run a network service to accept connections and log whatever
+# data is sent
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 port-num log-file"
+  exit 0
+fi
+port="$1"
+logfile="$2"
+
+while true; do
+  faucet $port --in --once sh -c "cat >> $logfile"
+
+  # try to avoid DoS
+  sleep 1
+done
