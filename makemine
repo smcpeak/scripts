@@ -1,0 +1,24 @@
+#!/bin/sh
+# given the name of a file hardlinked from the linux sources,
+# essentially break the hardlink and make it owned by me, so
+# I can change it
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 file-to-make-mine..."
+  exit
+fi
+
+while [ "$1" != "" ]; do
+  # rename the existing file
+  mv -i $1 $1.orig || exit 1
+
+  # copy it
+  cp $1.orig $1 || exit 1
+
+  # remove the temp file
+  # update: I decided I want the .orig files to remain
+  #rm -f $1.tmp.$$ || exit 1
+
+  # next
+  shift
+done

@@ -7,5 +7,11 @@ monitor-connectivity >> ~/doc/logs/connectivity-log 2>&1 &
 echo "email fetcher..."
 start-fetchmail
 
-echo "mixer settings..."
-aumix -L
+#echo "news monitor..."
+#check-news-loop &
+
+if [ `hostname` == "leetch" ]; then
+  echo "mixer settings..."
+  aumix -L
+fi
+

@@ -1,0 +1,11 @@
+#!/bin/sh
+# print a text file
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 file.txt"
+  exit 0
+fi
+
+# convert text to postscript, then to HP PCL, then send to printer
+enscript --output=- --no-header $1 | ps2djet500 >/dev/lp0console
+

@@ -1,0 +1,9 @@
+#!/bin/sh
+# empty contents of argument directories
+
+while [ "$1" != "" ]; do
+  echo "rm -rf $1/*"
+  rm -rf "$1"/*
+  shift
+done
+

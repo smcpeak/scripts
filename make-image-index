@@ -1,0 +1,7 @@
+#!/bin/sh
+# output html index of some images
+
+while [ "$1" != "" ]; do
+  echo '<img src="'$1'">'
+  shift
+done

@@ -1,0 +1,4 @@
+#!/bin/sh
+# convert (somewhat clumsily) C++ comments to C comments
+
+sed 's,//\(.*\)$,/*\1 */,'

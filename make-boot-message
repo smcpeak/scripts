@@ -1,0 +1,38 @@
+#!/bin/sh
+# read /etc/lilo.conf, look for 'DESC' strings, and use them
+# to emit a suitable boot_message.txt
+
+# place to look for configuration file
+conf=/etc/lilo.conf
+
+# first, the static section
+cat <<EOF
+Welcome to the LILO Boot Loader!
+
+Please enter the name of the partition you would like to boot
+at the prompt below.  The first one listed is the default; simply
+press Enter to choose it.  The choices are:
+
+EOF
+
+# timeout info
+if grep 'timeout =' $conf >/dev/null; then
+  # look for the '=' part too so I can have the word "timeout"
+  # in the comments
+  val=`grep 'timeout =' $conf | head -1 | awk '{ print $3 }'`
+
+  # what's there is deciseconds, but I want to print seconds
+  val="$[ $val / 10 ]"
+
+  # quick sanity check; don't print anything if we messed up
+  if [ $val -gt 0 ]; then
+    echo "(The default will be automatically chosen in $val seconds.)"
+    echo
+  else
+    true
+  fi
+fi
+
+# then, whatever /etc/lilo.conf says
+grep '^# DESC' $conf | sed 's/^# DESC//'
+

@@ -1,9 +1,9 @@
-#! /bin/csh -f
+#!/bin/sh
 # script to portably report list of all jobs
 
-# turns out this works
-#/bin/ps -ef
+#ps ax --forest --format "%p %u %a" "$@"
+ps ax --forest --format pid,user,args "$@"
 
-ps aux --forest --cols 1000
+
 
 

@@ -1,0 +1,7 @@
+#!/bin/sh
+# number all the lines in stdin, send to stdout
+
+# nl: standard number-lines utility
+# -p: don't start renumbering at "page" boundaries
+# -ba: number all lines, even blank ones
+exec nl -p -ba

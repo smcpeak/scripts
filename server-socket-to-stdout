@@ -1,0 +1,12 @@
+#!/bin/sh
+# script to wait for a connection and cat the received bytes to stdout
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 port"
+  echo "  when someone connects to port, this will print the received bytes"
+  exit
+fi
+
+faucet $1 --in --once cat
+
+

@@ -1,0 +1,4 @@
+#!/bin/sh
+# grep for filenames that are source files
+
+exec grep '\(\.cpp\|\.h\|\.cc\|\.c\|\.cxx\|\.CPP\|\.hpp\|\.hh\|\.H\)$'

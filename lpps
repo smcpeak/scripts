@@ -1,0 +1,23 @@
+#!/bin/sh
+# print a postscript file
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 file.ps"
+  exit 0
+fi
+
+case "$1" in
+  *.ps)
+    # ok
+    true
+    ;;
+
+  *)
+    echo "lpps is for postscript files; rename the file to .ps"
+    exit
+    ;;
+esac
+
+echo printing..
+ps2djet500 < $1 > /dev/lp0
+

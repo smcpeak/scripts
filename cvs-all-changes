@@ -1,0 +1,37 @@
+#!/usr/bin/perl -w
+# show all changes made to a file, as diffs, starting
+# with the most recent
+
+# todo:
+#   - get it to stop faster when I kill output 'more'
+#   - print author of change, too
+
+if (@ARGV < 1) {
+  print("usage: $0 filename-to-show-history\n");
+  exit(0);
+}
+
+$fname = $ARGV[0];
+
+# grab the log, which will contain in it the names of
+# all the versions
+@versions = `cvs log "$fname"`;
+if ($#versions == -1) {
+  die "cvs log failed\n";
+}
+
+# extract all the versions into an iterable list
+@versions = grep /^revision/, @versions;
+#print @versions, "\n";
+@versions = map { $_ =~ s/revision //; chomp($_); $_; } @versions;
+#print @versions, "\n";
+
+for ($i = 0; $i < $#versions; $i++) {
+  # diff i and i+1                  
+  $cur = $versions[$i];
+  $prev = $versions[$i + 1];
+  system("cvs diff -c -r $prev -r $cur $fname");
+}
+
+exit(0);
+

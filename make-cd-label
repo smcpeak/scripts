@@ -1,0 +1,26 @@
+#!/bin/sh
+# script to create a .ps file suitable for printing, cutting, and
+#   insertion into a CD jewel case, as a label for that CD
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 title output.ps"
+  echo "  (Note: the title cannot have any slash (/) characters in it.)"
+  exit 0
+fi
+
+# verify the xfig template exists
+template="$HOME/share/cdlabel.fig"
+if [ ! -f "$template" ]; then
+  echo "can't find $template"
+  exit 1
+fi
+
+# create the source xfig file
+tmp="/tmp/label.$$.fig"
+sed "s/Jacket Title/$1/" < "$template" | sed "s/Spine Label/$1/" \
+  | sed "s/Edge Label/$1/" | sed "s/Text on Back/$1/" > "$tmp"
+
+# convert it to postscript
+fig2ps.landscape "$tmp" "$2"
+
+rm "$tmp"

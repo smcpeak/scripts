@@ -1,0 +1,12 @@
+#!/bin/sh
+# script to serve stdin to a connecting process
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 port"
+  echo "  any connecting process will receive stdin's contents"
+  exit
+fi
+
+faucet $1 --out --once cat
+
+

@@ -1,0 +1,12 @@
+#!/bin/sh
+# check for new news periodically
+
+while true; do
+  # trash error output; happens when check-news runs but
+  # I'm already reading news in emacs
+  check-news madrone.cs 6119 2>/dev/null \
+    | sed 's/^/News: /' | logger
+
+  # 5 minutes
+  sleep 300
+done

@@ -1,0 +1,32 @@
+#!/bin/sh
+# make a window my 'logs' window
+
+stitle logs
+
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+echo
+
+
+tail -f /var/log/messages

@@ -1,0 +1,28 @@
+#!/bin/sh
+# grab all the tracks on a cd into .wav files
+
+# bail on error
+set -e
+
+# grab to wav files
+cdparanoia -B 1-
+
+# convert them to mp3
+wav2mp3 *.wav
+
+exit 0
+
+# --------- old cdda2wav system -----------
+
+# and print commands as executed
+set -x
+
+# find # of tracks
+tracks=`cdda2wav -g --info-only --device /dev/cdrom 2>&1 \
+  | grep Tracks \
+  | sed 's/Tracks://' \
+  | sed 's/ .*//'`
+echo "This CD has $tracks tracks."
+
+# read all the tracks into .wav files
+cdda2wav --track 1+$tracks --device /dev/cdrom --bulk trk

@@ -1,0 +1,26 @@
+#!/bin/sh
+# check to see if there's any unread news in cs164 group
+
+tmp=/tmp/tmp.$$
+
+# always executed when script exits (unless SIGKILL)
+onExit()
+{
+  rm -f $tmp
+}
+trap onExit EXIT
+
+
+# what's the last article I read?
+myLast=`grep cs164 ~/.newsrc | sed 's/^.*[^0-9]\([0-9]\+\)$/\1/'`
+echo "Last article read: $myLast"
+
+# what's the last article on the server?
+cat >$tmp <<EOF
+group ucb.class.cs164
+quit
+EOF
+
+serverLast=`cat $tmp | hose madrone.cs 6119 --netslave2 \
+                     | grep cs164 | awk '{ print $4 }'`
+echo "Last article on server: $serverLast"

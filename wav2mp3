@@ -1,0 +1,13 @@
+#!/bin/sh
+# convert a series of wav files to mp3
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 *.wav"
+  echo "  converts all wav files to mp3"
+  exit
+fi
+
+while [ "$1" != "" ]; do
+  lame "$1"
+  shift
+done

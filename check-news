@@ -1,0 +1,134 @@
+#!/usr/bin/perl -w
+# talk to an NNTP server about some stuff
+
+# perl manual says I need:
+require 5.002;
+use IO::Socket;
+
+$verbose = 0;                 
+$dontWrite = 0;
+$statusFile = "$ENV{HOME}/settings/check.news";
+$unreadFile = "$ENV{HOME}/settings/num.unread.news";
+
+while (@ARGV >= 1 && $ARGV[0] =~ /^-/) {
+  if ($ARGV[0] eq "-v") {
+    $verbose = 1;
+  }
+  elsif ($ARGV[0] eq "-n") {
+    $dontWrite = 1;
+  }
+  else {
+    print STDERR ("unknown option: $ARGV[0]\n");
+    exit(2);
+  }
+
+  shift @ARGV;
+}
+
+if (@ARGV != 2) {
+  print("usage: $0 host port\n");
+  exit(0);
+}
+
+($host, $port) = @ARGV;
+
+
+sub diagnostic {
+  if ($verbose) {
+    print(@_);
+  }
+}
+
+
+# what's the last article I read?
+$line = `grep cs164 ~/.newsrc`;
+($lastRead) = ($line =~ /^.*[^0-9]([0-9]+)$/);    # last sequence of digits
+
+
+# what's the last article I saw posted?
+diagnostic("status file: $statusFile\n");
+if (-f $statusFile) {
+  $lastSaw = `cat $statusFile`;
+  chomp($lastSaw);      
+}
+else {
+  diagnostic("getting from .newsrc instead\n");
+  $lastSaw = $lastRead;
+}
+diagnostic("Last article read: $lastSaw\n");
+
+
+# connet to server
+$sock = IO::Socket::INET->new(
+          Proto    => "tcp",
+          PeerAddr => $host,
+          PeerPort => $port,
+        )
+  or die "cannot connect to port $port on $host\n";
+
+# get banner line
+$line = <$sock>;
+diagnostic("banner: $line");    # already has newline
+
+# ask for info about cs164
+$sock->autoflush(1);
+print $sock ("group ucb.class.cs164\n");
+
+# retrieve its reply
+$line = <$sock>;
+diagnostic("group info: $line");
+
+# extract the most-recent article number
+$recent = (split(' ', $line))[3];
+diagnostic("recent: $recent\n");
+
+# examine all articles past my most recent
+for ($article = $lastSaw + 1; $article <= $recent; $article++) {
+  diagnostic("Article $article:\n");
+
+  print $sock ("stat $article\n");
+  <$sock>;    # eat reply
+
+  print $sock ("head\n");
+  $line = <$sock>;
+  while ($line !~ /^\.\s*$/) {     # until last line in header
+    if ($line =~ /^From/) {
+      ($from) = ($line =~ /^From:\s+(.*\S)\s*$/);
+
+      # remove berkeley.edu from email addrs
+      $from =~ s/\.berkeley\.edu//i;
+
+      diagnostic("  from: $from\n");
+    }
+
+    if ($line =~ /^Subject/) {
+      ($subj) = ($line =~ /^Subject:\s+(.*\S)\s*$/);
+      diagnostic("  subject: $subj\n");
+    }
+
+    $line = <$sock>;
+  }
+
+  # print article info
+  print("$from   $subj\n");
+}
+
+# quit
+print $sock ("quit\n");
+
+if (!$dontWrite) {
+  # write down the updated last-seen
+  if ($lastSaw < $recent) {
+    system("echo $recent > $statusFile");
+  }
+
+  # write down how many articles are unread
+  $unread = $recent - $lastRead;
+  system("echo $unread > $unreadFile");
+}
+
+# done
+exit(0);
+
+
+

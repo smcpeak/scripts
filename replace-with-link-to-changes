@@ -1,0 +1,18 @@
+#!/bin/sh
+# temporary; replace a file in linux tree with a symlink
+# to that file under CVS control
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 file-to-replace"
+  exit
+fi
+
+while [ "$1" != "" ]; do
+  fn="$1"
+  cp --parents "$fn" ~/wrk/driver/changes || exit
+  mv "$fn" "$fn".before.linking || exit
+  ln -s ~/wrk/driver/changes/"$fn" "$fn" || exit
+  
+  shift
+done
+

@@ -1,0 +1,24 @@
+#!/bin/sh
+# take a snapshot of critical files
+   
+# find the next avail directory name
+n=1
+while [ -d "$n" ]; do
+  n=$[ $n + 1 ]
+done
+
+echo "snapshot number $n ..."
+mkdir $n || exit
+
+echo "list-critical ..."
+./list-critical > $n/crit || exit
+
+echo "md5 ..."
+./md5 `cat $n/crit` > $n/crit.md5 || exit
+
+echo "other system files ..."
+cp /etc/passwd /etc/shadow $n
+
+echo "done.  you may want to do:"
+echo "  # diff $[ $n - 1 ] $n | more"
+

@@ -1,0 +1,4 @@
+#!/bin/sh
+# run ssh with port argument
+
+ssh -p 522 "$@"

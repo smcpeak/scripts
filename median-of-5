@@ -1,0 +1,14 @@
+#!/bin/sh
+# run a program, discarding its output, but measuring its
+# excution time; do this 5 times
+
+if [ "$1" == "" ]; then
+  echo "usage: $0 program [args...]"
+  exit 0
+fi
+
+for n in 1 2 3 4 5; do
+  #echo "running $n"
+  t=`(time "$@" >/dev/null) 2>&1 | grep real | sed 's/real	0m//'`
+  echo "    $t"
+done

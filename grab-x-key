@@ -1,0 +1,4 @@
+#!/bin/sh
+# take an x key from stdin (uuencoded) and merge it
+
+uudecode -o - | xauth merge -

@@ -1,0 +1,13 @@
+#!/bin/sh
+# find a symbol in the standard library locations
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 sym-to-find"
+  exit
+fi
+sym=$1
+
+for name in /usr/lib/*.a /usr/local/lib/*.a ; do
+  #echo "$name"
+  nm $name | grep -i $sym | grep -iw t | sed "s#^#${name}:#"
+done

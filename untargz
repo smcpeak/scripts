@@ -11,6 +11,7 @@ if (@ARGV < 1) {
         "   or: $myname filename.zip\n",
         "   or: $myname filename.tar\n",
         "   or: $myname filename.deb\n",
+        "   or: $myname filename.tar.Z\n",
         "unpacks contents of file into a dir off current directory\n",
         "($myname will create a directory if necessary)\n");
   exit(0);
@@ -44,12 +45,13 @@ $gzipped = ($prefix =~ s/(\.tar\.gz)|(\.tgz)$//);
 $bzipped = ($prefix =~ s/(\.tar\.bz2)|(\.tbz2)$//);
 $pkzipped = ($prefix =~ s/(\.zip)|(\.ZIP)$//);
 $debbed = ($prefix =~ s/\.deb$//);
-if (!($tarred || $gzipped || $bzipped || $pkzipped || $debbed)) {
+$compressed = ($prefix =~ s/\.tar\.Z//);
+if (!($tarred || $gzipped || $bzipped || $pkzipped || $debbed || $compressed)) {
   # extension not recognized..
   print("I don't recognize the extension of $archive.\n");
   exit(1);
 }
-if ($tarred + $gzipped + $bzipped + $pkzipped + $debbed != 1) {
+if ($tarred + $gzipped + $bzipped + $pkzipped + $debbed + $compressed != 1) {
   die "multiply-archived?  I'm confused...\n";
 }
 
@@ -79,6 +81,9 @@ if ($tarred) {
 }
 elsif ($gzipped) {
   $res = system("(cd ..; gunzip -c $archive) | tar xvf -");
+}
+elsif ($compressed) {
+  $res = system("(cd ..; uncompress -c $archive) | tar xvf -");
 }
 elsif ($bzipped) {
   $res = system("(cd ..; bunzip2 -c $archive) | tar xvf -");

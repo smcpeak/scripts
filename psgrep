@@ -1,0 +1,25 @@
+#!/bin/sh
+# grep process list for a string
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 string-to-grep-for-among-process-list"
+  exit 0
+fi
+
+# use a temp file so the grep isn't running when I
+# do the 'ps'
+tmp=/tmp/psgrep.$$
+
+# always executed when script exits (unless SIGKILL)
+onExit()
+{
+  rm $tmp
+}
+trap onExit EXIT
+
+# grab a process list
+ps ax --format pid,user,args > $tmp
+
+# grep it for argument string, and remove the entry associated
+# with this shell script invocation
+grep "$1" $tmp | grep -v $$

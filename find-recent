@@ -1,0 +1,12 @@
+#!/bin/sh
+# report names of files modified recently
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 days"
+  echo "  reports all regular files that have been modified"
+  echo "  within the last 'days' days, anywhere in the current"
+  echo "  directory or subdirectories"
+  exit
+fi
+
+find . -mtime -$1 -type f -print

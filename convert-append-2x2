@@ -1,0 +1,47 @@
+#!/bin/sh
+# combine four images, arranged 2x2
+# I tried to make it work for fewer images automatically,
+# but for some reason 3 doesn't work ..
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 image1..4 dest-image"
+  exit
+fi
+
+if [ "$#" = "2" ]; then
+  # just 1 image; output it directly
+  cp $1 $2 || exit
+  exit
+fi
+
+# tmp1 will be [ 1 2 ]
+convert +append $1 $2 tmp1.jpg || exit
+
+if [ "$#" = "3" ]; then
+  # 2 images; use the first stripe directly
+  cp tmp1.jpg $3 || exit
+  rm tmp1.jpg || exit
+  exit
+fi
+
+if [ "$#" = "4" ]; then
+  # 3 images: stack them like
+  #   [ 1 2 ]
+  #   [ 3 3 ]
+  convert +append $3 $3 tmp2.jpg || exit
+  convert -append tmp1.jpg tmp2.jpg $4 || exit
+  rm tmp1.jpg tmp2.jpg || exit
+fi
+
+# tmp2 will be [ 3 4 ]
+convert +append $3 $4 tmp2.jpg || exit
+
+# final image will be
+#   [ 1 2 ]
+#   [ 3 4 ]
+convert -append tmp1.jpg tmp2.jpg $5 || exit
+
+# remove the temps
+rm tmp1.jpg tmp2.jpg || exit
+
+  

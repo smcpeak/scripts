@@ -1,0 +1,11 @@
+#!/bin/sh
+# script to connect to a port and return on stdout all of
+# what the remote machine puts on the port
+         
+if [ "$2" = "" ]; then 
+  echo "usage: $0 host port"
+  echo "  prints to stdout whatever the remote machine gives"
+  exit
+fi
+
+hose $1 $2 --in cat

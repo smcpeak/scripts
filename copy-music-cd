@@ -1,0 +1,44 @@
+#!/bin/sh
+
+# bail on error
+set -e
+
+# and print commands as executed
+set -x
+
+# find # of tracks
+tracks=`cdda2wav -g --info-only --device /dev/cdrom 2>&1 \
+  | grep Tracks \
+  | sed 's/Tracks://' \
+  | sed 's/ .*//'`
+echo "This CD has $tracks tracks."
+
+# read all the tracks into .wav files
+cd /tmp
+if [ ! -d wav ]; then
+  mkdir wav
+fi
+cd wav
+
+# remove any .wav files that are here so we don't get confused later
+rm -f *.wav
+
+if ! cdda2wav --track 1+$tracks --device /dev/cdrom --bulk trk; then
+  # this program routinely fails because of errors encountered right
+  # at the end, even when all tracks are ok; so let's see if the
+  # files are here at least
+  if [ `ls *.wav | wc -l` = "$tracks" ]; then
+    echo "continuing with burn despite failure"
+  else
+    echo "looks like cdda2wav really messed up; exiting"
+    exit 2
+  fi
+fi
+
+# burn those tracks onto the CD
+sudo burn-cd -audio trk*.wav
+
+# blow away the .wav files
+rm *
+cd ..
+rmdir wav

@@ -1,0 +1,4 @@
+#!/bin/sh
+# generate an authorization key, send to stdout uuencoded
+
+xauth extract - $DISPLAY | uuencode key

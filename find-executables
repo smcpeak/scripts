@@ -1,0 +1,4 @@
+#!/bin/sh
+# search for binary (compiled) executables
+
+find . -perm -100 | xargs file | grep ELF | awk '{ print $1 }' | sed 's/:$//'

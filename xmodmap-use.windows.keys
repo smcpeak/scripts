@@ -7,6 +7,9 @@
 # unfortunately, this means that Emacs misinterprets ctrl-alt-foo
 # as ctrl-alt-hyper-foo... !
 
+# the current setup just makes the right winlogo key act as Meta,
+# so Emacs sees it the same way it usually sees the Alt keys
+
 xmodmap - <<EOF
           !
           ! name Windows keys  
@@ -14,15 +17,20 @@ xmodmap - <<EOF
           ! unfortunately.. so I'm stuck with these rather
           ! odd names..)
           !
-          keycode 115 = Hyper_L
-          keycode 116 = Hyper_R
-          keycode 117 = Super_R
+          !keycode 115 = Hyper_L
+          !keycode 116 = Hyper_R
+          keycode 116 = Meta_R
+          !keycode 117 = Super_R
+
+          ! remove existing Meta_R on right-alt
+          keycode 113 = Alt_R
 
           !
           ! bind them
           ! (Mod1 means Alt)
           !
-          add Mod1 = Hyper_L
-          add Control = Hyper_R
-          add Lock = Super_R
+          !add Mod1 = Hyper_L
+          !add Control = Hyper_R
+          !add Lock = Super_R
+          add Mod1 = Meta_R
 EOF

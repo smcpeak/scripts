@@ -1,0 +1,53 @@
+#!/bin/sh
+# output the list of files to watch for changes
+
+# ----- subroutines -----
+# echo all the regular files in a given directory or directories, but
+# don't look at subdirectories
+echoFiles() {
+  find "$@" -maxdepth 1 -type f -print
+}
+
+# echo names of module files
+echoModules() {
+  for name in "$@"; do
+    find /lib/modules/`uname -r` -name ${name}.o -print
+  done
+}
+
+# ----- mainline code -----
+# binaries in standard places
+echoFiles /bin /sbin /usr/bin /usr/sbin /usr/local/sbin
+
+# X binaries
+echoFiles /usr/X11R6/bin
+
+# kernels
+ls /vmlinuz*
+
+# boot-time data
+echoFiles /boot
+
+# configuration files
+echoFiles /etc | grep -v ssh_random_seed | grep -v mtab
+
+# SafeTP state
+echoFiles /home/safetp /home/safetp/DSA | grep -v randomSeed
+
+# stuff I've installed and rely upon
+ls /usr/local/bin/ssh /usr/local/bin/md5 /usr/local/bin/scp
+
+# shared libraries
+echoFiles /lib /usr/lib /opt/kde/lib /usr/X11R6/lib | grep '.so'
+
+# loadable modules I use
+echoModules tulip sb uart401 sound soundcore lp parport_pc parport
+
+# netscape plugins
+echoFiles /usr/lib/netscape/plugins
+
+# crontab files
+echoFiles /var/spool/cron/crontabs
+
+# root's user files
+ls /root/.cshrc /root/.login

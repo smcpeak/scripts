@@ -1,0 +1,28 @@
+#!/usr/bin/perl -w
+# remove submissions superceded by newer ones
+
+# get list of submission file names
+@subms = `ls *.*`;
+
+# list for filtered names
+@filtered = ();
+
+# throw out those that are superceded by a later one
+for ($i=0; $i < @subms-1; $i++) {
+  chomp($subms[$i]);
+  chomp($subms[$i + 1]);
+
+  $fname1 = $subms[$i];
+  $fname2 = $subms[$i + 1];
+
+  # truncate suffixes
+  ($name1 = $fname1) =~ s/\..*$//;
+  ($name2 = $fname2) =~ s/\..*$//;
+
+  # compare
+  if ($name1 eq $name2) {
+    # fname1 is a superceded submission
+    print("rm $fname1\n");
+    system("rm $fname1");
+  }
+}

@@ -1,0 +1,18 @@
+#!/bin/sh
+# report differences between two groups of files
+
+if [ "$3" = "" ]; then
+  echo "usage: $0 start-directory end-directory file..."
+  echo "  for each file, diff (-ub) the version in start-dir and end-dir"
+  exit
+fi
+
+startdir=$1
+enddir=$2
+shift; shift
+
+for name in "$@" ; do
+  echo "diff -ub $startdir/$name $enddir/$name"
+  diff -ub $startdir/$name $enddir/$name
+done
+

@@ -1,0 +1,64 @@
+#!/usr/bin/perl -w
+# unpack a directory full of submissions
+
+if (@ARGV != 2) {
+  print("usage: $0 subm-dir dest-dir\n");
+  exit(0);
+}
+($subm_dir, $dest_dir) = @ARGV;
+
+mkdir($dest_dir, 0777);   # don't care if this fails because already exists
+
+# get list of submission file names
+@subms = `ls $subm_dir`;
+
+# list for filtered names
+@filtered = ();
+
+# throw out those that are superceded by a later one
+for ($i=0; $i < @subms-1; $i++) {
+  chomp($subms[$i]);
+  chomp($subms[$i + 1]);
+
+  $fname1 = $subms[$i];
+  $fname2 = $subms[$i + 1];
+
+  # truncate suffixes
+  ($name1 = $fname1) =~ s/\..*$//;
+  ($name2 = $fname2) =~ s/\..*$//;
+
+  # compare
+  if ($name1 ne $name2) {
+    # fname1 is name of a final submission
+    @filtered = (@filtered, $fname1);
+  }
+}
+@filtered = (@filtered, $subms[@subms-1]);
+
+$n = @filtered;
+print("$n filtered subms\n");
+
+
+for ($i=0; $i < @filtered; $i++) {
+  $fname = $filtered[$i];
+  ($name = $fname) =~ s/\..*$//;
+  print("$name\n");
+  if (0 != system("cd $dest_dir && ".
+                  "mkdir $name && cd $name && ".
+                  "uudecode ../../$subm_dir/$fname && ".
+                  "tar xfz PA*-handin.tar.gz")) {
+    die("failed on $fname");
+  }
+}
+
+
+exit(0);
+
+
+# -------- trash ---------
+print(@subms);
+
+$n = @subms;
+print("$n subms\n");
+
+

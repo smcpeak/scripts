@@ -1,0 +1,8 @@
+#!/usr/bin/perl
+# simpleminded way to convert printfs to couts --
+# doesn't handle lots of things, like %-format specifiers
+
+while ($line = <STDIN>) {
+  $line =~ s/printf\((.*)\)/cout << $1/;
+  print($line);
+}

@@ -1,0 +1,16 @@
+#!/bin/sh
+# compile and install a tarball package
+
+echo "this script doesn't work right now..."
+exit
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 package.tar.gz"
+  exit
+fi
+
+while [ "$1" != "" ]; do
+  # hmm... don't know how to find out dir after untargz,
+  # and would need to run as root anyway for install...
+  true
+done

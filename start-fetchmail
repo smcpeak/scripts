@@ -1,12 +1,4 @@
-#!/bin/csh -f
+#!/bin/sh -f
 # start the fetchmail daemon
 
-# clean the environment (without this, all incoming mail appears to
-# have been sent by me!)
-unsetenv QMAILINJECT
-unsetenv MAILUSER
-unsetenv MAILHOST
-unsetenv MAILNAME
-
-fetchmail --daemon 300
-
+exec run-fetchmail --daemon 300

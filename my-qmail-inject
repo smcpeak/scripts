@@ -1,0 +1,13 @@
+#!/bin/sh
+# simple wrapper on qmail-inject that saves messages
+# you can run fetchmail with this mda:
+#   run-fetchmail -v --mda ~/scripts/my-qmail-inject
+
+tmp=/tmp/my-qmail.$$
+set -e
+
+# read message into file
+cat > $tmp
+
+# fire up qmail-inject
+exec qmail-inject < $tmp

@@ -1,0 +1,9 @@
+#!/bin/sh
+# run xdvi but trash the font stuff
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 filename.dvi"
+  exit 0
+fi
+
+exec /usr/local/bin/xdvi "$@" >/dev/null 2>&1

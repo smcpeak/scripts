@@ -1,0 +1,12 @@
+#!/bin/sh
+# my interface to netpipes
+
+if [ "$#" != 2 ]; then
+  echo "usage: $0 host port"
+  exit 0
+fi
+
+host="$1"
+port="$2"
+
+hose "$host" "$port" --netslave

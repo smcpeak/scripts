@@ -1,0 +1,4 @@
+#!/bin/csh -f
+# script to sum floats presented one line at a time
+
+awk '{ a += $1; printf "%g\n", a }' | tail -1

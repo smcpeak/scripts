@@ -1,0 +1,11 @@
+#!/bin/sh
+# script to connect to a port and send all the bytes
+# on stdin to that port
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 host port"
+  echo "  sends to the host/port all bytes received on stdin"
+  exit
+fi
+
+hose $1 $2 --out cat

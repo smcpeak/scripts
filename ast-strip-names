@@ -1,0 +1,5 @@
+#!/bin/sh
+# given a fragment of an .ast file, extract the ctor names
+
+grep -- '->' | sed 's/^ *-> *//' | sed 's/(.*//'
+

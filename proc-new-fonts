@@ -1,0 +1,15 @@
+#!/bin/sh
+# process a new batch of fonts downloaded from fontszone
+
+mkdir tmp || exit
+mv *.zip tmp || exit
+cd tmp || exit
+map unzip *.zip || exit
+rm *.zip || exit
+rename-by-filter tolower * || exit
+emacs-batch-rename * || exit
+mv * .. || exit
+cd .. || exit
+rmdir tmp || exit
+
+

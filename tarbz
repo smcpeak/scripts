@@ -1,9 +1,9 @@
 #!/bin/sh
-# script to tar and gunzip a directory
+# script to tar and bzip a directory
 
-if [ "$1" = "" ]; then
+if [ "$1" == "" ]; then
   echo "usage: $0 directory-name"
-  echo "  writes directory-name.tar.gz into current directory"
+  echo "  writes directory-name.tar.bz2 into current directory"
   exit
 fi
 
@@ -11,4 +11,4 @@ fi
 # (by using tcsh filename completion); this fixes it
 d=`echo $1 | sed 's#/$##'`
 
-tar cvf - $d | gzip -c > $d.tar.gz
+tar cvf - $d | bzip2 > $d.tar.bz2

@@ -1,0 +1,11 @@
+# this file meant to be sourced from bash
+# it sets environment variables for qt2
+
+export QTDIR=/usr/local/qt-2.3.1
+export PATH=$PATH:$QTDIR/bin
+export MANPATH=$MANPATH:$QTDIR/doc/man
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$QTDIR/lib
+
+# unset this, since my default config for some reason
+# has this pointing to qt1.44
+CPLUS_INCLUDE_PATH=

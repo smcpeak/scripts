@@ -5,11 +5,29 @@
 use strict 'subs';
 use IO::Handle;
 
+# configuration
+$showCpu = 1;
+$showSys = 1;
+$showHda = 1;
+$showHdb = 0;
+$showHdc = 0;
+$showEth0 = 1;
+$showNews = 0;
+$unreadFile = "$ENV{HOME}/settings/num.unread.news";
+$showTemp = 1;
+$tempChip = "via686a-isa-6000";
+
 # flush all output immediately
 STDOUT->autoflush(1);
 
 # start by sampling counters
 @prev = getTickCounters();
+
+# this is used to make sure we completely erase the previous output
+$prevOutputLen = 0;
+
+# used to limit reading frequency of temperature data
+$tempReadDelay = 0;
 
 # drop into infinite loop
 while (1) {
@@ -21,16 +39,59 @@ while (1) {
 
   # compute differences
   @ticks = elementwiseSubtract($#next + 1, @next, @prev);
-  ($user, $nice, $system, $idle, $disk) = @ticks;
+  ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, $sendCt, $recvCt) = @ticks;
   $duty = $user + $nice + $system;
   $total = $duty + $idle;
 
   #print("user=$user nice=$nice system=$system idle=$idle\n");
 
+  # get # of unread news articles
+  $unread = 0;
+  if ($showNews && (-f $unreadFile)) {
+    open(IN, "<$unreadFile");
+    $unread = <IN>;
+    chomp($unread);
+    close(IN);
+  }
+
+  $temp = readCpuTemp();
+
   # compute usages
-  printf("\rcpu %s   sys %s   hda $disk  ",
-         pctString($duty * 100 / $total),
-         pctString($system * 100 / $total));
+  $output = "\r";        # begin by moving to beginning of line
+  if ($showCpu) {
+    $output .= "c" . pctString($duty * 100 / $total) . " ";
+  }
+  if ($showSys) {
+    $output .= "s" . pctString($system * 100 / $total) . " ";
+  }
+  if ($showTemp) {
+    $output .= "$temp ";
+  }
+  if ($showHda) {
+    $output .= "a$disk1 ";
+  }
+  if ($showHdb) {
+    $output .= "b$disk2 ";
+  }
+  if ($showHdc) {
+    $output .= "c$disk3 ";
+  }
+  if ($showEth0) {
+    $output .= "e$sendCt/$recvCt ";
+  }
+  if ($unread > 0) {
+    $output .= "n$unread ";
+  }
+  $output .= " ";        # total of 2 spaces at end to clear old data
+  print($output);
+
+  # make sure prev line is erased
+  while (length($output) < $prevOutputLen) {
+    print(" ");
+    $prevOutputLen--;
+  }
+
+  $prevOutputLen = length($output) - 2;   # since $output has 2 spaces at end
 
   # replace prev with next
   @prev = @next;
@@ -48,21 +109,62 @@ sub getTickCounters {
   my ($dontCare, $user, $nice, $system, $idle) =
     split(' ', <IN>);
 
-  # extract disk field from second line
-  my ($dontCare2, $disk) = split(' ', <IN>);
+  # extract disks field from second line
+  my ($dontCare2, $disk1, $disk2, $disk3) = split(' ', <IN>);
 
   # close the file
   close(IN) or die;
 
+
+  # open /proc/net/dev also, to get network device stats
+  open(IN, "</proc/net/dev") or die;
+
+  # read the lines, filter for eth0
+  my @eth0Lines = grep(/eth0/, <IN>);
+  close(IN) or die;
+  my ($recvCt, $sendCt) = (0,0);    # values in case there is no eth0
+  if (@eth0Lines > 0) {
+    my $eth0 = $eth0Lines[0];
+
+    # read the fields, and select the send/receive packet counters
+    $eth0 =~ s/.*://;     # strip leading "eth0:"
+    my @fields = split(' ', $eth0);
+    ($recvCt, $sendCt) = ($fields[1], $fields[9]);
+  }
+
   # return relevant fields
-  return ($user, $nice, $system, $idle, $disk);
+  return ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, $sendCt, $recvCt);
+}
+
+
+# sample temperature every 10 seconds (if at all)
+# see http://www.netroedge.com/~lm78/
+sub readCpuTemp {
+  my $ret = 0;
+  #print ("readCpuTemp called\n");
+  if ($showTemp) {
+    if ($tempReadDelay-- == 0) {
+      $line = `sensors $tempChip | grep 'CPU Temp'`;
+      #print ("line is $line\n");
+      ($ret) = ($line =~ /^CPU Temp: \+(\d+\.\d.)C/);
+      if (!$ret) {
+        $ret = "??";
+      }
+      $saveTemp = $ret;        # save for when we don't really read
+      $tempReadDelay = 10;     # reset delay counter
+    }
+    else {
+      $ret = $saveTemp;
+    }
+  }
+  return $ret;
 }
 
 
 # return a percentage as a 3-char string
 sub pctString {
   ($val) = @_;
-  
+
   if ($val < 0) {
     return "<0%";
   }

@@ -3,6 +3,13 @@
 
 use strict 'subs';
 
+# seed the rng with the time
+srand;
+
+# default parameters
+$random = 0;       # when true, we play songs from playlists in random order
+$dummy = 0;        # when true, don't actually play anything
+
 # top loop is the argument-processing loop; arguments are
 # parameter-settings, mp3s or playlists
 $nontrivialArgs = 0;
@@ -35,7 +42,13 @@ while ($arg = shift(@ARGV)) {
   # all others we assume are playlists
   else {
     $nontrivialArgs++;
+    $olddir = `pwd`;             
+    $newdir = `dirname $arg`;
+    chomp($newdir);
+    #printf("chdir $newdir ...\n");
+    chdir($newdir) || die;
     playList($arg);
+    chdir($olddir);
   }
 }
 
@@ -76,7 +89,9 @@ sub playMp3 {
   }
 
   print("playing: $mp3fname\n");
-  system('/home/scott/bin/xaudio/xaudio "' . $mp3fname . '" 2>/dev/null');
+  if (!$dummy) {
+    system('/home/scott/bin/xaudio "' . $mp3fname . '" 2>/dev/null');
+  }
 }
 
 
@@ -87,9 +102,6 @@ sub playList {
     print STDERR ("Error: Failed to open $listfname: $!\n");
     return;
   }
-
-  # default parameters
-  $random = 0;       # when true, we play songs from playlists in random order
 
   # list of mp3s and playlists
   @playlist = ();
@@ -115,6 +127,7 @@ sub playList {
         next;
       }
       $startparams++;
+      next;
     }
 
     # parameters end
@@ -128,21 +141,22 @@ sub playList {
         next;
       }
       $endparams++;
+      next;
     }
 
 
     # global parameter
     if ($startparams > $endparams) {
-      @nameAndValue = ($line =~ /^\s*(\S+)\s*=\s*(.*)$/);
+      @nameAndValue = ($line =~ /^\s*(\S+)\s+=\s+(.*)$/);
                               #      ^^^^^   ^   ^^^^
                               #      name    =   value
 
       if (@nameAndValue != 2) {
         print STDERR ("$lineNo: Parameters must be of form `name = value'.\n");
         next;
-      }			      
+      }
       ($name, $value) = @nameAndValue;
-      
+
       if (!defined($$name)) {
         print STDERR ("$lineNo: `$name' is not a parameter I recognize.\n");
         next;
@@ -172,7 +186,8 @@ sub playList {
 
   # now, process the list of mp3s and playlists
   if ($random == 1) {
-    print STDERR ("For now, random is unimplemented.\n");
+    #print("shuffling\n");
+    @playlist = shuffle(@playlist);
   }
 
   # debugging: print list of songs
@@ -206,11 +221,16 @@ sub playList {
   }
 }
 
+# grabbed from http://www.rocketaware.com/perl/perlfaq4/How_do_I_shuffle_an_array_random.htm
+sub shuffle {
+  my (@old) = @_;
 
+  my @new = ();
+  while (@old) {
+    push(@new, splice(@old, rand @old, 1));
+  }
 
+  return @new;
+}
 
-
-
-
-
-
+# end of file

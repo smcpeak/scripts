@@ -10,4 +10,4 @@ fi
 str="$1"
 
 # use sed
-sed "s/^/$1/"
+exec sed "s/^/$1/"

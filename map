@@ -1,0 +1,15 @@
+#!/bin/sh
+# call a program repeatedly with all arguments
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 program args..."
+  exit
+fi       
+
+prog="$1"
+shift
+
+while [ "$1" != "" ]; do
+  $prog "$1"
+  shift
+done

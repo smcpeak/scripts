@@ -1,0 +1,43 @@
+#!/bin/sh
+# test a PA4 submission
+
+# stop on errors
+set -e
+
+# which lang?
+if [ -f cool-tree.java ]; then
+  ASSN=PA4J
+  asn=pa4j
+elif [ -f semant.cc ]; then
+  ASSN=PA4
+  asn=pa4
+else
+  echo "cool-tree.java and semant.cc are both missing!"
+  exit 4
+fi
+
+# setup blank area
+rm -rf tmp || true
+mkdir tmp
+cd tmp
+make -f ~/wrk/cs164/cool/assignments/$ASSN/Makefile
+
+# compile their code
+cp ../* . || true
+echo "compiling ..."
+gmake semant
+
+# run it on their test case (better work!)
+echo "running on good.cl ..."
+./mysemant good.cl > /dev/null
+
+# run my tests
+ln -s ~/wrk/cs164/pa4/{bad,good} .
+
+echo "running full tests ..."
+~/wrk/cs164/pa4/run-tests
+
+cd ..
+rm -rf tmp
+
+exit 0

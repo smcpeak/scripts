@@ -1,0 +1,17 @@
+#!/bin/sh
+# make a new directory in /usr/local, owned by scott.users
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 subdir-to-make"
+  exit 0
+fi
+
+cd /usr/local
+if [ -e "$1" ]; then
+  echo "/usr/local/$1 already exists"
+  exit 1
+fi
+
+mkdir "$1"
+chown scott.users "$1"
+

@@ -1,0 +1,15 @@
+#!/bin/sh
+# make a bunch of black xterms for watching atomfilms.com movies
+
+# big one to cover the back
+xterm -bg black -geometry 179x70+0-32 &
+
+# four to cover the sides
+panel() {
+  xterm -bg black -geometry $1 +sb -title nodecor -e sleep 1000000 &
+}
+panel 80x24+376+72
+panel 42x56+779-86
+panel 80x24+367-92
+panel 42x26+161+332
+

@@ -1,0 +1,71 @@
+#!/bin/sh
+# print a text file
+
+usage()
+{
+  echo "usage: $0 [options] file.txt"
+  echo "  options:"
+  echo "    -dummy:       just print how many pages it would be; don't print"
+  echo "    -dummyO:      dummy print with output in tmp.ps (\"O\" is \"oh\")"
+  echo "    -2up:         print 2-up landscape"
+  echo "    -fontSize N:  use font size N"
+  exit 0
+}
+if [ "$1" = "" ]; then
+  usage
+fi
+
+# process arguments
+dummy=0
+args=""
+while [ "$#" -gt 1 ]; do
+  case "$1" in
+    -dummy)
+      dummy=1
+      ;;
+
+    -dummyO)
+      dummy=2
+      ;;
+
+    -2up)
+      # -2r means 2up landscape
+      # -i 1 means indent every line by 1
+      args="$args -2r -i 1"
+      ;;
+
+    -fontSize)
+      shift
+      args="$args --font=Courier$1"
+      ;;
+
+    *)
+      usage
+      ;;
+  esac
+
+  shift
+done
+
+if [ ! -f "$1" ]; then
+  echo "$0: file doesn't exist: $1"
+  exit 2
+fi
+
+if [ "$dummy" = "0" ]; then
+  # convert text to postscript, then to HP PCL, then send to printer
+  echo enscript "$args --output=- $1 | ps2djet500 >/dev/lp0"
+  enscript $args --output=- $1 | ps2djet500 >/dev/lp0
+else
+  if [ "$dummy" = "1" ]; then
+    args="$args --output=/dev/null"
+  else
+    args="$args --output=tmp.ps"
+  fi
+
+  # convert to postscript (printing pages), then dump it
+  echo enscript $args $1
+  enscript $args $1
+fi
+
+

@@ -1,0 +1,27 @@
+#!/bin/sh
+# output an email with proper headers for mass-mail
+
+if [ "$#" != 4 ]; then
+  echo "usage: $0 email-body-file names-list from-addr subject"
+  exit 0
+fi
+
+
+body="$1"
+names="$2"
+from="$3"
+subj="$4"
+
+# for commas on all but last line..
+namesLen=`cat "$names" | wc -l`
+namesLen=$[ $namesLen - 1 ]
+
+echo "To: $from"
+echo "From: $from"
+echo "Subject: $subj"
+echo -n "Bcc: "
+head -"$namesLen" "$names" | sed 's/^/  /' | sed 's/$/,/'
+tail -1 "$names" | sed 's/^/  /'
+echo ""
+cat "$body"
+

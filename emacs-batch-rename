@@ -11,6 +11,7 @@ tmp=/tmp/batch-rename.$$
 ls -d "$@" >$tmp || exit 2
 
 # edit it
+echo -n "(Press C-x # when done) "
 emacsclient $tmp || exit 2
 
 # apply it

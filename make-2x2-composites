@@ -1,0 +1,89 @@
+#!/usr/bin/perl -w
+# take a bunch of image files and create 2x2 composite images
+
+use strict 'subs';
+
+if ( @ARGV == 0 ) {
+  print("usage: $0 [-dummy] images...\n");
+  print("  will create 2x2 composites of groups of 4\n");
+  print("  -dummy: don't actually do anything, just print the commands\n");
+  exit(0);
+}
+
+$dummy = 0;
+if ( $ARGV[0] eq "-dummy" ) {
+  print("using dummy mode\n");
+  $dummy = 1;
+  shift(@ARGV);
+}
+
+# starting value for numbering the composites
+$compIndex = 1;
+
+while ( @ARGV >= 4 ) {
+  $cmd = "convert-append-2x2 ";      # beginning of final command
+
+  $n = 4;
+  #if (@ARGV < 4) {
+  #  $n = @ARGV;                      # to handle short counts
+  #}
+
+  # make versions with borders
+  for ($i=0; $i < $n; $i++) {
+    $fn = $ARGV[$i];
+    $out = "border.$fn";
+    run("convert -border 10x10 -bordercolor white $fn $out");
+    $cmd .= "$out ";
+  }
+
+  # assemble the 2x2 composites
+  while ( -e "comp$compIndex.jpg" ) {
+    $compIndex++;
+  }
+  run("$cmd comp$compIndex.jpg");
+
+  # remove the temporaries, and advance to the next group of 4
+  for ($i=0; $i < $n; $i++) {
+    $fn = shift(@ARGV);
+    run("rm border.$fn");
+  }
+}
+
+# this code was for when I didn't handle short counts; now, it's
+# never executed
+if ( @ARGV != 0 ) {
+  print("the following files are extra: ");
+  for ($i=0; $i < @ARGV; $i++) {
+    print("$ARGV[$i] ");
+  }
+  print("\n");
+}
+
+# end of script
+exit;
+
+
+# run a command (or list of commands), and if it fails, return false;
+# either way, set global $lastCmdTried to command tried
+sub runDontDie {
+  my $cmd;
+  while ($cmd = shift @_) {
+    $lastCmdTried = $cmd;
+    print("executing: $cmd\n");
+    if (!$dummy) {
+      if (system($cmd) != 0) {    # error
+        return 0;
+      }
+    }
+  }
+  return 1;
+}
+
+
+# run a command (or list of commands), and if it fails, print a message and exit
+sub run {
+  if (!runDontDie(@_)) {
+    complainAndQuit($lastCmdTried);
+  }
+}
+

@@ -1,0 +1,55 @@
+#!/bin/sh
+# test a PA3 submission
+
+# stop on errors
+set -e
+
+# which lang?
+if [ -f cool.cup ]; then
+  ASSN=PA3J
+  asn=pa3j
+elif [ -f cool.y ]; then
+  ASSN=PA3
+  asn=pa3
+else
+  echo "cool.cup and cool.y are both missing!"
+  exit 4
+fi
+
+# setup blank area
+rm -rf tmp || true
+mkdir tmp
+cd tmp
+make -f ~/wrk/cs164/cool/assignments/$ASSN/Makefile
+
+# compile their code
+cp ../* . || true
+gmake parser
+
+# run it on their test case (better work!)
+./myparser good.cl > /dev/null
+
+# run my tests
+ln -s ~/wrk/cs164/pa3/{bad,good} .
+ln -s ~/wrk/cs164/cool/bin/reference-parser .
+
+# now allow nonzero exists due to grep
+set +e
+
+echo "my bad tests..."
+~/wrk/cs164/pa3/test-bad | grep @@@
+
+echo "my good tests..."
+~/wrk/cs164/pa3/test-good  | grep @@@
+
+# run last semester's tests
+echo "existing bad tests..."
+~/wrk/cs164/pa3/test-exist-bad  | grep @@@
+
+echo "existing good tests..."
+~/wrk/cs164/pa3/test-exist-good  | grep @@@
+
+cd ..
+#rm -rf tmp
+
+exit 0

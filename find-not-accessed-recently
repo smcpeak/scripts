@@ -1,0 +1,12 @@
+#!/bin/sh
+# list files that haven't been accessed recently
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 root-dir days"
+  echo "  reports all regular files in the hierarchy starting at"
+  echo "  'root-dir' (without recursing across device boundaries)"
+  echo "  that have *not* been accessed in the last 'days' days"
+  exit
+fi
+
+exec find $1 -xdev -atime -${2} -type f -print
