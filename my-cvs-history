@@ -18,17 +18,20 @@ options:
                 (defaults to contents of CVS/Repository)
   -l:           (lowercase ell) do not get log information
                 (log info displayed only if -p not used)
+  -debug:       print some debug info
 EOF
 }
 
-
-sub diagnostic {
-  #print STDERR (@_);
-}
-
-
 # defaults
 $showLog = 1;
+$debug = 0;
+
+sub diagnostic {
+  if ($debug) {
+    print STDERR (@_);
+  }
+}
+
 
 # read arguments
 my $i = 0;
@@ -47,6 +50,9 @@ while ($i < @ARGV) {
   }
   elsif ($arg eq "-l") {
     $showLog = 0;
+  }
+  elsif ($arg eq "-debug") {
+    $debug = 1;
   }
   else {
     usage();

@@ -1,0 +1,20 @@
+#!/bin/sh
+# wrapper around cvs to remember what I did when; useful for knowing
+# which version of a repository I was using before a 'cvs update'
+# that broke everything..
+
+realcvs=/usr/bin/cvs
+
+if [ "$1" = "-n" ]; then
+  # assume we're doing something like "cvs -n update", which
+  # doesn't need to be added to the log
+  exec $realcvs "$@"
+fi
+
+if echo "$*" | grep -- --help >/dev/null; then
+  # we're asking cvs for help; don't log this either
+  exec $realcvs "$@"
+fi
+
+echo `date`" in "`pwd`": cvs $*" >> $HOME/.cvslog
+exec $realcvs "$@"

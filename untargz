@@ -2,6 +2,9 @@
 # script to gunzip and untar a file
 # rewritten in perl so I could easily add support for bzip2
 
+# now supports lots of file formats, so I don't have to
+# remember all the arcane commands to unpack them
+
 # check usage
 $myname = $0;
 $myname =~ s%.*/%%;   # strip path component
@@ -12,7 +15,8 @@ if (@ARGV < 1) {
         "   or: $myname filename.tar\n",
         "   or: $myname filename.deb\n",
         "   or: $myname filename.tar.Z\n",
-        "unpacks contents of file into a dir off current directory\n",
+        "   or: $myname filename.jar\n",
+        "unpacks contents of file into a subdir of current directory\n",
         "($myname will create a directory if necessary)\n");
   exit(0);
 }
@@ -39,19 +43,20 @@ else {                       # relative to cwd
 
 
 # figure out what the name is, without the extension(s)
-$prefix = $archive;
-$tarred = ($prefix =~ s/\.tar$//);
-$gzipped = ($prefix =~ s/(\.tar\.gz)|(\.tgz)$//);
-$bzipped = ($prefix =~ s/(\.tar\.bz2)|(\.tbz2)$//);
-$pkzipped = ($prefix =~ s/(\.zip)|(\.ZIP)$//);
-$debbed = ($prefix =~ s/\.deb$//);
-$compressed = ($prefix =~ s/\.tar\.Z//);
-if (!($tarred || $gzipped || $bzipped || $pkzipped || $debbed || $compressed)) {
+$prefix     = $archive;
+$tarred     = ($prefix =~ s/\.tar$//);
+$gzipped    = ($prefix =~ s/(\.tar\.gz)|(\.tgz)$//);
+$bzipped    = ($prefix =~ s/(\.tar\.bz2)|(\.tbz2)$//);
+$pkzipped   = ($prefix =~ s/(\.zip)|(\.ZIP)$//);
+$debbed     = ($prefix =~ s/\.deb$//);
+$compressed = ($prefix =~ s/\.tar\.Z$//);
+$jarred     = ($prefix =~ s/\.jar$//);
+if (!($tarred || $gzipped || $bzipped || $pkzipped || $debbed || $compressed || $jarred)) {
   # extension not recognized..
   print("I don't recognize the extension of $archive.\n");
   exit(1);
 }
-if ($tarred + $gzipped + $bzipped + $pkzipped + $debbed + $compressed != 1) {
+if ($tarred + $gzipped + $bzipped + $pkzipped + $debbed + $compressed + $jarred != 1) {
   die "multiply-archived?  I'm confused...\n";
 }
 
@@ -94,6 +99,9 @@ elsif ($pkzipped) {
 elsif ($debbed) {
   $res = system("ar t \"$archiveAbsolute\" && ar x \"$archiveAbsolute\"");
 }
+elsif ($jarred) {
+  $res = system("jar xvf \"$archiveAbsolute\"");
+}
 else {
   die("oops");
 }
@@ -111,7 +119,7 @@ if (@ls == 1) {
   $itsname = $ls[0];
   chomp($itsname);
   if ($itsname eq $dir) {
-    # my name and its match; must reconcile
+    # my name matches its name; must reconcile
     chdir("..") or die $!;
     $tempdir = "untargz_temp_dir.$$";
     if (-e $tempdir) {
@@ -138,7 +146,7 @@ if (@ls == 1) {
 }
 else {
   # it did not make its own dir, so tell the user where we put it
-  print("$myname: The tar file $archive did not make its own directory,\n",
+  print("$myname: $archive did not make its own directory,\n",
         "$myname: so I left all its files in ${dir}.\n");
   chdir("..") or die $!;
 }

@@ -23,6 +23,7 @@ threshold=4
 
 # some strings that are useful for spam detection
 freeMailSites='msn.com|yahoo|hotmail.com|mail.com|excite.com|lycos.com|aol.com|hotbot.com|public.com|compuserve.com'
+
 # had to remove 'ass' since lots of words have that in them somewhere
 # similar for 'cum'
 # (and I am avoiding -w since that means expanding word prefixes..)
@@ -33,18 +34,19 @@ suggestive='amateur|adult|girl|prescription|zyban|viagra'
 
 # strings in the 'from' which automatically make it not spam
 friends="johnmcpeak|sunnemcpeak|toddmcpeak|smcpeak|\
-necula|mirabito|weimer|dsw|hurwitz|aclu.org|harmonia|gm3576"
+necula|mirabito|weimer|dsw|hurwitz|aclu.org|harmonia|gm3576|aycock"
 
 # these are grepped in the subject
-scoreTwo='income|scott.*mcpeak'
+scoreTwo='income|scott.*mcpeak|toner'
 scoreThree='mortgage.*rates|special.*offer'
 scoreFour='make.*money|output.*from.*cron'
 
 # these are grepped in the body
-scoreThreeBody='one  *time  *advertisement|eudoramail\.com|this is not spam'
+scoreThreeBody='one  *time  *advertisement|eudoramail\.com|this is not spam|click  *here'
 
-# specific known spammers who use consistent 'from' addresses
-spamFrom='customoffers.com|The Investment Journal|s.*t.*a.*y.*h.*a.*r.*d|choiceoffers\.smtp0\.net|investor relations'
+# specific known spammers who use consistent 'from' addresses;
+# spam from these people isn't even logged
+spamFrom='customoffers\.com|The Investment Journal|s.*t.*a.*y.*h.*a.*r.*d|choiceoffers\.smtp0\.net|investor relations|hotpop\.com'
 
 # send email message to a temporary file
 msg="$HOME/tmp/var/msg/msg.$$"
@@ -269,6 +271,13 @@ messageBase64=0
 # softdev classified same way, gets high score..
 bulkHeader=0
 
+# is part of the message in big5?  certainly spam then..
+if grep 'charset="big5"' <"$msg" >/dev/null; then
+  big5=4
+else
+  big5=0
+fi
+
 
 # ---------- check for things which are *not* spam --------
 # email from Mom/Dad, which happens to originate at yahoo or aol
@@ -307,6 +316,7 @@ score=$[ $fromFree +          \
          $javascript +        \
          $messageBase64 +     \
          $bulkHeader +        \
+         $big5 +              \
          $friends ]
 
 # log the analysis results
@@ -337,12 +347,13 @@ echo "[$$] ($score) " \
      "javascript=$javascript" \
      "messageBase64=$messageBase64" \
      "bulkHeader=$bulkHeader" \
+     "big5=$big5" \
      "friends=$friends " >>"$log"
 
 # test against threshold
 if [ $score -ge $threshold ]; then
   # spam!
-  ln "$msg" "$spamDir"         
+  ln -f "$msg" "$spamDir"         
   # log it, unless it's that damned 'customoffers.com', in which case
   # don't even pollute my log with that trash
   if [ $spammerSource = 0 ]; then

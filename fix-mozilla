@@ -90,13 +90,14 @@ cd ../communicator
 cat <<EOF
 Starting editor on contentAreaContextOverlay.xul:
   Move the navigation entries to the top of the context menu;
-  search for "contentAreaContextMenu" and move Open below Navigation.
+  search for "contentAreaContextMenu" and move Back to the top.
 EOF
 emacsclient contentAreaContextOverlay.xul
 
 cat <<EOF
 Starting editor on platformCommunicatorOverlay.xul:
   Delete the keybindings for key_close, key_closeWindow and key_quit.
+  (Just delete the whole lines that say <key id="key_close" ...>.)
 EOF
 emacsclient platformCommunicatorOverlay.xul
 

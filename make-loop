@@ -1,7 +1,20 @@
 #!/bin/sh
 # run make in a loop
 
+if which dnotify >/dev/null 2>&1; then
+  # do one make first to get things in synch
+  make-quiet
+
+  # use dnotify, which reduces processor load by avoiding polling.
+  # --quiet is an option added by me to its sources...
+  exec dnotify --quiet --modify --create --delete . -e make-quiet "$@"
+fi
+
+echo "warning: Since 'dnotify' is missing, will use polling instead."
+echo "dnotify is available at http://freshmeat.net/projects/dnotify/"
+
+# poll if dnotify isn't available
 while true; do
-  make "$@" 2>&1 | egrep -v 'is up to date|Nothing to be done for'
+  make-quiet "$@"
   sleep 1
 done

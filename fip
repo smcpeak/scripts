@@ -1,0 +1,39 @@
+#!/bin/sh
+# filter in place: given a file and a filter program, run the
+# filter on the file and put the output back into that file,
+# overwriting it.  this script uses a somewhat clever technique
+# to avoid the messy creation of a temporary file.
+               
+if [ "$2" = "" ]; then
+  echo "usage: $0 filename filter [args [...]]"
+  echo "Conceptually does:"
+  echo "  filter [args] <filename >filename"
+  echo "except it works and does not create a temporary file"
+  exit 0
+fi
+
+file="$1"
+shift
+
+if [ ! -f "$file" ]; then
+  echo "Not a file: $file"
+  exit 2
+fi
+
+
+# open the file
+exec 0<"$file"
+
+# unlink it; this will delete the file's name from the filesystem,
+# but the contents remain on disk as long as a process retains a
+# filehandle to it, as this shell does.  (if the file has multiple
+# hardlinks, this of course just removes one, and the contents
+# accessible by the other hardlinks won't be disturbed by what
+# happens subsequently)
+rm "$file" || exit
+
+# exec the filter; its input will be inherited from this shell,
+# and is the file we want; the output is now redirected to the
+# original filename, but that name is no longer meaningful, so
+# a new file will be created (without disturbing the prior contents)
+exec "$@" >"$file"

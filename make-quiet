@@ -1,0 +1,4 @@
+#!/bin/sh
+# like 'make', but suppress message if nothing needs to be done
+
+make "$@" 2>&1 | egrep -v 'is up to date|Nothing to be done for'

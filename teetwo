@@ -3,6 +3,7 @@
 # but also sending both to this process' stdout/stderr, respectively
 
 # -outs [n]: print "out" to stdout, and "err" to stderr; exit $n
+# this is for use by the -test stuff
 if [ "$1" = "-outs" ]; then
   echo "out"
   echo "err" >&2
@@ -18,7 +19,7 @@ cat <<EOF
 usage: $0 [options] stdout-file stderr-file cmd [args..]
   options:
     -a: both files are appended-to instead of being overwritten
-    -test: run an internal diagnostic on this script
+    -test: run an internal (quite thorough) diagnostic on this script
 
   If either file is '-', the corresponding output is not saved
   to a file.
@@ -88,7 +89,7 @@ if [ "$stdoutFile" = "$stderrFile" ]; then
   # now use the same command as case 5
   exec 3>&1
   exec 4>&2
-  (("$@" || kill -USR1 $mypid) | $tee "$stdoutFile" 1>&3) 2>&1 | $tee "$stdoutFile" >&4
+  (("$@" || kill -USR1 $mypid) | $tee "$stdoutFile" 1>&3) 2>&1 | $tee "$stderrFile" >&4
 
 elif [ "$stderrFile" = "-" ]; then
   # case 3
@@ -96,14 +97,18 @@ elif [ "$stderrFile" = "-" ]; then
 
 elif [ "$stdoutFile" = "-" ]; then
   # case 4
+
   # dup stdout on fd 3, so I can explicitly send normal output there
   # to avoid tee; then redirect error output to fd 1 so tee will catch
-  # it; this one is tricky, it's easy to forget the final 1>&2
+  # it
+  #
+  # this one is tricky, it's easy to forget the final 1>&2
   exec 3>&1
   ("$@" 1>&3 || kill -USR1 $mypid) 2>&1 | ($tee "$stderrFile" 1>&2)
 
 else
   # case 5
+
   # dup my stdout/err on fd 3,4
   exec 3>&1
   exec 4>&2
@@ -116,6 +121,7 @@ exit $result
 
 # end of main script
 fi
+
 
 # --------------- test code ----------------
 me="$0"
@@ -144,7 +150,7 @@ runit() {
   else
     "$me" $append "$1" "$2" "$me" -outs $3 >out 2>err && exit $4
   fi
-  (diff out.ok out && diff err.ok err)        || exit $[ $4 + 1 ]
+  (diff out.ok out && diff err.ok err)       || exit $[ $4 + 1 ]
 }
 
 
@@ -172,10 +178,10 @@ runit - right 2             45
 
 echo "-------- testing case 5 -------"
 runit left right 0          50
-(diff out.ok left) || exit  52
+(diff out.ok left)  || exit 52
 (diff err.ok right) || exit 53
 runit left right 2          55
-(diff out.ok left) || exit  57
+(diff out.ok left)  || exit 57
 (diff err.ok right) || exit 58
 
 

@@ -1,0 +1,73 @@
+#!/usr/bin/perl -w
+# given a list of expected roms and their crcs, and a list
+# of existing rom files and their crcs, create links to
+# the existing files with the proper names, or report roms
+# that are expected but missing
+
+if (@ARGV < 2) {
+  print("usage: $0 expected-file existing-roms...\n",
+        "  format of expected-file:\n",
+        "    crc32   filename    description...\n");
+  exit(0);
+}
+
+
+$found = 0;
+$notFound = 0;
+
+
+# create a mapping from crcs to existing file names
+for ($i=1; $i < @ARGV; $i++) {
+  my $fname = $ARGV[$i];
+  my $line = `crc32 $fname`;
+  my ($crc) = ($line =~ m/^.*: 0x([0-9A-Z]{8})$/);
+  if (!defined($crc)) {
+    print("error computing crc of $fname\n");
+  }
+  else {                                        
+    my $already = $crcMap{$crc};
+    if (defined($already)) {
+      print("rom $fname is a duplicate of $already; ignoring\n");
+    }
+    else {
+      $crcMap{$crc} = $fname;
+    }
+  }
+}
+
+
+# work through the list of expected roms
+open(IN, "<$ARGV[0]") or die "cannot open $ARGV[0]: $!\n";
+while (defined($line = <IN>)) {
+  chomp($line);
+
+  # parse the fields
+  my ($crc, $filename, $desc) =
+    ($line =~ m/^\s*(\S+)\s+(\S+)\s*(.*)$/);
+  if (!defined($crc)) {
+    print("malformed line: $line\n");
+    next;
+  }
+  $crc = uc($crc);     # make all letters uppercase
+
+  print("looking for $filename, crc is $crc ...\n");
+  $existing = $crcMap{$crc};
+  if (!defined($existing)) {
+    print("no match among existing files..  :(\n");
+    $notFound++;
+  }
+  else {
+    print("matches $existing; making link\n");
+    $found++;
+    if (system("ln $existing $filename") != 0) {
+      print("error making link from $existing to $filename\n");
+      exit(4);
+    }
+  }
+}
+
+print("found: $found\n",
+      "not found: $notFound\n");
+
+exit($notFound);
+

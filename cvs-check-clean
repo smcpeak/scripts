@@ -1,0 +1,17 @@
+#!/bin/sh
+# check that a recently run 'make clean' has actually
+# cleaned everything it should, by moving .cvsignore out
+# of the way and then doing 'cvs -n update'
+
+# bail on error
+set -e         
+
+runecho() {
+  echo "$@"
+  "$@"
+}
+
+runecho mv .cvsignore .cvsignore-hidden
+runecho cvs -n update
+runecho mv .cvsignore-hidden .cvsignore
+

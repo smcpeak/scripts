@@ -15,6 +15,7 @@ $showHdc = 0;         # c: ..............................c
 $showEth = 1;         # e: packets sent/received over eth0
 $showPpp = 0;         # p: ...........................ppp0
 $showNews = 0;        # n: # of unread news articles
+$kernel22 = 0;        # true for 2.2 kernel, false for 2.4 kernel
 
 # configuration of some input sources
 $ethDevice = "eth0";
@@ -116,11 +117,42 @@ sub getTickCounters {
   open(IN, "</proc/stat") or die;
 
   # extract cpu fields from first line
-  my ($dontCare, $user, $nice, $system, $idle) =
+  my ($label, $user, $nice, $system, $idle) =
     split(' ', <IN>);
+  pretendUsed($label);
 
-  # extract disks field from second line
-  my ($dontCare2, $disk1, $disk2, $disk3) = split(' ', <IN>);
+  my ($disk1, $disk2, $disk3);
+
+  if ($kernel22) {
+    # 2.2: extract disks field from second line
+    ($label, $disk1, $disk2, $disk3) = split(' ', <IN>);
+  }
+  else {
+    # 2.4: read lines until one begins with "disk_io"
+    my $line;
+    while (defined($line = <IN>) &&
+           $line !~ m/^disk_io/)
+      {}
+
+    chomp($line);
+    #print("line=$line\n");
+
+    # pull the numbers after the colons; example line:
+    #   disk_io: (3,0):(7947,5235,331325,2712,184280) (3,1):(28060,8233,225218,19827,1095224)
+    #                   ^^^^=$disk1                          ^^^^^=$disk2
+    # if there are fewer than three disks, leave corresponding
+    # variable(s) undefined
+    ($disk1, $tail1, $disk2, $tail2, $disk3) =
+      ($line =~ m':\((\d+),[^:]+(:\((\d+),[^:]+(:\((\d+))?)?');
+    pretendUsed($tail1, $tail2);
+
+    # set undefined values to 0 to avoid warnings
+    if (!defined($disk1)) { $disk1 = 0; }
+    if (!defined($disk2)) { $disk2 = 0; }
+    if (!defined($disk3)) { $disk3 = 0; }
+
+    #print("disk1=$disk1 disk2=$disk2 disk3=$disk3\n");
+  }
 
   # close the file
   close(IN) or die;
@@ -156,7 +188,7 @@ sub getTickCounters {
 
 
 # sample temperature every 10 seconds (if at all)
-# see http://www.netroedge.com/~lm78/
+# see http://secure.netroedge.com/~lm78/
 sub readCpuTemp {
   my $ret = 0;
   #print ("readCpuTemp called\n");
@@ -164,7 +196,7 @@ sub readCpuTemp {
     if ($tempReadDelay-- == 0) {
       $line = `sensors $tempChip 2>/dev/null | grep 'CPU Temp'`;
       #print ("line is $line\n");
-      ($ret) = ($line =~ /^CPU Temp: \+(\d+\.\d.)C/);
+      ($ret) = ($line =~ /^CPU Temp: +\+(\d+\.\d.)C/);
       if (!$ret) {
         $ret = "??";
       }
@@ -224,4 +256,8 @@ sub elementwiseSubtract {
   }
 
   return @ret;
+}
+
+
+sub pretendUsed {
 }

@@ -10,35 +10,15 @@ if [ -d /home/scott/opt ]; then
 fi
 
 # defaults
-moz=$top/mozilla-1.0rc2
+moz=$top/mozilla-1.1
 
 # I hacked es1371 so this can default to yes!!
 flash=yes
 
 while [ "$1" != "" ]; do
   case "$1" in
-    -3)
-      moz=$top/mozilla-0.9.3
-      ;;
-
-    -4)
-      moz=$top/mozilla-0.9.4
-      ;;
-
-    -5)
-      moz=$top/mozilla-0.9.5
-      ;;
-
-    -6)
-      moz=$top/mozilla-0.9.6
-      ;;
-
-    -8)
-      moz=$top/mozilla-0.9.8
-      ;;
-
     -prev)
-      moz=$top/mozilla-20011011
+      moz=$top/mozilla-1.0
       ;;
 
     -flash)

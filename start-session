@@ -35,6 +35,11 @@ xterm -title pine -fn "-misc-fixed-medium-r-normal-*-15-*-*-*-*-*-iso8859-1" -e 
 grab_id pine
 movewin $id -move 533 542 -size 739 430
 
+# cpu-monitor, which ends up in the wrong position when the MWM-style
+# window decorations are used..
+grab_id cpu-monitor
+movewin $id -move 0 992 -size 250 10
+
 kmix
 
 # it turns out klipper is the horrible thing which brings up that
@@ -42,3 +47,11 @@ kmix
 echo "Killing klipper..."
 psgrep klipper | awk '{ print $1 }' | xargs kill
 #killall klipper
+
+# see if the truetype font server is working
+if xlsfonts | grep ttf >/dev/null; then
+  # ok
+  true
+else
+  echo "the truetype font server isn't working.."
+fi

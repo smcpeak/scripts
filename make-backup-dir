@@ -14,22 +14,22 @@ listall() {
 
 mkdir ~/backup
 cd ~
-cp -al `listall | egrep -vw \.loki\|News\|backup\|bak\|bin\|bld\|dist\|distleetch\|lib\|madrone\|mp3\|nsmail\|share\|tmp\|vmware\|wrk` ~/backup
+cp -al `listall | egrep -vw '\.loki|News|backup|bak|bin|bld|dist|distleetch|lib|madrone|mp3|nsmail|share|tmp|vmware|wrk|old.*|wine|opt'` ~/backup
 
 # remove some settings dirs which take more space than I want
 cd ~/backup
 rm -rf .mozilla/default/Cache .mozilla/*/*/Cache \
        .netscape/cache .opera/cache* .vslick .gftp/cache \
        .kde/share/apps/krn
+       
+# directories already backed up on previous CDs
+cd ~/doc/sch
+rm -rf fa00 fa98 fa99 sp00 sp01 sp99
 
 mkdir ~/backup/wrk
 cd ~/wrk
-cp -al `listall | egrep -vw cs164\|cplr\|harmonia\|safec\|sftpd\|gmp-3.1` ~/backup/wrk
-
-mkdir ~/backup/wrk/cs164
-cd ~/wrk/cs164
-cp -al `listall | egrep -vw cool\|cool-cvs` ~/backup/wrk/cs164
+cp -al `listall | egrep -vw 'cs164|cplr|harmonia|safec|sftpd|gmp-3.1'` ~/backup/wrk
 
 mkdir ~/backup/wrk/cplr
 cd ~/wrk/cplr
-cp -al `listall | egrep -vw parsgen\|harmonia\|ast` ~/backup/wrk/cplr
+cp -al `listall | egrep -vw 'parsgen|harmonia|ast'` ~/backup/wrk/cplr
