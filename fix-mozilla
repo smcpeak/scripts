@@ -19,10 +19,10 @@ moz="$1"
 tmp=~/tmp/fix-moz-$$
 
 # link the plugins
-if [ ! -f $moz/plugins/rpnp.so ]; then
-  echo "linking plugins"
-  ln -s ~/dist/plugins/* $moz/plugins
-fi
+#if [ ! -f $moz/plugins/rpnp.so ]; then
+#  echo "linking plugins"
+#  ln -s ~/dist/plugins/* $moz/plugins
+#fi
 
 
 # begin modifying a jar file
@@ -74,14 +74,15 @@ Starting editor on navigatorOverlay.xul:
   Also, delete the "Send Page..." option from the File menu (if present).
 EOF
 emacsclient navigatorOverlay.xul
-
+ 
+# removed the following, as there is a pref now (View | Show/Hide | Component Bar)
+#  Remove component bar: search for "component-bar" and delete the line.
 cat <<EOF
 Starting editor on navigator.xul:
   Remove forward, reload, stop buttons; search for "forward-button"
     and delete the three buttons.
   Disable urlbar popup: search for "urlbar" and change
     alwaysOpenPopup to "false".
-  Remove component bar: search for "component-bar" and delete the line.
 EOF
 emacsclient navigator.xul
 
@@ -104,18 +105,19 @@ emacsclient platformCommunicatorOverlay.xul
 repackage_jar comm
 
 
-# ------------------------ en-US.jar --------------------------
-explode_jar en-US
+# this appears to be unnecessary now
+#  # ------------------------ en-US.jar --------------------------
+#  explode_jar en-US
 
-cd locale/en-US/navigator
+#  cd locale/en-US/navigator
 
-cat <<EOF
-Starting editor on navigator-title.dtd:
-  Remove the build-id string from the two places it occurs.
-EOF
-emacsclient navigator-title.dtd
+#  cat <<EOF
+#  Starting editor on navigator-title.dtd:
+#    Remove the build-id string from the two places it occurs.
+#  EOF
+#  emacsclient navigator-title.dtd
 
-repackage_jar en-US
+#  repackage_jar en-US
 
 
 # -------------- end ----------------

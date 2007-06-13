@@ -1,0 +1,27 @@
+#!/usr/bin/perl -w
+# given a patch file on input, produce one that goes in the opposite direction
+
+use strict 'subs';
+
+if (-t STDIN) {
+  print(<<"EOF");
+usage: $0 <input.patch >output.patch
+EOF
+}
+
+while (defined($line = <STDIN>)) {
+  if ($line =~ m/^---/) {
+    $line = "+++" . substr($line, 3);
+  }
+  elsif ($line =~ m/^\+\+\+/) {
+    $line = "---" . substr($line, 3);
+  }
+  elsif ($line =~ m/^-/) {
+    $line = "+" . substr($line, 1);
+  }
+  elsif ($line =~ m/^\+/) {
+    $line = "-" . substr($line, 1);
+  }
+  
+  print($line);
+}

@@ -1,0 +1,70 @@
+#!/usr/bin/perl -w
+# search for any files whose timestamp differs from that in CVS/Entries
+
+# This is essentially what "cvs commit" lists as the "modifed"
+# files in its log message prompt.  I am writing this script
+# right now because I can't contact my repository server...
+
+use strict 'subs';
+
+$wd = `pwd`;
+chomp($wd);
+
+# get all the Entries files
+@entriesFiles = `find . -name Entries -print`;
+
+foreach $entry (@entriesFiles) {
+  # extract directory that comes before "CVS/Entries"
+  ($dir) = ($entry =~ m|^(.*)/CVS/Entries$|);
+  if (!defined($dir)) {
+    next;    # some file called Entries but not CVS/Entries
+  }
+
+  #print("looking at $dir\n");
+  chdir($wd);
+
+  # read the Entries file
+  open(ENT, "<$entry") or die("could not read $entry: $!\n");
+  @lines = <ENT>;
+  close(ENT) or die;
+
+  chdir($dir);
+
+  # parse it
+  foreach $line (@lines) {
+    #print("line: $line");
+
+    ($fname, $dummy, $date) = ($line =~ m|^/([^/]+)/([^/]+)/([^/]+)/|);
+    if (!defined($date)) {
+      next;    # header line or whatever
+
+      # TODO: Added files will get skipped here.  It would be nice
+      # to mention them.  But I don't know the format of such lines,
+      # and lacking net conn, it's hard to experiment.
+    }
+
+    if (! -f $fname) {
+      print("removed: $dir/$fname\n");
+      next;
+    }
+
+    # get the timestamp for this file
+    $info = `TZ=UTC ls -l --full-time '$fname'`;
+    ($dummy, $stamp) =
+      ($info =~ m|^(\S+\s+){5}(.*)|);           # strip stuff before the date
+
+    # compare to the one in Entries
+    $stamp = substr($stamp, 0, length($date));    # strip stuff after date
+    $stamp =~ s/^(... ...) 0/$1  /;              # strip leading 0 on day
+    if ($stamp ne $date) {
+      #print("stamp=$stamp date=$date\n");
+      print("modified: $dir/$fname\n");
+    }
+    else {
+      #print("not modified: $dir/$fname\n");
+    }
+  }
+}
+
+
+# EOF

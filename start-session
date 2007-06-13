@@ -28,30 +28,41 @@ start-logwin
 # mp3
 xterm -geometry 80x24+0-32 -title mp3 -e sh -c 'stitle mp3; console-renice -15 $$; cd $HOME/mp3; exec bash' &
 grab_id mp3
-movewin $id -move 0 650
+if [ -f /etc/slack8 ]; then
+  movewin $id -move 0 645
+else
+  movewin $id -move 0 640
+fi
 
 # pine
 xterm -title pine -fn "-misc-fixed-medium-r-normal-*-15-*-*-*-*-*-iso8859-1" -e /bin/sh -c 'mypine; exec bash' &
 grab_id pine
-movewin $id -move 533 542 -size 739 430
+if [ -f /etc/slack8 ]; then
+  movewin $id -move 530 537 -size 739 430
+else
+  movewin $id -move 535 537 -size 739 430
+fi
 
 # cpu-monitor, which ends up in the wrong position when the MWM-style
 # window decorations are used..
 grab_id cpu-monitor
-movewin $id -move 0 992 -size 250 10
+movewin $id -llcorner -move 0 992 -size 250 10
 
 kmix
 
 # it turns out klipper is the horrible thing which brings up that
 # window when I select a URL text
-echo "Killing klipper..."
-psgrep klipper | awk '{ print $1 }' | xargs kill
+#
+# and in later versions of KDE it can be disabled by right-clicking
+# on its icon in the system tray
+#echo "Killing klipper..."
+#psgrep klipper | awk '{ print $1 }' | xargs kill
 #killall klipper
 
 # see if the truetype font server is working
-if xlsfonts | grep ttf >/dev/null; then
-  # ok
-  true
-else
-  echo "the truetype font server isn't working.."
-fi
+#  if xlsfonts | grep -i girls >/dev/null; then
+#    # ok
+#    true
+#  else
+#    echo "the truetype font server isn't working.."
+#  fi

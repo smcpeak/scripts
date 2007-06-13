@@ -1,0 +1,11 @@
+#!/bin/sh
+# re-run handle-email, as if run by fetchmail
+
+# clean the environment (without this, all incoming mail appears to
+# have been sent by me!)
+export -n QMAILINJECT
+export -n MAILUSER
+export -n MAILHOST
+export -n MAILNAME
+
+exec handle-email "$@"

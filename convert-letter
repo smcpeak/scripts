@@ -1,0 +1,6 @@
+#!/bin/sh
+# run convert with 'letter' size
+
+# I always have to look in the man page to find this out,
+# so maybe this script will help ...
+exec runecho convert -page 612x792 "$@"

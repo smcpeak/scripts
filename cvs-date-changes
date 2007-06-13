@@ -1,0 +1,41 @@
+#!/usr/bin/perl -w
+# given (on stdin) a date/time in CVS history format,
+# output the CVS changes made at that time
+
+use strict 'subs';
+
+$dt = <STDIN>;
+chomp($dt);
+
+($year, $month, $day, $hour, $min, $tz) =
+  ($dt =~ m/(\d+)-(\d+)-(\d+) +(\d+):(\d+) +(\S+)/);
+if (!defined($tz)) {
+  print("unknown date/time format: $dt\n");
+  exit(2);
+}
+
+# strip any trailing name
+$before = sprintf("%04d-%02d-%02d %02d:%02d %s",
+                  $year, $month, $day,
+                  $hour, $min, $tz);
+
+$min = ($min + 1) % 60;
+if ($min == 0) {
+  $hour = ($hour + 1) % 24;
+  if ($hour == 0) {
+    $day++;
+    if ($day > 28) {
+      print("unimplemented: change at midnight near end of month\n");
+      exit(2);
+    }
+  }
+}
+
+$after = sprintf("%04d-%02d-%02d %02d:%02d %s",
+                  $year, $month, $day,
+                  $hour, $min, $tz);
+
+print("before: $before\n");
+print("after: $after\n");
+
+exit(system("cvs diff -u -D '$before' -D '$after'")==0? 0 : 4);

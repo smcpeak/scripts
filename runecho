@@ -1,0 +1,18 @@
+#!/bin/sh
+# Run a command, echoing it and its arguments first.
+#                                    
+# This is useful in makefile loops, so you can see all the
+# intermediate commands.  It's often better than just 'set -x' before
+# the loop, since that also echos things like the backtick evals which
+# I usually don't care about
+
+if [ "$1" = "" ]; then
+cat <<EOF
+usage: $0 command [args...]
+  Runs 'command args...', echoing both first.
+EOF
+  exit 0
+fi
+
+echo "$@"
+exec "$@"

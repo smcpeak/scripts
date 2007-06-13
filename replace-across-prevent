@@ -1,0 +1,33 @@
+#!/bin/sh
+# run replace-across-files with several transformation specs
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 filename"
+  exit 2
+fi
+
+fname="$1"
+
+repl() {
+  runecho replace-across-files -f -- "$1" "$2" "$fname"
+}
+
+# method to function call
+repl '(store|error)->([a-zA-Z0-9_]+)\(' '\2(\1, '
+
+# different iterator interface
+repl ' == end\(store, \)' '.done()'
+repl ' != end\(store, \)' '.notDone()'
+repl '->second->second' '.value()'
+repl '\b([a-z]+)_scalar_store_t::iterator' '\1_scalar_store_iterator_t'
+
+# different store creation/casting (assumes integer store)
+repl 'new \(a\) ([a-z_])+_store_t \(a, this\);' 'cast_new_int_checker_syn_store_t(a, this);'
+repl 'static_cast<([a-z_])+_store_t\*>\(state\)' 'cast_to_int_checker_syn_store_t(state)'
+repl 'DECL_STORE_PAT' 'DECL_INT_CHECKER_SYN_STORE_PAT'
+
+# two pass checker
+repl 'create_checker' 'create_2pass_checker'
+
+
+# EOF

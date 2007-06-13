@@ -1,0 +1,43 @@
+#!/usr/bin/perl -w
+# adjust indentation in a program
+
+use strict 'subs';
+  
+if (@ARGV != 2) {
+  print("usage: $0 current-indent-amount desired-indent-amount\n");
+  exit(2);
+}
+
+$current = $ARGV[0];
+$desired = $ARGV[1];
+
+if (!( numeric($current) && numeric($desired) )) {
+  die("arguments must be numeric\n");
+}
+
+$lineNum = 0;
+while (defined($line = <STDIN>)) {
+  $lineNum++;
+  chomp($line);
+  my ($spaces, $rest) = ($line =~ m/^( *)(.*)$/);
+  my $ind = length($spaces);
+  if ($ind % $current != 0) {
+    print STDERR ("warning: line $lineNum has unexpected indent level $ind\n");
+  }
+
+  $ind = ($ind / $current) * $desired;
+  print(" " x $ind, $rest, "\n");
+}
+
+sub numeric {
+  my ($s) = @_;
+  if ($s =~ m/^\d+$/) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+# EOF

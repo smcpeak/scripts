@@ -1,0 +1,18 @@
+#!/bin/sh
+# title -> id, call movewin
+
+# this finds the window id of the given window title
+grab_id() {
+  id=`xwininfo -name "$1" | grep "Window id" | awk '{ print $4 }'`
+  id=$id
+  if [ "$id" = "" ]; then
+    echo "Couldn't find the right window id"
+    exit 2
+  fi
+}
+
+grab_id "$1"
+shift
+exec movewin $id "$@"
+
+# EOF

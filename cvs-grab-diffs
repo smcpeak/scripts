@@ -1,0 +1,70 @@
+#!/usr/bin/perl -w
+# on stdin, accept lines such as
+#   2005-05-04 15:35 -0700    scott
+# for each such line, query for the diff of that commit, and
+# store it in a file called (again, e.g.)
+#   changes/2005-05-04_15:35_-0700_scott.diff
+
+use strict 'subs';
+
+sub inc {
+  my ($i) = @_;
+  $i++;
+  return sprintf("%02d", $i);
+}
+
+sub dec {
+  my ($i) = @_;
+  $i--;
+  return sprintf("%02d", $i);
+}
+
+while (defined($line = <STDIN>)) {
+  ($year,$month,$day,$hour,$minute,$tz,$who) =
+    ($line =~ m/^(\d\d\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d) (\S+)\s*(\S+)\s*$/);
+  if (!defined($who)) {
+    next;   # ignore lines that don't conform to the expected format
+  }
+
+  # status report
+  print($line);
+
+  # compute time +1 minute
+  if ($minute < 59) {
+    $after = "$year-$month-$day $hour:" . inc($minute) . " $tz";
+  }
+  elsif ($hour < 23) {
+    $after = "$year-$month-$day " . inc($hour) . ":00 $tz";
+  }
+  else {
+    die("unimplemented: time too near midnight: $line");
+  }
+
+  # compute time -1 minute
+  if ($minute > 0) {
+    $before = "$year-$month-$day $hour:" . dec($minute) . " $tz";
+  }
+  elsif ($hour > 0) {
+    $before=  "$year-$month-$day " . dec($hour) . ":59 $tz";
+  }
+  else {
+    die("unimplemented: time too near midnight: $line");
+  }
+
+  #print("  before: $before\n");
+  #print("  after:  $after\n");
+
+  if (! -d "changes") {
+    mkdir("changes") || die("cannot mkdir changes: $!\n");
+  }
+
+  # output file
+  $outfile = "changes/$year-$month-${day}_$hour:${minute}_$who.diff";
+
+  # run it; since it exits with status 1 anyway, don't check it..
+  system("cvs diff -D '$before' -D '$after' > '$outfile'");
+}
+
+
+
+# EOF

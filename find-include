@@ -17,16 +17,12 @@ cat >$tmp <<EOF
 // $tmp
 // test file to find $inc
 
-// sure to make compiler unhappy
-#define int @
-
-// now include the file and watch the fireworks
 #include <$inc>
 
 EOF
 
-# compile it, get only the error msg relating to the file of interest
-line=`(g++ -o /dev/null -c $tmp 2>&1) | grep $inc | head -1`
+# compile it, grep in the -H output for first occurrence
+line=`(g++ -o /dev/null -H -c $tmp 2>&1) | grep $inc | head -1`
 
 # clean up
 rm $tmp

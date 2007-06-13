@@ -1,0 +1,97 @@
+#!/usr/bin/perl -w
+# analyze a set of source files to find who added lines recently
+
+use strict 'subs';
+
+if (@ARGV < 3) {
+  print("usage: $0 file-with-filenames YY/MM/DD user1 [user2 [...]]\n" .
+        "\n" .
+        "YY/MM/DD is cutoff date in bk's weird format\n");
+  exit(2);
+}
+
+$mainFname = $ARGV[0];
+
+$cutoff = $ARGV[1];
+($cutYY, $cutMM, $cutDD) = ($cutoff =~ m|^(\d\d)/(\d\d)/(\d\d)$|);
+if (!defined($cutDD)) {
+  die("malformed date: $cutoff\n");
+}
+
+shift @ARGV;
+shift @ARGV;
+
+@users = @ARGV;
+
+# map from user to count for the current file
+%count = ();
+
+# and same for total
+%totalCount = ();
+
+# initialize %totalCount, and print header line
+print("fname");
+foreach $u (@users) {
+  $totalCount{$u} = 0;
+  print("\t$u");
+}
+print("\n");
+
+
+open(IN, "$mainFname") or die("cannot read $mainFname: $!\n");
+@fnames = <IN>;
+close(IN) or die;
+
+# scan all files
+foreach $fname (@fnames) {
+  chomp($fname);
+
+  # reset %count
+  foreach $u (@users) {
+    $count{$u} = 0;
+  }
+
+  # scan each line of $fname
+  open(IN, "bk annotate -d -u $fname |") or die("cannot bk annotate $fname\n");
+  while (defined($line = <IN>)) {
+    chomp($line);
+
+    my ($yy, $mm, $dd, $user) =
+      ($line =~ m|^(\d\d)/(\d\d)/(\d\d)\t(\S+)\t|);
+    if (!defined($user)) {
+      die("malformed line: $line\n");
+    }
+
+    # cutoff?
+    if ($yy < $cutYY) { next; }
+    if ($yy == $cutYY && $mm < $cutMM) { next; }
+    if ($yy == $cutYY && $mm == $cutMM && $dd < $cutDD) { next; }
+
+    # which user?
+    foreach $u (@users) {
+      if ($u eq $user) {
+        $count{$u}++;
+        $totalCount{$u}++;
+      }
+    }
+  }
+  close(IN) or die;
+
+  # report totals
+  print("$fname");
+  foreach $u (@users) {
+    my $ct = $count{$u};
+    print("\t$ct");
+  }
+  print("\n");
+}
+
+# totals for all files
+print("total");
+foreach $u (@users) {
+  my $ct = $totalCount{$u};
+  print("\t$ct");
+}
+print("\n");
+
+# EOF

@@ -1,0 +1,253 @@
+#!/bin/sh
+# run scenario test 9: Extend
+
+# requires scripts in /nfs/smcpeak/scripts:
+#   runecho     print a command then run it
+
+if [ "$1" = "" ]; then
+  cat <<EOF
+Usage: PLATFORM=<plat> VERSION=<ver> $0 <command> [<command> ..]
+Where <command> is one of:
+  install-prevent
+  install-extend
+  install-extend-compiler
+  extend-tests              Makefile-based tests
+  extend-gui-start          Start a GUI with Extend results
+  pause                     Wait for keyboard press
+  extend-gui-stop           Kill the GUI
+  uninstall-extend
+  uninstall-prevent
+  all                       Run all above commands in sequence
+Specifying multiple commands will run them all in sequence, stopping
+if any fails.
+EOF
+  exit 2
+fi
+
+# platform we are testing on
+if [ "$PLATFORM" = "" ]; then
+  echo "must set PLATFORM"
+  exit 2
+fi
+
+# version of Prevent/Extend to test
+if [ "$VERSION" = "" ]; then
+  echo "must set VERSION"
+  exit 2
+fi
+
+# version of the extend compiler; nominally should be the
+# same as $VERSION, but we've been having issues lately
+if [ "$VERSION" = "2.4.0" ]; then
+  # Extend 2.4.0 will use the 2.3.0 version of extend-compiler
+  EXTEND_COMP_VER="2.3.0"
+else
+  EXTEND_COMP_VER="$VERSION"
+fi
+
+# port number for GUI testing
+GUI_PORT=7788
+
+# variables needed by the Extend build scripts
+#
+# I install Prevent into ~/opt but Extend into ~/program files because
+# the former does not work with directory names that have spaces (DR
+# 3987), while the latter is supposed to (DR 3979) so we need to test
+# it.
+PREVENT_ROOT="$HOME/opt/prevent-$PLATFORM-$VERSION"
+EXTEND_ROOT="$HOME/program files/extend-$PLATFORM-$VERSION/extend"
+EXTEND_COMP_DIR="$HOME/program files/extend-$PLATFORM-$VERSION/extend-compiler"
+
+# export separately to avoid problems with traditional Bourne shell
+export PREVENT_ROOT
+export EXTEND_ROOT
+export EXTEND_COMP_DIR
+
+# actual Extend toplevel
+EXTEND_TOP="$HOME/program files/extend-$PLATFORM-$VERSION"
+
+# where to get the releases; can be overridden from the command line
+PREVENT_RELEASES=${PREVENT_RELEASES:-/nfs/qabuild/prevent-releases/latest}
+
+# This script is structured as a set of "commands"; the command to run
+# is selected by the command-line argument.  A user can run a command
+# individually, or run the "all" command to run them all in sequence.
+# This structure makes it possible to test fragments of the entire
+# procedure without re-running it from the beginning.
+while [ "$1" != "" ]; do
+  # none of the commands should depend on the current directory, and
+  # some set the current directory to someplace that may be deleted by
+  # another command, so reset it each time
+  cd "$HOME" || exit
+
+  case "$1" in
+    install-prevent)
+      echo "Installing Prevent into $PREVENT_ROOT"
+
+      # expand tarball
+      cd "$HOME/opt" || exit
+      if [ -d "$PREVENT_ROOT" ]; then
+        echo "$PREVENT_ROOT already exists"
+        exit 4
+      fi
+      runecho tar xfz "$PREVENT_RELEASES/prevent-$PLATFORM-$VERSION-stable.tar.gz" || exit
+      if [ ! -d "$PREVENT_ROOT" ]; then
+        echo "$PREVENT_ROOT did not get created by tar command"
+        exit 4
+      fi
+
+      # print version number
+      runecho cat "$PREVENT_ROOT/VERSION" || exit
+
+      # copy in license file from my development directory
+      cd "$PREVENT_ROOT/bin" || exit
+      runecho cp "$HOME/swat/bin/.security" . || exit
+
+      # configure gcc
+      runecho ./cov-configure --compiler=gcc || exit
+      ;;
+
+    uninstall-prevent)
+      echo "Uninstalling Prevent from $PREVENT_ROOT"
+
+      if [ ! -d "$PREVENT_ROOT" ]; then
+        echo "$PREVENT_ROOT does not exist"
+        exit 4
+      fi
+      runecho rm -rf "$PREVENT_ROOT" || exit
+      ;;
+
+    install-extend)
+      echo "Installing Extend into $EXTEND_TOP"
+
+      # unpack the tarball
+      cd "$HOME/program files" || exit
+      if [ -d "$EXTEND_TOP" ]; then
+        echo "$EXTEND_TOP already exists"
+        exit 4
+      fi
+      runecho tar xfz "$PREVENT_RELEASES/extend-$PLATFORM-$VERSION-stable.tar.gz" || exit
+      if [ ! -d "$EXTEND_TOP" ]; then
+        echo "$EXTEND_TOP did not get created by tar command"
+        exit 4
+      fi
+      if [ ! -d "$EXTEND_ROOT" ]; then
+        echo "$EXTEND_ROOT did not get created by tar command"
+        exit 4
+      fi
+
+      # print version number
+      runecho cat "$EXTEND_TOP/VERSION" || exit
+      ;;
+
+    install-extend-compiler)
+      echo "Installing Extend compiler into $EXTEND_COMP_DIR"
+      cd "$EXTEND_TOP" || exit
+
+      if [ "$EXTEND_COMP_COPY" != "" ]; then
+        # copy/link an already unpacked Extend compiler
+        echo "by copy/linking from $EXTEND_COMP_COPY"
+        runecho cp -al "$EXTEND_COMP_COPY" . || exit
+      else
+        # unpack compiler tarball
+        runecho tar xfz "/nfs/qabuild/extend-compilers/$PLATFORM-files/extend-compiler-$PLATFORM-$EXTEND_COMP_VER.tar.gz" || exit
+      fi
+      ;;
+
+    uninstall-extend)
+      echo "Uninstalling Extend from $EXTEND_TOP"
+
+      if [ ! -d "$EXTEND_TOP" ]; then
+        echo "$EXTEND_TOP did not get created by tar command"
+        exit 4
+      fi
+      runecho rm -rf "$EXTEND_TOP" || exit
+      ;;
+
+    extend-tests)
+      echo "Running Makefile-based Extend tests"
+
+      cd "$EXTEND_ROOT/samples" || exit
+      runecho make || exit
+      runecho make testsuite || exit
+
+      ;;
+
+    extend-gui-start)
+      echo "Running Extend GUI tests"
+
+      if [ ! -f "$EXTEND_ROOT/samples/hello/hello" ]; then
+        echo "The extend-tests must be run first to make hello"
+        exit 2
+      fi
+
+      # emit the test file
+      cd "$EXTEND_ROOT/samples/hello/test2" || exit
+      runecho mkdir -p ./emit || exit
+      runecho "$PREVENT_ROOT/bin/cov-emit" --emitdir=./emit --c hello.test.c || exit
+
+      # analyze it
+      runecho ../hello --security-file="$PREVENT_ROOT/bin/.security" \
+        --dtd="$PREVENT_ROOT/dtd" \
+        --ticker-mode=none --no-watchdog \
+        -c "$PREVENT_ROOT/config/coverity_config.xml" -e ./emit -o ./output || exit
+
+      # install/start the gui
+      runecho "$PREVENT_ROOT/bin/cov-install-gui" -d data --password pass || exit
+      runecho "$PREVENT_ROOT/bin/cov-start-gui" -d data --port $GUI_PORT || exit
+
+      # commit the errors to it
+      runecho "$PREVENT_ROOT/bin/cov-commit-errors" -d data -e emit -o output --user admin || exit
+
+      echo "The errors can be viewed at:"
+      echo "  http://"`hostname`":$GUI_PORT"
+      echo "  username: admin"
+      echo "  password: pass"
+      ;;
+
+    pause)
+      echo "Hit Enter to continue"
+      read dummy
+      ;;
+
+    extend-gui-stop)
+      echo "Killing the Extend GUI"
+
+      cd "$EXTEND_ROOT/samples/hello/test2" || exit
+
+      if [ ! -d data ]; then
+        echo "data directory is missing; GUI not installed?"
+        exit 2
+      fi
+
+      runecho "$PREVENT_ROOT/bin/cov-stop-gui" -d data --port $GUI_PORT || exit
+      ;;
+
+    all)
+      echo "Running all the Extend test commands in sequence"
+
+      exec runecho "$0" \
+        install-prevent \
+        install-extend \
+        install-extend-compiler \
+        extend-tests \
+        extend-gui-start \
+        pause \
+        extend-gui-stop \
+        uninstall-extend \
+        uninstall-prevent
+      ;;
+
+    *)
+      echo "Unknown command: $1"
+      exit 2
+      ;;
+  esac
+
+  shift
+done
+
+echo "ok"
+exit 0
+
+# EOF

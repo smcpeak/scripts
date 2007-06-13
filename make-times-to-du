@@ -1,0 +1,88 @@
+#!/usr/bin/perl -w
+# given on stdin some 'make' output produced with
+#   make -P -T -w --print-dir-targets ...
+# and my modified version of make, produce on stdout a du-like report
+# of the time used in each recursive invocation of make
+
+use strict 'subs';
+
+# stack of recursive invocations; each element is a string of the form
+#   <time>:<dir>:<targets>
+# where
+#   <time> is a unix time
+#   <dir> is a directory name
+#   <targets> is a space-separated list of targets
+@stack = ();
+
+$lineNum = 0;
+while (defined($line = <STDIN>)) {
+  $lineNum++;
+
+  # does this look like an enter/exit line?
+  my ($time, $entering, $dir, $targets) =
+    ($line =~ m/^\{([0-9.]+)\} .*: (Entering|Leaving) directory \`(.*)\' \(targets: (.*)\)$/);
+  if (!defined($dir)) {
+    next;     # no
+  }
+
+  # when entering, just push onto a stack
+  if ($entering eq "Entering") {
+    push @stack, ("$time:$dir:$targets");
+    next;
+  }
+  if ($entering ne "Leaving") { die; }   # poor man's assert
+
+  # get a (hopefully) unique name for the 'make' invocation
+  # that just finished
+  my $path = getCurPath();
+
+  # leaving: get the topmost element from the stack
+  my $top = pop @stack;
+  my ($prevtime, $prevdir, $prevtargets) = split(':', $top);
+  if ($dir ne $prevdir) {
+    die("line $line: leaving dir \"$dir\" does not match " .
+        "entering dir \"$prevdir\"\n");
+  }
+  if ($targets ne $prevtargets) {
+    die("line $line: leaving targets \"$targets\" does not match " .
+        "entering targets \"$prevtargets\"\n");
+  }
+
+  # du format: <size><tab><path>
+  #
+  # I am using time-in-ms for <size>
+  printf("%d\t%s\n", ($time - $prevtime) * 1000, $path);
+}
+
+if (@stack != 0) {
+  die("at EOF: stack is not empty: @stack\n");
+}
+
+exit(0);
+
+
+# construct a single string that looks vaguely like a path name,
+# but the elements consist of names that identify a particular
+# invocation of 'make'; the idea is to treat the entire 'make'
+# process as a recursive directory walk
+sub getCurPath {
+  my $path = "";
+  foreach $elt (@stack) {
+    my ($time, $dir, $targets) = split(':', $elt);
+    if (!defined($targets)) { die; }
+
+    # replace some chars
+    $dir =~ tr,/,!,;
+    $targets =~ tr/ /,/;
+
+    # concat dir and targets
+    if ($path) {
+      $path .= '/';       # path-like separator
+    }
+    $path .= $dir . "#" . $targets;
+  }
+  return $path;
+}
+
+
+# EOF

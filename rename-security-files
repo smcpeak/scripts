@@ -1,0 +1,55 @@
+#!/usr/bin/perl -w
+# rename some files in audit/security/derive
+
+use strict 'subs';
+
+if (@ARGV != 1) {
+  print("$0: audit/security/derive/.../..-impl.h\n");
+  exit(2);
+}
+
+$origImplFile = $ARGV[0];
+
+# break into components
+my ($dir1, $dir2, $name) =
+  ($origImplFile =~ m|^audit/security/derive/([^/]+)/([^/]+)/([^/]+)-impl.h$|);
+if (!defined($name)) {
+  die("does not match: $origImplFile\n");
+}
+
+# $dir2 should start with "$dir1-"
+my ($unique) =
+  ($dir2 =~ m/^$dir1-(.+)$/);
+if (!defined($unique)) {
+  die("$dir1- is not a prefix of $dir2\n");
+}
+
+# first command: rename what should be impl .h to impl.h
+$src =  "audit/security/derive/$dir1/$unique/$name.h";
+$dest = "audit/security/derive/$dir1/$unique/$name-impl.h";
+doRename($src, $dest);
+
+# second command: move decl .h to right directory
+$src =  "audit/security/derive/$dir1/$dir2/$name.h";
+$dest = "audit/security/derive/$dir1/$unique/$name.h";
+doRename($src, $dest);
+
+
+sub doRename {
+  my ($src, $dest) = @_;
+  
+  if (! -e $src) {
+    die("file does not exist: $src\n");
+  }
+  if (-e $dest) {
+    die("file already exists: $dest\n");
+  }
+
+  print("bk mv $src $dest\n");
+  if (0!=system("bk", "mv", $src, $dest)) {
+    die("failed to bk mv\n");
+  }
+}
+
+
+# EOF

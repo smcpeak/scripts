@@ -1,0 +1,50 @@
+#!/bin/sh
+# propagate changes in cwd everywhere
+
+# start with cwd
+if bk parent | grep trunk >/dev/null; then
+  true    # as expected
+else
+  echo "This script wants to be run from a 'trunk' directory."
+  exit 2
+fi
+
+# I use a variable here to store the cwd name because I sometimes have
+# several clones of 'trunk' and will not necessarily be pushing from
+# the same one every time.
+trunk=`pwd`
+
+bk-pull-push-pull || exit
+trunk_rev=`bk-revname | tail -1`
+
+# now the branch
+cd ../prevent-2.4-branch || exit
+bk pull || exit
+if bk pull "$trunk"; then
+  true
+else
+  echo "Problem while pulling from $trunk into branch."
+  exit 2
+fi
+bk-pull-push-pull || exit
+branch_rev=`bk-revname | tail -1`
+
+# finally, dev
+cd ../dev || exit
+bk pull || exit
+if bk pull "$trunk"; then
+  true
+else
+  echo "Problem while pulling from $trunk into dev."
+  exit 2
+fi
+bk-pull-push-pull || exit
+dev_rev=`bk-revname | tail -1`
+
+# report what happened
+echo "successfully pushed to all three repos"
+echo "  $trunk_rev"
+echo "  $branch_rev"
+echo "  $dev_rev"
+
+# EOF

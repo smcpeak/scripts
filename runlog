@@ -1,0 +1,6 @@
+#!/bin/sh
+# run a program, saving the command line to a log file
+
+echo "runlog:" "$@" >>$HOME/tmp/runlog.log
+
+exec "$@"

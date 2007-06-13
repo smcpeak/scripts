@@ -1,0 +1,35 @@
+#!/usr/bin/perl -w
+# given the output of 'bk-pushes' on stdin, compare
+# adjacent pairs of pushes
+
+use strict 'subs';
+
+$prevRev = "";
+while (defined($line = <STDIN>)) {
+  chomp($line);
+
+  # extract rev
+  #
+  # example line: 20051207073738 UTC, chgros      1.1149:10477
+  my ($rev) = ($line =~ m/\s([0-9.]+):/);
+  if (!defined($rev)) {
+    die("malformed line: $line\n");
+  }
+
+  if ($prevRev) {
+    print("\n");
+    my @comparison = `bk-constituent-revs pushes3 $prevRev; echo; bk-compare $rev $prevRev`;
+    foreach $c (@comparison) {
+      chomp($c);
+      print("  $c\n");
+    }
+  }
+
+  print("\n");
+  print("---------------------------------------------------\n");
+  print("$line\n");
+  $prevRev = $rev;
+}
+    
+
+# EOF

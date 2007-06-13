@@ -1,0 +1,6 @@
+#!/bin/sh
+# escape text for inclusion in HTML <pre> tags
+
+exec sed -e 's/&/\&amp;/g' \
+         -e 's/</\&lt;/g' \
+         -e 's/>/\&gt;/g'

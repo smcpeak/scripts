@@ -1,0 +1,281 @@
+#!/usr/bin/perl -w
+# Extract from my notes file a list of the activities and total time
+# over a specified time period.  Example of expected format:
+#
+#   start 2006-03-27 08:58
+#
+#   08:58: [email]
+#
+#   09:39: [hw] new computer
+#
+#     .. whatever additional notes between boundaries ..
+#
+#   11:30: [email]
+#
+#   12:30: [-lunch]
+#
+#     .. etc ..
+#
+#   end 2006-03-27 18:04
+
+use strict 'subs';
+
+testSubtractMinutes("1:00", "0:00", 60);
+testSubtractMinutes("14:05", "13:55", 10);
+testSubtractMinutes("14:05", "12:55", 70);
+testSubtractMinutes("00:05", "23:05", 60);
+
+testCompareDates("2006-05-15", "2006-05-16");
+testCompareDates("2006-05-15", "2006-06-14");
+testCompareDates("2005-05-15", "2006-04-14");
+
+if (@ARGV < 3) {
+  print(<<"EOF");
+usage: $0 start-date end-date notes.txt [notes2.txt [...]]
+EOF
+  exit(2);
+}
+
+$startDate = $ARGV[0];
+$endDate = $ARGV[1];
+shift @ARGV;
+shift @ARGV;
+
+# map from activity to number of minutes spent on it total
+%total = ();
+
+foreach $notesFname (@ARGV) {
+  open(IN, $notesFname) or die("cannot read $notesFname: $!\n");
+
+  # what date are we looking at?
+  $curDate = "";
+
+  # what start time are we looking at?
+  $curTime = "";
+
+  # what activity are we looking at
+  $curActivity = "";
+
+  # are we in the specified date range?
+  $active = 0;
+
+  # map from activity to number of minutes spent on it today
+  %today = ();
+
+  while (defined($line = <IN>)) {
+    my $date;
+    my $time;
+    my $activity;
+
+    # date start?
+    ($date, $time) = ($line =~ m/^start (\d\d\d\d-\d\d-\d\d) (\d\d:\d\d)/);
+    if (defined($time)) {
+      $curDate = $date;
+      $curTime = $time;     # value is not used; I set it anyway for uniformity
+      if (compareDates($startDate, $curDate) <= 0 &&
+          compareDates($curDate, $endDate) <= 0) {
+        $active = 1;
+      }
+      else {
+        $active = 0;
+      }
+      %today = ();
+      next;
+    }
+
+    if ($active) {
+      # activity boundary?
+      ($time, $activity) = ($line =~ m/^(\d\d:\d\d): \[([^\]]+)\]/);
+      if (defined($activity)) {
+        if ($curActivity) {
+          # accrue time for $curActivity before moving to the next
+          my $diff = subtractMinutes($time, $curTime);
+          diagnostic("adding $diff to $curActivity\n");
+          $today{$curActivity} += $diff;
+        }
+
+        # move to next activity
+        $curActivity = $activity;
+        $curTime = $time;
+        if (!defined($today{$activity})) {
+          $today{$activity} = 0;
+        }
+
+        next;
+      }
+    }
+
+    # date end?
+    ($date, $time) = ($line =~ m/^end (\d\d\d\d-\d\d-\d\d) (\d\d:\d\d)/);
+    if (defined($time)) {
+      # end final activity
+      if ($curActivity) {
+        my $diff = subtractMinutes($time, $curTime);
+        diagnostic("adding $diff to $curActivity\n");
+        $today{$curActivity} += $diff;
+      }
+
+      if ($active) {
+        # print summary of the day, and add to total
+        print("$notesFname: $curDate:\n");
+        my $sum = 0;
+        foreach $a (sort(keys(%today))) {
+          my $minutes = printMinutes($a, $today{$a});
+          $sum += $minutes;
+
+          if ($minutes) {
+            if (!defined($total{$a})) {
+              $total{$a} = 0;
+            }
+            $total{$a} += $minutes;
+          }
+        }
+        printDivider();
+        printMinutes("sum", $sum);
+        print("\n");
+      }
+
+      next;
+    }
+  }
+  close(IN) or die;
+}
+
+# print final summary
+print("total for $startDate to $endDate:\n");
+$sum = 0;
+foreach $a (sort(keys(%total))) {
+  my $diff = printMinutes($a, $total{$a});
+  $sum += $diff;
+}
+printDivider();
+printMinutes("total", $sum);
+print("\n");
+
+
+sub subtractMinutes {
+  my ($after, $before) = @_;
+
+  my ($ah,$am) = ($after =~ m/^(\d+):(\d+)$/);
+  if (!defined($am)) { die("malformed time: $after\n"); }
+
+  my ($bh,$bm) = ($before =~ m/^(\d+):(\d+)$/);
+  if (!defined($bm)) { die("malformed time: $before\n"); }
+
+  my $amins = $ah * 60 + $am;
+  my $bmins = $bh * 60 + $bm;
+  
+  if ($amins < $bmins) {
+    # assume the time spans midnight
+    $amins += 24 * 60;
+  }
+
+  return $amins - $bmins;
+}
+
+
+sub testSubtractMinutes {
+  my ($after, $before, $expected) = @_;
+
+  my $res = subtractMinutes($after, $before);
+  if ($res != $expected) {
+    die("subtractMinutes($after, $before) = $res, expected $expected\n");
+  }
+}
+
+
+# print a line of info for one activity, and return $minutes if the
+# activity should be counted in the total, 0 otherwise
+sub printMinutes {
+  my ($activity, $minutes) = @_;
+
+  printf("  %20s: %4d  %2.2f", $activity, $minutes, $minutes / (8 * 60));
+  if ($activity =~ m/^-/) {
+    # begins with "-", not counted
+    print(" (not counted)\n");
+    return 0;
+  }
+  else {
+    print("\n");
+    return $minutes;
+  }
+}
+
+
+sub printDivider {
+  print("  -------------------------\n");
+}
+
+
+# comparison like strcmp:
+#   if $date1  < $date2, return <0
+#   if $date1 == $date2, return ==0
+#   if $date1  > $date2, return >0
+sub compareDates {
+  my ($date1, $date2) = @_;
+
+  my ($y1,$m1,$d1) = ($date1 =~ m/^(\d\d\d\d)-(\d\d)-(\d\d)$/);
+  if (!defined($d1)) { die("malformed date: $date1\n"); }
+
+  my ($y2,$m2,$d2) = ($date2 =~ m/^(\d\d\d\d)-(\d\d)-(\d\d)$/);
+  if (!defined($d2)) { die("malformed date: $date2\n"); }
+
+  my $res = $y1 - $y2;
+  if ($res) { return $res; }
+
+  $res = $m1 - $m2;
+  if ($res) { return $res; }
+
+  $res = $d1 - $d2;
+  return $res;
+}
+
+
+sub sign {
+  my ($i) = @_;
+
+  if ($i < 0) {
+    return -1;
+  }
+  elsif ($i == 0) {
+    return 0;
+  }
+  else { 
+    return +1;
+  }
+}
+
+
+# should be that $date1 < $date2
+sub testCompareDates {
+  my ($date1, $date2) = @_;
+
+  my $actual = compareDates($date1, $date2);
+  if (sign($actual) != -1) {
+    die("testCompareDates: date1=$date1 date2=$date2 " .
+        "expected=-1 actual=$actual\n");
+  }
+
+  # confirm relation is antisymmetric
+  my $actual2 = compareDates($date2, $date1);
+  if (sign($actual2) != +1) {
+    die("testCompareDates: date1=$date1 date2=$date2 " .
+        "expected2=+1 actual2=$actual\n");
+  }
+
+  # and reflexive
+  if (compareDates($date1, $date1) != 0) {
+    die("testCompareDates: not reflexive: $date1\n");
+  }
+  if (compareDates($date2, $date2) != 0) {
+    die("testCompareDates: not reflexive: $date2\n");
+  }
+}
+
+
+sub diagnostic {
+  #print("%%% ", @_);
+}
+
+
+# EOF

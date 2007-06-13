@@ -1,0 +1,49 @@
+#!/usr/bin/perl -w
+# output html index of some images
+
+for ($i=0; $i < @ARGV; $i++) {
+  my $fn = $ARGV[$i];
+  
+  # get image number (if any)
+  my ($n) = ($fn =~ m/(\d+)/);
+  if (defined($n)) {
+    # strip leading 0s
+    $n = $n + 0;
+  }
+  
+  # img tag
+  print("<p><a href=\"../$fn\"><img src=\"$fn\" alt=\"image $fn\"></a><br>\n");
+              
+  # image number
+  if (defined($n)) {
+    print("$n: ");
+  }
+
+  # get image time
+  my @info = stat($fn);
+  if (@info) {
+    my $mtime = $info[9];
+    my @minfo = localtime($mtime);
+    my $min = $minfo[1];
+    my $hr = $minfo[2];
+    my $ampm = "am";
+
+    if ($hr == 0) {
+      $hr = "12";
+    }
+    elsif ($hr == 12) {
+      $ampm = "pm";
+    }
+    elsif ($hr > 12) {
+      $hr -= 12;
+      $ampm = "pm";
+    }
+    
+    printf("[%d/%d $hr:%02d $ampm] ", $minfo[4]+1, $minfo[3], $min);
+  }
+
+  # finish up
+  print("\n</p>\n\n");
+}
+
+# EOF

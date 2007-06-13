@@ -1,0 +1,5 @@
+#!/bin/sh
+# run cvs with CVS_RSH set to "ssh2"
+     
+export CVS_RSH=ssh2
+exec cvs "$@"

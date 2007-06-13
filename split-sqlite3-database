@@ -1,0 +1,42 @@
+#!/usr/bin/perl -w
+# split apart an sqlite3 database for size evaluation purposes
+
+use strict 'subs';
+
+if (@ARGV != 2) {
+  print(<<"EOF");
+usage: $0 database directory-for-tables
+EOF
+  exit(2);
+}
+
+$db = $ARGV[0];
+$tables = $ARGV[1];
+
+if (-d $tables) {
+  die("directory $tables already exists\n");
+}
+mkdir $tables || die("mkdir: $!\n");
+
+# get all tables
+open(IN, "sqlite3 \"$db\" .schema |") or die("cannot run sqlite3");
+@schema = <IN>;
+close(IN);
+
+# dump each one
+foreach $line (@schema) {
+  my ($tbl) = ($line =~ m/^CREATE TABLE (\S+) *\(/);
+  if (defined($tbl)) {
+    print("$tbl\n");
+    system("sqlite3 \"$db\" \".dump $tbl\" | sqlite3 \"$tables/$tbl.db\"");
+    next;
+  }
+  
+  if ($line =~ m/^CREATE INDEX /) {
+    next;
+  }
+  
+  print("unrecognized .schema line: $line\n");
+}
+
+# EOF

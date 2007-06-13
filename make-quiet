@@ -1,4 +1,8 @@
 #!/bin/sh
 # like 'make', but suppress message if nothing needs to be done
 
+# wait a tenth of a second, to avoid (er, influence) race conditions
+# when the Makefile is being written
+perl -e 'select(undef, undef, undef, 0.10);'
+
 make "$@" 2>&1 | egrep -v 'is up to date|Nothing to be done for'

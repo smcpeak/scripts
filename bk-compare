@@ -1,0 +1,275 @@
+#!/usr/bin/perl -w
+# compare two bk revs in detail, by comparing their ChangeSet file contents
+
+use strict 'subs';
+
+if (@ARGV != 2) {
+  print("usage: $0 revA revB\n");
+  exit(2);
+}
+
+$revAName = $ARGV[0];
+$revBName = $ARGV[1];
+
+#differsByOneUnitTest();
+
+# The BitKeeper ChangeSet file is essentially a map from what I call
+# an "entity" to a file.  An entity is like a file without a fixed
+# home.  An entity is created when a file is first checked in or
+# copied (via bk cp); it is named according to the initial file name
+# and time.  Then as the corresponding file is changed and possibly
+# renamed, the file portion changes, but the entity remains the same.
+# Even if the file is "deleted", that just means it gets moved into
+# BitKeeper/deleted/<mangled>, so the entity remains.
+
+# Entities are named using a quintuple:
+#
+#   [0]: user who created it
+#   [1]: original path/filename
+#   [2]: creation time as UTC
+#   [3]: creation contents checksum
+#   [4]: creation key (some bk internal concept)
+#
+# Files are named using a quadruple:
+#
+#   [0]: last user to modify
+#   [1]: current path/filename
+#   [2]: last modification time as UTC
+#   [3]: last modification contents checksum
+#
+# When these are packed into a string, I use '|' characters to
+# separate the elements, just like BitKeeper.
+
+# The first map just keeps track of the set of entities.  Every entity
+# I learn about will be mapped to 1.  This lets me iterate over all
+# of the entities, regardless of which ChangeSets they appear in.
+%entities = ();
+
+# Next, I have a map for the entities in the current version of the
+# repository.  I need this because the "s" files can only be found
+# using the current info.  This map is from entities to files.
+%current = ();
+
+# Then, maps for revA and revB, again entity quad -> file.
+%revA = ();
+%revB = ();
+
+
+# I will put all my output lines into another hash, keyed on the
+# file name, so that in the end I can output them in sorted order.
+# The strings in the hash do *not* end with newlines.
+%output = ();
+
+
+# read the three relevant ChangeSet files
+%current = readChangeSet("+");
+%revA = readChangeSet($revAName);
+%revB = readChangeSet($revBName);
+
+
+# examine all the entities
+foreach $entity (keys(%entities)) {
+  # look for changes between revA and revB
+  if (!defined($revA{$entity})) {
+    if (!defined($revB{$entity})) {
+      # gone in both; presumably the file was added to the
+      # repo after these revs existed
+      next;
+    }
+
+    # present in B but not in A, must have been added
+    my @fileB = extractFileInfo($revB{$entity});
+    my $fileRevB = getFileRev($entity, @fileB);
+    addOutput($fileB[1], "added   : $fileB[1] ($fileRevB)");
+    next;
+  }
+  elsif (!defined($revB{$entity})) {
+    # present in A but not in B; someone must have said
+    # 'bk gone' between the two
+    my @fileA = extractFileInfo($revA{$entity});
+    my $fileRevA = getFileRev($entity, @fileA);
+    addOutput($fileA[1], "gone    : $fileA[1] ($fileRevA)");
+    next;
+  }
+
+  # present in both; same?
+  if ($revA{$entity} eq $revB{$entity}) {
+    # unchanged
+    next;
+  }
+
+  # something changed; get the info about them
+  my @fileA = extractFileInfo($revA{$entity});
+  my $fileRevA = getFileRev($entity, @fileA);
+  my @fileB = extractFileInfo($revB{$entity});
+  my $fileRevB = getFileRev($entity, @fileB);
+
+  # renamed?
+  if ($fileA[1] ne $fileB[1]) {
+    # was it moved into BitKeeper/deleted?
+    if ($fileB[1] =~ m|^BitKeeper/deleted|) {
+      addOutput($fileA[1], "deleted : $fileA[1] ($fileRevA)");
+    }
+    else {
+      # there isn't an easy way to tell with this info whether
+      # the contents have changed ..
+      addOutput($fileA[1], "renamed : $fileA[1] ($fileRevA) -> $fileB[1] ($fileRevB)");
+    }
+  }
+  else {
+    # modifed?
+    if ($fileRevA ne $fileRevB) {
+      # if the revs differ by 1, just print the latter, otherwise
+      # print both
+      if (differsByOne($fileRevA, $fileRevB)) {
+        addOutput($fileB[1], "modified: $fileB[1] ($fileRevB)");
+      }
+      else {
+        addOutput($fileB[1], "modified: $fileB[1] ($fileRevA -> $fileRevB)");
+      }
+    }
+    else {
+      # not moved or modified; why did we get here?
+      die("different file strings but same name+ver?\n",
+          "  revA: $revA{$entity}\n",
+          "  revB: $revB{$entity}\n");
+    }
+  }
+}
+
+# print the output
+foreach $key (sort(keys(%output))) {
+  print("$output{$key}\n");
+}
+
+
+# read the ChangeSet file for 'rev' into a hash; also,
+# keep 'entities' up to date
+sub readChangeSet {
+  my ($rev) = @_;
+    
+  # hash to return
+  %ret = ();
+
+  if (!open(IN, "bk get -p -q -r$rev ChangeSet |")) {
+    die("failed to run bk get for revision $rev\n");
+  }
+  my $line;
+  while (defined($line = <IN>)) {
+    chomp($line);
+
+    # extract the entity and the file, which are separated
+    # by a space character (cannot just split on spaces because
+    # the file name might have them too ...)
+    my ($entity, $file) =
+      ($line =~ m/^([^|]+\|[^|]+\|[^|]+\|[^|]+\|\S+) ([^|]+\|[^|]+\|[^|]+\|[^|]+)$/);
+      #             ^^^^^  ^^^^^  ^^^^^  ^^^^^  ^^^   ^^^^^  ^^^^^  ^^^^^  ^^^^^
+      #              [e0]   [e1]   [e2]   [e3]  [e4]   [f1]   [f2]   [f3]   [f4]
+      #                         entity                          file
+    if (!defined($file)) {
+      die("malformed ChangeSet line: $line\n");
+    }
+    
+    # keep track of set of all entities
+    $entities{$entity} = 1;
+                          
+    # build hash to return
+    $ret{$entity} = $file;
+  }
+  if (!close(IN)) {
+    die($! ? "Error closing bk get pipe: $!\n"
+           : "Exit status $? from bk get\n");
+  }
+ 
+  return %ret;
+}
+
+
+sub extractFileInfo {
+  my ($file) = @_;
+
+  # delimited by '|' chars
+  my @fields = split(/\|/, $file);
+  if (@fields != 4) {
+    die("malformed file string: $file\n");
+  }
+
+  return @fields;
+}
+
+
+sub getFileRev {
+  my ($entity, @fields) = @_;
+
+  # get info about current file
+  if (!defined($current{$entity})) {
+    # nothing we can find out
+    return "(?)";
+  }
+  my @currentFields = extractFileInfo($current{$entity});
+
+  # get the rev by combining the timestamp from 'fields'
+  # with the name from 'currentFields'
+  my $revLine = `bk findkey -t$fields[2] -c$fields[3] "$currentFields[1]"`;
+
+  # example output: edg/src/cmd_line.c|1.71
+  my ($rev) = ($revLine =~ m/\|([0-9.]+)$/);
+
+  if (!defined($rev)) {
+    die("failed to get rev:\n",
+        "  entity: $entity\n",
+        "  fields: @fields\n",
+        "  currentFields: @currentFields\n");
+  }
+
+  return $rev;
+}
+
+  
+# add a line of output to %output
+sub addOutput {
+  my ($key, $line) = @_;
+  
+  if (defined($output{$key})) {              
+    # Two lines of output with the same key; happens if I rename a
+    # file, and then create another in its place with the same name.
+    # Bump the key arbitrarily for the second line.
+    $key .= $line;
+    while (defined($output{$key})) {
+      $key .= "x";   # whatever
+    }
+  }
+
+  $output{$key} = $line;
+}
+
+
+
+sub differsByOneUnitTest {
+  die if (differsByOne("1.1", "1.2") != 1);
+  die if (differsByOne("1.1", "1.3") != 0);
+  die if (differsByOne("1.4", "1.3") != 0);
+  die if (differsByOne("1.4.1.1", "1.4.1.2") != 1);
+  die if (differsByOne("1.4.2.1", "1.4.1.2") != 0);
+}
+
+sub differsByOne {
+  my ($fileRevA, $fileRevB) = @_;
+
+  my @revNumsA = split(/\./, $fileRevA);
+  my @revNumsB = split(/\./, $fileRevB);
+  if ($#revNumsA != $#revNumsB) {
+    return 0;
+  }
+
+  for (my $i=0; $i < @revNumsA - 1; $i++) {
+    if ($revNumsA[$i] != $revNumsB[$i]) {
+      return 0;
+    }
+  }
+
+  return $revNumsA[-1]+1 == $revNumsB[-1];
+}
+
+
+# EOF

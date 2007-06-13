@@ -1,0 +1,38 @@
+#!/bin/sh
+# get the changes made on a specific day
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 YYYY-MM-DD"
+  echo "prints the changes made on the given day, put them into changes/"
+  exit 0
+fi
+
+if [ ! -d changes ]; then
+  mkdir changes || exit
+fi
+
+# get e.g. "-0700"
+zone=`date +%z`
+
+# end of the day
+midnight="23:59"
+
+# get today's date
+today=`date +%Y-%m-%d`
+if [ $today = "$1" ]; then
+  # cvs does not like it if I specify a date/time in the future
+  midnight=`date +%T`
+fi
+
+echo "running cvs diff -N -D \"$1 00:00 $zone\" -D \"$1 $midnight $zone\" > changes/\"$1\".diff"
+if cvs diff -N -D "$1 00:00 $zone" -D "$1 $midnight $zone" > changes/"$1".diff; then
+  echo "there were no changes on $1"
+  rm changes/"$1".diff
+else
+  lines=`wc -l changes/"$1".diff | awk '{ print $1 }'`
+  echo "created changes/$1.diff ($lines lines)"
+fi
+
+exit 0
+
+

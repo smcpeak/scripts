@@ -16,6 +16,8 @@ if (@ARGV < 1) {
         "   or: $myname filename.deb\n",
         "   or: $myname filename.tar.Z\n",
         "   or: $myname filename.jar\n",
+        "   or: $myname filename.rar\n",
+        "   or: $myname filename.rpm\n",
         "unpacks contents of file into a subdir of current directory\n",
         "($myname will create a directory if necessary)\n");
   exit(0);
@@ -46,17 +48,25 @@ else {                       # relative to cwd
 $prefix     = $archive;
 $tarred     = ($prefix =~ s/\.tar$//);
 $gzipped    = ($prefix =~ s/(\.tar\.gz)|(\.tgz)$//);
-$bzipped    = ($prefix =~ s/(\.tar\.bz2)|(\.tbz2)$//);
+$bzipped    = ($prefix =~ s/(\.tar\.bz2)|(\.tbz2)|(\.tbz)$//);
 $pkzipped   = ($prefix =~ s/(\.zip)|(\.ZIP)$//);
 $debbed     = ($prefix =~ s/\.deb$//);
 $compressed = ($prefix =~ s/\.tar\.Z$//);
 $jarred     = ($prefix =~ s/\.jar$//);
-if (!($tarred || $gzipped || $bzipped || $pkzipped || $debbed || $compressed || $jarred)) {
+$rarred     = ($prefix =~ s/\.rar$//);
+$rpmmed     = ($prefix =~ s/\.rpm$//);
+
+# how many matched?
+$recognizedFormat = $tarred + $gzipped + $bzipped + $pkzipped +
+                    $debbed + $compressed + $jarred + $rarred +
+                    $rpmmed;
+
+if ($recognizedFormat == 0) {
   # extension not recognized..
   print("I don't recognize the extension of $archive.\n");
   exit(1);
 }
-if ($tarred + $gzipped + $bzipped + $pkzipped + $debbed + $compressed + $jarred != 1) {
+if ($recognizedFormat != 1) {
   die "multiply-archived?  I'm confused...\n";
 }
 
@@ -102,6 +112,12 @@ elsif ($debbed) {
 elsif ($jarred) {
   $res = system("jar xvf \"$archiveAbsolute\"");
 }
+elsif ($rarred) {
+  $res = system("rar x \"$archiveAbsolute\"");
+}
+elsif ($rpmmed) {
+  die("sorry, RPM not implemented..\n");
+}
 else {
   die("oops");
 }
@@ -127,7 +143,7 @@ if (@ls == 1) {
       exit(1);
     }
     system("mv \"$dir\" $tempdir")==0 or die;
-    system("mv ${tempdir}/${itsname} ./${itsname}")==0 or die;
+    system("mv \"${tempdir}/${itsname}\" \"./${itsname}\"")==0 or die;
     rmdir("$tempdir") or die $!;
   }
   elsif (-e "../${itsname}") {

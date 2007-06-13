@@ -25,7 +25,13 @@ fi
 # check file type (-L means dereference links)
 filetype=`file -L $loc`
 case "$filetype" in
-  *text*)
+  *ocamlrun*)
+    # binary
+    echo "$filetype"
+    ldd "$loc"
+    ;;
+
+  *script*)
     # is a text file: cat it to screen
     cat $loc
     ;;
@@ -35,7 +41,12 @@ case "$filetype" in
     echo "$filetype"
     ldd "$loc"
     ;;
-    
+
+  *text*)
+    # is a text file: cat it to screen
+    cat $loc
+    ;;
+
   *)
     echo "$filetype";
     ;;

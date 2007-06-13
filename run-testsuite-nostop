@@ -1,0 +1,26 @@
+#!/bin/sh
+# run the testsuite w/o stopping
+
+# run it, saving all output to testsuite.out, and displaying the
+# failed test names on the console
+echo "Running testsuite, output to testsuite.out ..."
+make testsuite QABUILD_TYPE=QABUILD MAX_FAILED_TEST=999999 2>&1 | \
+  tee testsuite.out | grep TEST_SUITE_FAILED
+
+if [ $? -eq 130 ]; then
+  # command was terminated with ^C
+  echo "Testsuite interrupted."
+  exit 130
+fi
+
+# evaluate success
+n=`grep TEST_SUITE_FAILED testsuite.out | wc -l`
+if [ "$n" -eq 0 ]; then
+  echo "Testsuite passed"
+  exit 0
+else
+  echo "Testsuite failures: $n"
+  exit 2
+fi
+
+# EOF

@@ -1,0 +1,9 @@
+#!/bin/sh
+# attempt at a post-commit script..
+
+# all output to one place
+exec >>$CVSROOT/CVSROOT/commitlog
+
+id
+date
+cat

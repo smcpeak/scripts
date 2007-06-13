@@ -1,0 +1,32 @@
+#!/bin/sh
+# script to print out the contents of the X clipboard
+# whenever they change; uses CUT_BUFFER0 since that's
+# what seems to be the prevailing method
+	    
+# check args
+if [ "$1" = "" ]; then
+  echo "usage: $0 root-window-id"
+  echo " e.g.: $0 0x26"
+  exit
+fi
+	       
+rootId=$1
+
+oldline=""
+
+while true; do
+  # get contents
+  line=`xprop -id $rootId | grep CUT_BUFFER0`
+  
+  # have they changed?
+  if [ "$line" != "$oldline" ]; then
+    # yes, print it
+    echo "$line"
+  fi
+  
+  # wait a bit before querying again
+  sleep 1
+done
+
+
+

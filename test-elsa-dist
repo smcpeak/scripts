@@ -1,0 +1,151 @@
+#!/bin/sh
+# test a new elsa distribution on several machines and configurations
+
+# NOTE: I assume 2.95.3 was done by 'mkdist'.
+
+# this script is not interactive
+exec 0</dev/null
+
+if [ "$2" = "" ]; then
+  cat <<EOF
+usage: $0 elsa-XX.tar.gz <config>
+  where <config> is among:
+    all            run all configurations
+    gcc-3.2.2      seamonkey, gcc-3.2.2
+    gcc-3.3.2      seamonkey, gcc-3.3.2
+    eos            eos: solaris/sparc
+    pulsar         pulsar: solaris/x86
+EOF
+  exit 0
+fi
+
+# absolute path
+case "$1" in
+  /*)
+    tarball="$1"
+    ;;
+
+  *)
+    tarball=`pwd`/"$1"
+    ;;
+esac
+
+config="$2"
+
+# print a failure message and exit
+die() {
+  echo "$config: FAILED: $1"
+  exit 2
+}
+
+#die "hi"
+#echo "got here"
+#exit 0
+
+
+makeConfigDir() {
+  if [ -d "$config" ]; then
+    rm -rf "$config"
+  fi
+  mkdir "$config"; cd "$config"
+}
+
+
+localBuild() {
+  echo "$config: starting local build"
+
+  makeConfigDir
+
+  PATH=$HOME/opt/$config/bin:$PATH
+
+  # version check
+  runecho gcc --version >make.out 2>&1       || die "gcc --version"
+  if gcc --version | grep `echo $config | sed 's/gcc-//'` >/dev/null; then
+    # ok
+    true
+  else
+    echo "$config: gcc version mismatch!"
+    exit 2
+  fi
+
+  runecho untargz "$tarball" >>make.out 2>&1 || die "untargz"
+  cd elsa-* || die "cd"
+  runecho ./configure >>../make.out 2>&1     || die "configure"
+  runecho make >>../make.out 2>&1            || die "make"
+  runecho make check >>../make.out 2>&1      || die "make check"
+  cd ..
+
+  # blow away the build directory if we succeeded, but note that
+  # the make.out file is still retained in the $config directory
+  rm -rf elsa-*
+
+  echo "$config: success"
+  touch success
+}
+
+
+remoteBuild() {
+  echo "$config: starting remote build"
+
+  makeConfigDir
+
+  login=smcpeak
+  machine=${login}@${config}.cs
+  tarbase=`basename $tarball`
+  dirname=`echo $tarbase | sed 's/\.tar\.gz$//'`
+  if [ "$tarbase" = "$dirname" ]; then
+    echo "$tarbase should have .tar.gz extension"
+    exit 2
+  fi
+
+  # connectivity (etc.) check
+  runecho ssh $machine "uname -a" >make.out 2>&1 || die "uname"
+
+  # make a place for the files to go on the remote machine (fail is ok)
+  runecho ssh $machine "mkdir /tmp/$login; cd /tmp/$login; rm -rf elsa-*" >>make.out 2>&1
+
+  # put the tarball there
+  runecho scp "$tarball" $machine:/tmp/$login >>make.out 2>&1 || die "scp"
+
+  # unpack it
+  runecho ssh $machine "cd /tmp/$login; untargz $tarbase" >>make.out 2>&1 || die "untargz"
+
+  # build
+  runecho ssh $machine "cd /tmp/$login/$dirname; ./configure" >>make.out 2>&1 || die "configure"
+  runecho ssh $machine "cd /tmp/$login/$dirname; make" >>make.out 2>&1        || die "make"
+  runecho ssh $machine "cd /tmp/$login/$dirname; make check" >>make.out 2>&1  || die "make check"
+
+  # clean up (fail is ok)
+  runecho ssh $machine "cd /tmp/$login; rm -rf elsa-*; cd ..; rmdir $login" >>make.out 2>&1
+
+  echo "$config: success"
+  touch success
+}
+
+
+case "$config" in
+  all)
+    # run remote tests in parallel
+    "$0" "$tarball" eos &
+    "$0" "$tarball" pulsar &
+
+    # run local tests in sequence
+    "$0" "$tarball" gcc-3.2.2
+    "$0" "$tarball" gcc-3.3.2
+    ;;
+
+  gcc-*)
+    localBuild
+    ;;
+
+  eos|pulsar)
+    remoteBuild
+    ;;
+
+  *)
+    echo "unknown config: $config"
+    exit 2
+    ;;
+esac
+
+exit 0

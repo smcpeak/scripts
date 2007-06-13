@@ -1,0 +1,39 @@
+#!/bin/sh
+# bk unedit, but somewhat undoable
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 filename"
+  exit 2
+fi
+fname="$1"
+
+if [ -f "$fname" ]; then
+  true
+else
+  echo "not a file: $fname"
+  exit 2
+fi
+
+if [ -d tmp ]; then
+  true
+elif mkdir tmp; then
+  true
+else
+  echo "could not mkdir tmp"
+  exit 2
+fi
+
+# note that, unlike 'diff', "bk diffs" always returns 0 if it
+# succeeds, regardless of whether there are differences
+if bk diffs -u "$fname" > tmp/"$fname".unedit ; then
+  true
+else
+  echo "bk diffs failed"
+  exit 2
+fi
+
+# ok, now that we've saved a copy, go ahead and unedit
+exec bk unedit "$fname"
+
+
+# EOF

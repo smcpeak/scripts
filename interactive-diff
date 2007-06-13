@@ -1,0 +1,69 @@
+#!/usr/bin/perl -w
+# diff for use as $(COMPARE_DIFF) in make testsuite
+
+use strict 'subs';
+$| = 1;   # autoflush
+
+if (@ARGV == 0) {
+  print("usage: $0 [options] file1 file2\n");
+  exit 2;
+}
+
+# find the name of the first non-option argument
+for ($i=0; $i < @ARGV; $i++) {
+  if ($ARGV[$i] !~ m/^-/) {
+    $firstArg = $ARGV[$i];
+    last;
+  }
+}
+if (!defined($firstArg)) {
+  die("did not see first argument\n");
+}
+if ($i+1 >= @ARGV) {
+  die("did not see second argument\n");
+}
+$secondArg = $ARGV[$i+1];
+
+# do initial comparison
+@cmd = @ARGV;
+unshift @cmd, "diff";
+$code = system(@cmd);
+if ($code != 256) {
+  if (($code & 0xFF) == 0) {
+    $code = $code >> 8;
+    print("diff exited with code $code\n");
+  }
+  else {
+    print("diff exited with signal $code\n");
+    $code = 127;
+  }
+  exit($code);     # files are the same, or strange exit code
+}
+
+# see if user wants to update
+$answer = "";
+while ($answer !~ m/^[yn]$/) {
+  print("files differ; copy current to expected (y/n)? ");
+  $answer = <STDIN>;
+  chomp($answer);
+}
+#print("answer: $answer\n");
+if ($answer eq "y") {
+  if (! -w $firstArg && -f "SCCS/s.$firstArg") {
+    # assume it's not writable because of bk
+    print("bk edit $firstArg\n");
+    if (0!=system("bk", "edit", $firstArg)) {
+      exit(10);     # hopefully bk printed an error message already
+    }
+  }
+  print("cp $secondArg $firstArg\n");
+  exec("cp", $secondArg, $firstArg);     # if this works, files are now the same
+}
+else {
+  # files are not the same, and user doesn't want to update them
+  print("leaving files alone\n");
+  exit(1);
+}
+
+
+# EOF

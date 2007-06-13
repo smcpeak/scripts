@@ -1,0 +1,41 @@
+#!/bin/sh
+
+bk pull || exit
+
+# the pull needs to be repeated because when I commit from NFS, the
+# consistency check takes ~10 minutes which is plenty of time for
+# someone else to do a push
+tmp=bk-pull.$$.tmp
+while true; do
+  echo "doing additional pull in case there are more commits"
+  if bk pull >$tmp 2>&1; then
+    true
+  else
+    # bk pull failed
+    code=$?
+    cat $tmp
+    rm $tmp
+    exit $code
+  fi
+
+  if grep "Nothing to pull" $tmp; then
+    cat $tmp
+    rm $tmp
+    break
+  else
+    cat $tmp
+    rm $tmp
+
+    # do it again
+  fi
+done
+
+bk push || exit
+
+# on prevent-2.4-branch, sometimes the tag doesn't show up
+# right away ...
+runecho sleep 9
+
+bk pull || exit
+
+exec bk-revname

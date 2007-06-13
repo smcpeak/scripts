@@ -1,0 +1,13 @@
+#!/bin/sh
+# like "cvs diff", but exit with 0 status unless real failure
+
+cvs diff "$@"
+
+code="$?"
+if [ "$code" = "0" -o "$code" = "1" ]; then
+  exit 0
+else
+  exit "$code"
+fi
+
+# EOF

@@ -1,0 +1,11 @@
+#!/bin/sh
+# script to use as MDA when flushing spam off EECS IMAP server
+
+# append whole thing to a running log...
+exec >>$HOME/tmp/spam.log 2>&1
+
+# maybe this will work as a message divider of sorts ...
+echo "-------------- handle-spam divider -----------------"
+
+# message itself is on stdin
+cat

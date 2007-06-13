@@ -1,0 +1,117 @@
+#!/bin/sh
+# my wrapper around Prevent analysis
+
+# directory containing the analyzer
+SWAT=${SWAT:-$HOME/swat}
+echo "SWAT=$SWAT"
+
+# directory containing the code to analyze
+SRC=${SRC:-`pwd`}
+
+# where to put analysis results
+RESULTS=$SRC
+EMIT=$RESULTS/emit
+OUTPUT=$RESULTS/output
+DATA=$RESULTS/data
+GUICFG=$RESULTS/covgui.xml
+ANALYZE_ARGS="--security --force"
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 <command> [args]"
+  echo "  where <command> is one of:"
+  echo "    build             build, generating emit directory"
+  echo "    build-noclean     build w/o saying 'make clean' first"
+  echo "    analyze           analyze emit, generating output"
+  echo "    analyze-gdb       analyze under gdb"
+  echo "    start-gui         start the GUI"
+  echo "    stop-gui          stop the GUI"
+  echo "    commit            commit last run's errors to the GUI database"
+  echo "    find-func         find a function's model"
+  echo "    print-tree        print an AST"
+  echo "    prepare-parallel  prepare for parallel analysis"
+  echo "    upgrade-db        upgrade db"
+  exit 0
+fi
+
+cmd="$1"
+shift
+
+cd $SRC
+case "$cmd" in
+  make)
+    runecho make clean
+    runecho rm -rf $EMIT
+    runecho $SWAT/bin/cov-build -e $EMIT -o $OUTPUT make "$@"
+    ;;
+
+  build)
+    runecho $SWAT/bin/cov-build -e $EMIT -o $OUTPUT "$@"
+    ;;
+
+  analyze)
+    runecho $SWAT/bin/cov-analyze $ANALYZE_ARGS -cxx -e $EMIT -o $OUTPUT "$@"
+    ;;
+
+  analyze-c)
+    runecho $SWAT/bin/cov-analyze $ANALYZE_ARGS -e $EMIT -o $OUTPUT "$@"
+    ;;
+
+  analyze-gdb)
+    runecho run-gdb $SWAT/bin/cov-analyze --no-watchdog $ANALYZE_ARGS -cxx -e $EMIT -o $OUTPUT "$@"
+    ;;
+
+  analyze-c-gdb)
+    runecho run-gdb $SWAT/bin/cov-analyze --no-watchdog $ANALYZE_ARGS -e $EMIT -o $OUTPUT "$@"
+    ;;
+
+  start-gui)
+    runecho $SWAT/gui/bin/cov-start-gui -c $GUICFG "$@"
+    ;;
+
+  stop-gui)
+    runecho $SWAT/gui/bin/cov-stop-gui -c $GUICFG "$@"
+    ;;
+
+  commit)
+    if [ ! -d "$DATA" ]; then
+      runecho $SWAT/gui/bin/cov-install-gui -e $EMIT -o $OUTPUT -d $DATA \
+              -c $GUICFG --password pass "$@" || exit
+    fi
+    runecho $SWAT/gui/bin/cov-commit-errors -e $EMIT -o $OUTPUT -d $DATA \
+            --user admin "$@"
+    ;;
+
+  install-gui)
+    runecho $SWAT/gui/bin/cov-install-gui -e $EMIT -o $OUTPUT -d $DATA \
+            -c $GUICFG --password pass "$@"
+    ;;
+
+  find-func|find-function)
+    runecho $SWAT/bin/cov-find-function -e $EMIT "$@"
+    ;;
+
+  print-tree)
+    runecho $SWAT/bin/print-tree -e $EMIT "$@"
+    ;;
+
+  prepare-parallel)
+    runecho $SWAT/bin/cov-prepare-parallel -e $EMIT "$@"
+    ;;
+
+  upgrade-db)
+    runecho $SWAT/gui/bin/cov-upgrade-db -d $DATA "$@"
+    ;;
+
+  preprocess)
+    runecho $SWAT/bin/cov-preprocess -e $EMIT -o $OUTPUT "$@"
+    ;;
+
+  *)
+    echo "unknown command: $cmd"
+    exit 2
+    ;;
+esac
+
+
+
+# EOF

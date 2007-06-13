@@ -1,0 +1,21 @@
+#!/bin/sh
+# get every 100th video frame
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 <fname>"
+  exit 0
+fi
+
+if [ ! -d tmp ]; then
+  echo "make a tmp/ directory first"
+  exit 2
+fi
+
+cd tmp
+if [ ! -f "../$1" ]; then
+  echo "file not found: ../$1"
+  exit 2
+fi
+
+export SKIP_MOST_FRAMES=1
+exec $HOME/bld/MPlayer-1.0pre4/mplayer -vo png -fps 200 -nosound "../$1"

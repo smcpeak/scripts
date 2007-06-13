@@ -1,0 +1,7 @@
+#!/bin/sh
+
+logfile=$HOME/gtk-gnutella-downloads/logfile
+
+echo "---------------" >>"$logfile"
+
+exec $HOME/opt/gtk-gnutella-0.95/bin/gtk-gnutella >"$logfile" 2>&1

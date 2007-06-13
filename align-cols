@@ -1,0 +1,58 @@
+#!/usr/bin/perl -w
+# given an input consisting of a bunch of lines,
+# break them into columns according to the given
+# separator character, then output the lines such
+# that the columns are aligned
+
+use strict 'subs';
+
+if (@ARGV == 0) {
+  print STDERR ("usage: $0 <separator>\n",
+                "  reads from stdin, writes to stdout\n");
+  exit(2);
+}
+
+$sep = $ARGV[0];
+
+@lines = <STDIN>;
+
+# map from column number (0-based) to column width in chars
+@widths = ();
+                        
+# compute width for each column
+foreach $line (@lines) {            
+  chomp($line);
+  my @cols = split(/$sep/, $line);
+
+  # ensure 'widths' is big enough
+  while (@widths < @cols) {
+    push @widths, (0);
+  }
+
+  # max 'widths' with 'cols'
+  for ($i=0; $i < @cols; $i++) {
+    my $len = length($cols[$i]);
+    if ($len > $widths[$i]) {
+      $widths[$i] = $len;
+    }
+  }
+}
+
+# print the lines with the computed column widths
+foreach $line (@lines) {
+  chomp($line);
+  my @cols = split(/$sep/, $line);
+
+  for ($i=0; $i < @cols; $i++) {
+    my $len = length($cols[$i]);
+    my $pad = $widths[$i] - $len;
+    print($cols[$i]);
+    if ($i+1 < @cols) {
+      # not last column, add separator and padding
+      print($sep, " " x $pad);
+    }
+  }
+  print("\n");
+}
+
+# EOF

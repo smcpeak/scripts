@@ -1,0 +1,223 @@
+#!/usr/bin/perl -w
+# front-end for running coverity tools
+
+use strict 'subs';
+
+sub usage {
+  print(<<"EOF");
+usage: $0 [options] command [args]
+
+Options:
+  -prev <prevdir>  directory where Prevent is installed [$prevent]
+  -c <config>      config [$config]
+  -e <emit>        emit [$emit]
+  -o <output>      output [$output]
+  --dir <dir>      intermediate data [$dir]
+  -d <data>        GUI data [$data]
+  --user <user>    user for commits [$user]
+  --help           print this message
+
+Commands:
+  build <build_command>
+  analyze
+  install-gui
+  commit
+  start-gui
+  stop-gui
+
+EOF
+}
+
+
+sub usageError {
+  my ($e) = @_;
+  usage();
+  die("$e\n");
+}
+
+
+# root of prevent install or development directory
+$prevent = getenv("PREVENT");
+
+# data directories
+$config = "";
+$emit = "emit";
+$output = "output";
+$dir = "dir";
+$data = "data";
+
+# user for commits
+$user = "admin";
+
+
+# process command-line options
+while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
+  my $arg = $ARGV[0];
+  shift @ARGV;
+
+  if ($arg eq "-prev") {
+    $prevent = nextArg();
+  }
+  elsif ($arg eq "-c") {
+    $config = nextArg();
+  }
+  elsif ($arg eq "-e") {
+    $emit = nextArg();
+  }
+  elsif ($arg eq "-o") {
+    $output = nextArg();
+  }
+  elsif ($arg eq "--dir") {
+    $dir = nextArg();
+  }
+  elsif ($arg eq "-d") {
+    $data = nextArg();
+  }
+  elsif ($arg eq "--user") {
+    $user = nextArg();
+  }
+  elsif ($arg =~ m/^--?h(elp)?$/) {
+    usage();
+    exit(0);
+  }
+  else {
+    usageError("unknown option: $arg");
+  }
+}
+
+
+# validate $prevent
+if (!$prevent) {
+  die("Must specify the location of the Prevent install, either by\n" .
+      "supplying the -prev command line argument or via the \$PREVENT\n" .
+      "environment variable.\n");
+}
+
+if (! -d $prevent) {
+  die("Not a directory: $prevent\n");
+}
+
+$bin = "$prevent/bin";
+if (! -d "$bin") {
+  die("Not a directory: $bin\n");
+}
+
+if (-e "$bin/license.dat") {
+  $majVer = 3;
+  $licenseFile = "$bin/license.dat";
+}
+elsif (-e "$bin/.security") {
+  $majVer = 2;
+  $licenseFile = "$bin/.security";
+}
+else {
+  die("Did not find license file (.security or license.dat) in $bin.");
+}
+
+if (-d "$prevent/SCCS") {
+  $isReleaseImage = 0;
+  $guibin = "$prevent/gui/bin";
+}
+elsif (-f "$prevent/VERSION") {
+  $isReleaseImage = 1;
+  $guibin = "$prevent/bin";
+}
+else {
+  die("Neither SCCS nor VERSION found in $prevent.\n");
+}
+
+
+# process the command
+if (@ARGV == 0) {
+  usageError("no command specified");
+}
+
+my $command = $ARGV[0];
+shift @ARGV;
+
+if ($command eq "build") {
+  if (@ARGV == 0) {
+    usageError("no build command specified");
+  }
+
+  execEcho("$bin/cov-build",
+           "-e", $emit,
+           "-o", $output);
+}
+
+elsif ($command eq "start-gui") {
+  execEcho("$guibin/cov-start-gui",
+           "-d", $data);
+}
+
+elsif ($command eq "stop-gui") {
+  execEcho("$guibin/cov-stop-gui",
+           "-d", $data);
+}
+
+elsif ($command eq "install-gui") {
+  my @cmd = ("$guibin/cov-install-gui",
+             "-d", $data,
+             "--password", "admin");
+  if ($majVer >= 3) {
+    push @cmd, ("--product", "Default");
+  }
+  execEcho(@cmd);
+}
+
+elsif ($command eq "commit") {
+  execEcho($majVer==2? "$guibin/cov-commit-errors" :
+                       "$guibin/cov-commit-defects",
+           "-d", $data,
+           "-e", $emit,
+           "-o", $output,
+           "-sf", $licenseFile,
+           "--user", $user);
+}
+
+elsif ($command eq "analyze") {
+  execEcho("$bin/cov-analyze",
+           "-e", $emit,
+           "-o", $output);
+}
+
+elsif ($command eq "find-function") {
+  execEcho("$bin/cov-find-function",
+           "-e", $emit);
+}
+
+else {
+  usageError("unknown command: $command");
+}
+
+
+sub execEcho {
+  my @cmd = (@_, @ARGV);
+  
+  print(join(' ', @cmd) . "\n");
+  exec(@cmd);
+  die("exec failed\n");
+}
+
+
+sub getenv {
+  my ($var) = @_;
+  my $ret = $ENV{$var};
+  if (!defined($ret)) {
+    $ret = "";
+  }
+  return $ret;
+}
+
+
+sub nextArg {
+  if (@ARGV == 0) {
+    usageError("option requires argument");
+  }
+  my $ret = $ARGV[0];
+  shift @ARGV;
+  return $ret;
+}
+
+
+# EOF

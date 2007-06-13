@@ -1,0 +1,22 @@
+#!/bin/sh
+# run a program some number of times, or until it fails
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 times-to-run command [args...]"
+  exit 2
+fi
+
+n="$1"
+i=0
+shift
+
+while [ $i -lt $n ]; do
+  echo "$i: $* >loop.out 2>&1"
+  "$@" >loop.out 2>&1 || exit
+
+  i=`expr $i + 1`
+done
+
+echo "successfully ran command $n times"
+
+# EOF

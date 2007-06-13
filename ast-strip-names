@@ -1,5 +1,24 @@
-#!/bin/sh
+#!/usr/bin/perl -w
 # given a fragment of an .ast file, extract the ctor names
+      
+use strict 'subs';
 
-grep -- '->' | sed 's/^ *-> *//' | sed 's/(.*//'
+while (defined($line = <STDIN>)) {
+  chomp($line);
+  
+  ($name) = ($line =~ m/^\s*->\s+([^\( ]+)/);
+  if (defined($name)) {      # ctor
+    print($name . "\n");
+    next;
+  }
+         
+  ($name) = ($line =~ m/^\s*class\s+([^\( ]+)/);
+  if (defined($name)) {      # superclass
+    print("// ------------------------ $name ------------------------\n");
+    next;
+  }
+}
+
+# original sh script
+#grep -- '->' | sed 's/^ *-> *//' | sed 's/(.*//'
 

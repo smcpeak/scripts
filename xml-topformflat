@@ -1,0 +1,58 @@
+#!/usr/bin/perl -w
+# flatten XML toplevel forms into single lines
+
+use strict 'subs';
+
+# current toplevel tag name we're in
+$curTag = "";
+
+# current line contents we're accumulating
+$curLine = "";
+
+# true if errors were encountered
+$errors = 0;
+
+while (defined($line = <STDIN>)) {
+  chomp($line);
+
+  if (!$curTag) {
+    # start tag?
+    my ($t) = ($line =~ m/^<([a-zA-Z0-9_]+)>$/);
+    if (!defined($t)) {
+      print STDERR ("expected start tag; ignoring: $line\n");
+      $errors = 1;
+      next;
+    }
+    $curTag = $t;
+    $curLine = $line;
+    next;
+  }
+
+  $curLine .= $line;
+
+  # end tag?
+  my ($t) = ($line =~ m|^</([a-zA-Z0-9_]+)>$|);
+  if (defined($t) && $t eq $curTag) {
+    print($curLine . "\n");
+    $curLine = "";
+    $curTag = "";
+  }
+}
+
+if ($curTag) {
+  print STDERR ("did not find end of tag: $curTag\n");
+  $errors = 1;
+  
+  # flush incompletely accumulated element
+  print($curLine . "\n");
+}
+
+if ($errors) {
+  exit(2);
+}
+else {
+  exit(0);
+}
+
+
+# EOF

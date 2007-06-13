@@ -1,0 +1,35 @@
+#!/bin/bash
+# as I repeatedly files to a name using mozilla, this will
+# grab the file and move it away from the name
+
+#echo "invoked: $0 $@"
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 common-name"
+  exit 0
+fi
+
+# is the file there?
+if [ ! -f "$1" ]; then
+  # just exit silently; I expect this to be run by dnotify, or
+  # even with simple polling
+  exit 0
+fi
+
+# get next number to use
+if [ ! -f next-number ]; then
+  n=1
+else
+  n=`cat next-number`
+  n=$[ $n ]
+fi
+
+echo "mv $1 $n.html"
+mv "$1" $n.html || exit
+
+# set next number
+n=$[ $n + 1 ]
+echo $n > next-number
+
+
+# EOF

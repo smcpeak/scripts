@@ -1,0 +1,18 @@
+#!/usr/bin/perl -w
+# report if a specified file does *not* have a corresponding
+# thumbnail directory
+
+use strict 'subs';
+
+if (@ARGV == 0) {
+  print(<<"EOF");
+usage: $0 dirname/filename
+
+Checks that dirname/thumb/filename exists and is a directory
+that is not empty.
+EOF
+}
+
+die("... work in progress ...");
+
+# EOF

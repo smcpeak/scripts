@@ -19,5 +19,7 @@ case "$1" in
 esac
 
 echo printing..
-ps2djet500 < $1 > /dev/lp0
+
+# ps2djet500 < $1 > /dev/lp0
+ps2gdi < "$1" > /dev/lp0
 

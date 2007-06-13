@@ -7,23 +7,17 @@ if ! which $xclock >/dev/null 2>&1; then
   xclock=xclock
 fi
 
-if [ -f /etc/slack8 ]; then
-  # kde2: use kstart
-  kstart --type Dock $xclock -digital -update 1 -geometry 191x29+0-2
-  sleep 1
+kstart --type Dock -window xclock $xclock -digital -update 1 -geometry 191x22+0-0
+sleep 1
 
-  # move it where I want it since kde doesn't respect geometry
-  id=`xwininfo -name $xclock | grep "Window id" | awk '{ print $4 }'`
-  id=$id
-  if [ "$id" = "" ]; then
-    echo "Couldn't find the right window id"
-    exit 2
-  fi
-
-  # 'movewin' is a program I wrote (~/wrk/learn/x/movewin.cc)
-  movewin $id -move 0 1002 -lower
-
-else
-  # kde1
-  $xclock -digital -update 1
+# move it where I want it since kde doesn't respect geometry
+id=`xwininfo -name $xclock | grep "Window id" | awk '{ print $4 }'`
+id=$id
+if [ "$id" = "" ]; then
+  echo "Couldn't find the right window id"
+  exit 2
 fi
+
+# 'movewin' is a program I wrote (~/wrk/learn/x/movewin.cc)
+#movewin $id -llcorner -move 0 1002 -size 200 38 -lower
+movewin $id -lower

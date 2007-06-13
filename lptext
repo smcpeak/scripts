@@ -9,6 +9,7 @@ usage()
   echo "    -dummyO:      dummy print with output in tmp.ps (\"O\" is \"oh\")"
   echo "    -2up:         print 2-up landscape"
   echo "    -fontSize N:  use font size N"
+  echo "    --no-header:  do not page headers"
   exit 0
 }
 if [ "$1" = "" ]; then
@@ -39,6 +40,10 @@ while [ "$#" -gt 1 ]; do
       args="$args --font=Courier$1"
       ;;
 
+    --no-header)
+      args="$args --no-header"
+      ;;
+
     *)
       usage
       ;;
@@ -54,8 +59,8 @@ fi
 
 if [ "$dummy" = "0" ]; then
   # convert text to postscript, then to HP PCL, then send to printer
-  echo enscript "$args --output=- $1 | ps2djet500 >/dev/lp0"
-  enscript $args --output=- $1 | ps2djet500 >/dev/lp0
+  echo enscript "$args --output=- $1 | ps2gdi >/dev/lp0"
+  enscript $args --output=- $1 | ps2gdi >/dev/lp0
 else
   if [ "$dummy" = "1" ]; then
     args="$args --output=/dev/null"

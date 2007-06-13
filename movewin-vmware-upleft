@@ -1,0 +1,7 @@
+#!/bin/sh
+# set the window position of the VMware window so that the client
+# area is at 0,0 on the physical screen
+
+movewin-by-title "VMware Workstation" -move -7 -59
+
+# EOF

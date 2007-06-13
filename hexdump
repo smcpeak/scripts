@@ -3,11 +3,17 @@
 
 # usage
 if [ "$1" = "" ]; then
-  echo "usage: $0 file-to-dump"
-  echo "  use '-' as the filename for stdin"
-  exit
+  if [ -t 0 ]; then
+    echo "usage: $0 [file-to-dump]"
+    echo ""
+    echo "Without filename, dumps (non-tty) stdin."
+    exit
+  else
+    filename="-"
+  fi
+else
+  filename="$1"
 fi
-filename="$1"
 
 #
 # formatting; see hexdump(1) for a lousy description.  what I
@@ -38,7 +44,7 @@ EOF
 if [ "$filename" = "-" ]; then
   /usr/bin/hexdump -f $fmt
 else
-  /usr/bin/hexdump -f $fmt $filename
+  /usr/bin/hexdump -f $fmt "$filename"
 fi
 
 

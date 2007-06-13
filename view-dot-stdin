@@ -1,0 +1,20 @@
+#!/bin/sh
+# given some 'dot' input, view it in gv
+
+tmp="/tmp/view.dot.stdin.$$.ps"
+
+# render stdin as postscript
+if dot -Tps >$tmp; then
+  gv $tmp
+else
+  code=$?
+  rm $tmp
+  exit $code
+fi
+
+rm $tmp
+exit 0
+
+
+
+

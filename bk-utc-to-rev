@@ -1,0 +1,27 @@
+#!/usr/bin/perl -w
+# convert a UTC timestamp to a BK changeset name
+
+use strict 'subs';
+
+if (@ARGV == 0) {
+  print(<<"EOF");
+usage: $0 <utc>
+  writes the revname to stdout
+EOF
+  exit(2);
+}
+
+@lines = `bk findkey -t$ARGV[0]`;
+
+foreach $line (@lines) {
+  my ($rev) = ($line =~ m/^ChangeSet\|(.*)$/);
+  if (defined($rev)) {
+    print("$rev\n");
+    exit(0);
+  }
+}
+
+print STDERR ("no ChangeSet rev matches UTC $ARGV[0]\n");
+exit(2);
+
+# EOF

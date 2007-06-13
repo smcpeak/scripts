@@ -1,0 +1,44 @@
+#!/usr/bin/perl -w
+# count lines of code that are noncomment, nonblank lines
+
+use strict 'subs';
+
+if (@ARGV == 0) {
+  print("usage: $0 file.c [file2.c [...]]\n");
+  exit(0);
+}    
+
+$errors = 0;
+
+while (@ARGV) {
+  $fname = $ARGV[0];
+  shift @ARGV;
+
+  if (!open(IN, "<$fname")) {
+    print STDERR ("cannot open $fname: $!\n");
+    $errors++;
+    next;
+  }      
+      
+  $count = 0;
+  while (defined($line = <IN>)) {
+    # remove C++-style '//' comments
+    $line =~ s,//.*$,,;
+
+    # are any nonblank chars left?
+    if ($line =~ m/\S/) {
+      $count++;
+    }
+  }
+  
+  close(IN) or die;
+
+  print("$fname: $count\n");
+}
+
+if ($errors) {
+  exit(2);
+}
+else {
+  exit(0);
+}

@@ -1,0 +1,375 @@
+#!/usr/bin/perl -w
+# script to monitor CPU usage (among other things) at much finer
+# granularity than load average
+
+use strict 'subs';
+use IO::Handle;
+
+# which displays to show
+$showCpu = 1;         # c: total cpu utilization
+$showSys = 1;         # s: cpu time spent in kernel mode
+$showTemp = 1;        # cpu core temp in degrees celsius
+$showBatt = 1;        # battery charge percentage
+$showHda = 1;         # a: requests per second to /dev/hda
+$showHdb = 1;         # b: ..............................b
+$showHdc = 0;         # c: ..............................c
+$showEth = 1;         # e: packets sent/received over eth0
+$showPpp = 0;         # p: ...........................ppp0
+$showNews = 0;        # n: # of unread news articles
+$kernel22 = 0;        # true for 2.2 kernel, false for 2.4 kernel
+
+# configuration of some input sources
+$ethDevice = "eth0";
+$pppDevice = "ppp0";
+$unreadFile = "$ENV{HOME}/settings/num.unread.news";
+$tempChip = "via686a-isa-6000";
+$logFile = "$ENV{HOME}/.cpulog";
+$logInterval = 600;      # in seconds
+
+
+# flush all output immediately
+STDOUT->autoflush(1);
+
+# start by sampling counters
+@prev = getTickCounters();
+
+# this is used to make sure we completely erase the previous output
+$prevOutputLen = 0;
+
+# used to limit reading frequency of temperature data
+$tempReadDelay = 0;
+
+# similar for battery charge
+$battReadDelay = 0;
+
+# number of times we have displayed info since last log
+$unloggedDisplays = 0;
+
+# sum of tick counters since last log
+@unloggedTicks = asManyZeroesAs(@prev);
+
+# drop into infinite loop
+while (1) {
+  # wait a moment
+  sleep(1);
+
+  # sample again
+  @next = getTickCounters();
+
+  # compute differences
+  @ticks = elementwiseSubtract($#next + 1, @next, @prev);
+  ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, 
+   $sendCt, $recvCt, $pppSendCt, $pppRecvCt) = @ticks;
+  $duty = $user + $nice + $system;
+  $total = $duty + $idle;
+
+  # and running sum
+  @unloggedTicks = elementwiseAdd($#ticks + 1, @unloggedTicks, @ticks);
+  $unloggedDisplays++;
+
+  #print("user=$user nice=$nice system=$system idle=$idle\n");
+
+  # get # of unread news articles
+  $unread = 0;
+  if ($showNews && (-f $unreadFile)) {
+    open(IN, "<$unreadFile");
+    $unread = <IN>;
+    chomp($unread);
+    close(IN);
+  }
+
+  $temp = readCpuTemp();
+  $batt = readBattery();
+
+  # compute usages
+  $output = "\r";        # begin by moving to beginning of line
+  if ($showCpu) {
+    $output .= "c" . pctString($duty * 100 / $total) . " ";
+  }
+  if ($showSys) {
+    $output .= "s" . pctString($system * 100 / $total) . " ";
+  }
+  if ($showTemp) {
+    $output .= "$temp ";
+  }
+  if ($showHda) {
+    $output .= "a$disk1 ";
+  }
+  if ($showHdb) {
+    $output .= "b$disk2 ";
+  }
+  if ($showHdc) {
+    $output .= "c$disk3 ";
+  }
+  if ($showEth) {
+    $output .= "e$sendCt/$recvCt ";
+  }
+  if ($showPpp) {
+    $output .= "p$pppSendCt/$pppRecvCt ";
+  }
+  if ($showBatt) {
+    $output .= "B$batt ";
+  }
+  if ($unread > 0) {
+    $output .= "n$unread ";
+  }
+  $output .= " ";        # total of 2 spaces at end to clear old data
+  print($output);
+
+  # make sure prev line is erased
+  while (length($output) < $prevOutputLen) {
+    print(" ");
+    $prevOutputLen--;
+  }
+
+  $prevOutputLen = length($output) - 2;   # since $output has 2 spaces at end
+
+  # replace prev with next
+  @prev = @next;
+
+  # log this?
+  if ($unloggedDisplays >= $logInterval) {
+    makeLogEntry();
+    $unloggedDisplays = 0;
+    @unloggedTicks = asManyZeroesAs(@prev);
+  }
+}
+
+
+# --------------- subroutines ------------------
+# get current value of tick counters
+#   /proc/stat's first line: "cpu" user nice system idle
+sub getTickCounters {
+  # open the file
+  open(IN, "</proc/stat") or die;
+
+  # extract cpu fields from first line
+  my ($label, $user, $nice, $system, $idle) =
+    split(' ', <IN>);
+  pretendUsed($label);
+
+  my ($disk1, $disk2, $disk3, $kbd, $mouse);
+
+  if ($kernel22) {
+    # 2.2: extract disks field from second line
+    ($label, $disk1, $disk2, $disk3) = split(' ', <IN>);
+    $kbd = $mouse = 0;    # don't know how to get these in 2.2
+  }
+  else {
+    # 2.4: read lines searching for key words
+    my $line;
+    while (defined($line = <IN>)) {
+      chomp($line);
+
+      # disk_io
+      if ($line =~ m/^disk_io/) {
+        #print("line=$line\n");
+
+        # pull the numbers after the colons; example line:
+        #   disk_io: (3,0):(7947,5235,331325,2712,184280) (3,1):(28060,8233,225218,19827,1095224)
+        #                   ^^^^=$disk1                          ^^^^^=$disk2
+        # if there are fewer than three disks, leave corresponding
+        # variable(s) undefined
+        ($disk1) = ($line =~ m|\(3,0\):\((\d+),|);
+        ($disk2) = ($line =~ m|\(3,1\):\((\d+),|);
+        ($disk3) = ($line =~ m|\(3,2\):\((\d+),|);
+
+        # set undefined values to 0 to avoid warnings
+        if (!defined($disk1)) { $disk1 = 0; }
+        if (!defined($disk2)) { $disk2 = 0; }
+        if (!defined($disk3)) { $disk3 = 0; }
+
+        #print("disk1=$disk1 disk2=$disk2 disk3=$disk3\n");
+      }
+      elsif ($line =~ m/^intr/) {
+        my @fields = split(' ', $line);
+        $kbd = $fields[3];     # keyboard interrupts
+        $mouse = $fields[14];  # mouse (ps/2 only, presumably) interrupts
+      }
+    }
+  }
+
+  # close the file
+  close(IN) or die;
+
+
+  # open /proc/net/dev also, to get network device stats
+  open(IN, "</proc/net/dev") or die;
+
+  # values in case there is no matching device
+  my ($recvCt, $sendCt) = (0,0);
+  my ($pppRecvCt, $pppSendCt) = (0,0);
+
+  # read the lines, filter for eth0 or ppp0
+  while ($line = <IN>) {
+    if ($line =~ /$ethDevice/) {
+      $line =~ s/.*://;     # strip leading "eth0:"
+      my @fields = split(' ', $line);
+      ($recvCt, $sendCt) = ($fields[1], $fields[9]);
+    }
+    elsif ($line =~ /$pppDevice/) {
+      $line =~ s/.*://;     # strip leading "ppp0:"
+      my @fields = split(' ', $line);
+      ($pppRecvCt, $pppSendCt) = ($fields[1], $fields[9]);
+    }
+  }
+
+  close(IN) or die;
+
+  # return relevant fields
+  return ($user, $nice, $system, $idle, $disk1, $disk2, $disk3,
+          $sendCt, $recvCt, $pppSendCt, $pppRecvCt, $kbd, $mouse);
+}
+
+
+# sample temperature every 10 seconds (if at all)
+# see http://secure.netroedge.com/~lm78/
+# and http://www.thinkwiki.org/wiki/Ibm-acpi
+sub readCpuTemp {
+  my $ret = 0;
+  #print ("readCpuTemp called\n");
+  if ($showTemp) {
+    if ($tempReadDelay-- == 0) {
+      # use ACPI interface if available (woohoo!)
+      if ( -f "/proc/acpi/thermal_zone/THM0/temperature" ) {
+        my $line = `cat /proc/acpi/thermal_zone/THM0/temperature`;
+        ($ret) = ($line =~ /^temperature:\D*(\d+)/);
+        if ($ret) {
+          $ret .= "°";     # nonportable but pretty!
+        }
+        else {
+          $ret = "THM0??";
+        }
+      }
+      else {
+        my $line = `sensors $tempChip 2>/dev/null | grep 'CPU Temp'`;
+        #print ("line is $line\n");
+        ($ret) = ($line =~ /^CPU Temp: +\+(\d+\.\d.)C/);
+        if (!$ret) {
+          $ret = "??";
+        }
+      }
+      $saveTemp = $ret;        # save for when we don't really read
+      $tempReadDelay = 10;     # reset delay counter
+    }
+    else {
+      $ret = $saveTemp;
+    }
+  }
+  return $ret;
+}
+
+
+# sample battery charge via ACPI interface exported to /proc
+#
+# see /usr/src/linux/drivers/acpi/battery.c
+sub readBattery {
+  my $ret = "";
+  if ($showBatt) {
+    if ($battReadDelay-- == 0) {
+      my $line = `read-battery-state`;
+      chomp($line);
+      if ($line =~ m/^\s+$/) {
+        # no output
+        $ret = "????";
+      }
+      else {
+        $ret = $line;
+      }
+      $saveBatt = $ret;
+      $battReadDelay = 10;
+    }
+    else {
+      $ret = $saveBatt;
+    }
+  }
+  return $ret;
+}
+
+
+# return a percentage as a 3-char string
+sub pctString {
+  ($val) = @_;
+
+  if ($val < 0) {
+    return "<0%";
+  }
+  elsif ($val < 100) {
+    return sprintf("%02d%%", $val);
+  }
+  elsif ($val == 100) {
+    return "100";
+  }
+  else {
+    return ">C%";
+  }
+}
+
+
+# return a subarray
+sub subarray {
+  ($start, $count, @array) = @_;
+
+  my @ret = ();
+  for ($i = 0; $i < $count; $i++) {
+    $ret[$i] = $array[$i + $start];
+  }
+
+  return @ret;
+}
+
+
+# return an array computed by subtracting elements of one from another
+sub elementwiseSubtract {
+  ($count, @arrays) = @_;
+
+  @left = subarray(0, $count, @arrays);
+  @right = subarray($count, $count, @arrays);
+
+  my @ret = ();
+  for ($i = 0; $i < $count; $i++) {
+    $ret[$i] = $left[$i] - $right[$i];
+  }
+
+  return @ret;
+}
+
+# ...
+sub elementwiseAdd {
+  ($count, @arrays) = @_;
+
+  @left = subarray(0, $count, @arrays);
+  @right = subarray($count, $count, @arrays);
+
+  my @ret = ();
+  for ($i = 0; $i < $count; $i++) {
+    $ret[$i] = $left[$i] + $right[$i];
+  }
+
+  return @ret;
+}
+
+
+# return an array with as many zeroes as arguments passed
+sub asManyZeroesAs {
+  my @ret = ();
+  for ($i = 0; $i < @_; $i++) {
+    $ret[$i] = 0;
+  }
+  return @ret;
+}
+
+
+# just spit out unlogged ticks with minimal formatting
+sub makeLogEntry {
+  if (open(LLOG, ">>$logFile")) {     # ignore failure
+    my $d = `date`;
+    chomp($d);
+    print LLOG ("$d: ($unloggedDisplays) ", join(' ', @unloggedTicks), "\n");
+    close(LLOG);
+  }
+}
+
+
+sub pretendUsed {
+}

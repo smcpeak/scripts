@@ -1,0 +1,29 @@
+#!/bin/sh
+# start playing a movie, saving captured images to files
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 movie-filename"
+  exit 0
+fi
+fname="$1"
+shift
+
+if echo "$fname" | grep / >/dev/null; then
+  echo "movie file must be in current directory, named with a relative path (no slashes)"
+  exit 1
+fi
+
+# make a directory to hold the thumb images
+dir="thumb/$fname"
+if [ ! -d "$dir" ]; then
+  mkdir -p "$dir" || exit
+fi
+
+# go there so snapshots will go there too
+cd "$dir" || exit
+
+# play the movie; the 'gl2' output device is inefficient but compatible
+# with X11 screen capture programs; pressing 's' while watching the movie
+# will capture to files (given that I've modified mplayer's sources to
+# do so)
+exec $HOME/bld/MPlayer-1.0pre4/mplayer -vo gl2 "$@" ../../"$fname"

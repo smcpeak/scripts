@@ -76,7 +76,7 @@ if (!defined($startDate)) {
 }
 
 # The timezone to pass to cvs history.
-my $timezone = `date +%z`;      # returns things like "-800"
+my $timezone = `date +%z`;      # returns things like "-0800"
 chomp($timezone);
 
 
@@ -97,6 +97,12 @@ $curWhen = "";
 for ($i=0; $i < @history; $i++) {
   my $line = $history[$i];
   chomp($line);
+
+  if ($line =~ 'No records selected.') {
+    print("$line\n");
+    last;
+  }
+
   my ($kind, $when, $who, $rev, $file, $dir) =     # taken from mk-reports.pl
     ($line =~ m|^(.) (\d\d\d\d-\d\d-\d\d \d\d:\d\d .\d\d\d\d) (\S+)\s+([\d.]+)\s+(\S+)\s+(\S+)|);
 
@@ -113,7 +119,9 @@ for ($i=0; $i < @history; $i++) {
   if ($curWhen ne $when) {
     # starting new section; print info
     $curWhen = $when;
-    print("\n$when    $who\n");
+    print("\n" .
+          "---------------------------------------------------\n" .
+          "$when    $who\n");
 
     # get log information about this
     if ($showLog) {

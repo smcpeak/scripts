@@ -1,0 +1,12 @@
+#!/bin/sh
+# name of current rev
+
+if [ "$1" = "" ]; then
+  # current version
+  exec runecho bk prs -r+ -d':REV:::DSUM:, :UTC: UTC, :USER: :TAG:\n' ChangeSet
+else
+  # named version
+  exec runecho bk prs -r"$1" -d':REV:::DSUM:, :UTC: UTC, :USER: :TAG:\n' ChangeSet
+fi
+
+# EOF

@@ -1,0 +1,110 @@
+#!/usr/bin/perl -w
+# infer which bk revs are pushes
+
+use strict 'subs';
+
+# pushes found
+%pushes = ();
+
+# get all revs
+if (!open(REVS, "bk changes -a -d':UTC: :REV: :DSUM: :USER:\n' |")) {
+  die("failed to run bk changes\n");
+}
+while (defined($line = <REVS>)) {
+  chomp($line);
+  diagnostic("looking at $line\n");
+
+  # rev stats
+  my ($utc, $rev, $dsum, $user) = split(/ /, $line);
+  if (!defined($user)) {
+    die("malformed bk changes line: $line\n");
+  }
+  if ($dsum == 0) {
+    # I get a bunch of lines with user 'test' and dsum '0',
+    # which don't show up in revtool and don't seem to be
+    # what I want.  I think they are actions that apply tags.
+    next;
+  }
+  $user = normalizeUser($user);
+
+  # is this rev known to be a push?
+  if (defined($pushes{$rev})) {
+    printf("$utc UTC, %-11s $rev:$dsum\n", $user);
+    $pushes{$rev} = undef;      # remove the table entry, don't need anymore
+  }
+
+  # get predecessors of this rev
+  diagnostic("  getting predecessors of $rev\n");
+  my $predLine = `bk prs -h -r$rev -d':PARENT: :MPARENT:\n' ChangeSet`;
+  chomp($predLine);
+  if (whitespace($predLine)) {
+    die("bk prs -r$rev did not yield any output\n");
+  }
+  diagnostic("    preds: $predLine\n");
+
+  # process each one
+  my @preds = split(/ /, $predLine);
+  foreach $pred (@preds) {
+    # get user that made this rev
+    diagnostic("  getting user that made $pred\n");
+    my $predUser = `bk prs -h -r$pred -d':USER:\n' ChangeSet`;
+    chomp($predUser);
+    if (whitespace($predUser)) {
+      die("bk prs -r$pred did not yield a user\n");
+    }
+    $predUser = normalizeUser($predUser);
+    diagnostic("    predUser: $predUser\n");
+
+    # is it the same user as the one that made $rev?
+    if ($user eq $predUser) {
+      # yes, probably not a push
+    }
+    else {
+      # no, probably a push
+      $pushes{$pred} = 1;
+    }
+  }
+}
+close(REVS);
+exit(0);
+
+
+sub whitespace {
+  my ($s) = @_;
+  if ($s =~ m/^\s*$/) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+sub normalizeUser {
+  my ($u) = @_;
+
+  if ($u eq "scott") {
+    return "smcpeak";
+  }
+  if ($u eq "brian") {
+    return "bdantes";
+  }
+  if ($u eq "ch") {
+    return "chgros";
+  }
+  if ($u eq "Andy" || $u eq "ac") {
+    return "acc";
+  }
+  if ($u eq "hallem") {
+    return "shallem";
+  }
+
+  return $u;
+}
+
+
+sub diagnostic {
+  #print("debug: ", @_);
+}
+
+# EOF

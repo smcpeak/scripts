@@ -1,0 +1,4 @@
+#!/bin/sh
+# xargs using newlines (and \0) to separate filenames
+
+tr "\n" "\0" | xargs -0 "$@"

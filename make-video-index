@@ -1,0 +1,29 @@
+#!/bin/sh
+# look in the 'thumb' directory for video thumbnails and output
+# an index to index.html
+
+if [ ! -d thumb ]; then
+  echo "this script is meant to be run somewhere there is a thumb/ directory"
+  exit 2;
+fi
+
+echo "writing index.html ..."
+exec >index.html
+cd thumb
+
+for d in *; do
+  echo "<p>"
+  echo "<table><tr>"
+  for fn in "$d"/*; do
+    if [ "$fn" = "$d/*" ]; then
+      # happens when directory is empty
+      true
+    else
+      echo "  <td><img src=\"thumb/$fn\"></td>"
+    fi
+  done
+  echo "</tr></table>"
+  echo "$d"
+  echo "</p>"
+  echo ""
+done

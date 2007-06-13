@@ -1,0 +1,35 @@
+#!/bin/sh
+# dump some tables in an sqlite database
+
+if [ "$1" = "" ]; then
+  echo "$0 database.db table1 [table2 [...]]"
+  exit 0
+fi
+
+db="$1"
+shift
+
+BIN=$HOME/wrk/coverity/dev/packages/bin
+
+# 2006-07-04: No longer explicitly asking for 'rowid', as our current
+# database schema includes explicit integer primary keys, which are
+# then aliases for rowid.
+
+# no table?  dump them all
+if [ "$1" == "" ]; then
+  for tbl in `$BIN/sqlite3 "$db" .schema | \
+                grep "CREATE TABLE" | sed 's/(.*//' | awk '{ print $3 }'`; do
+    echo "---- $tbl ----"
+    $BIN/sqlite3 "$db" ".schema $tbl" | grep TABLE
+    $BIN/sqlite3 "$db" "select * from $tbl;"
+  done
+  exit
+fi
+
+while [ "$1" != "" ]; do
+  echo "---- $1 ----"
+  $BIN/sqlite3 "$db" ".schema $1" | grep TABLE
+  $BIN/sqlite3 "$db" "select * from $1;"
+  shift
+done
+

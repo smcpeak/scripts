@@ -1,0 +1,28 @@
+#!/usr/bin/perl -w
+# make an ascii histogram from duplicate lines
+
+use strict 'subs';
+
+$count = 0;
+while ($line = <STDIN>) {
+  if (defined($prevLine) && ($line eq $prevLine)) {
+    $count++;
+  }
+  else {
+    # emit previous count and reset
+    emit();
+    $count = 1;
+    $prevLine = $line;
+  }
+}
+
+emit();
+
+# print count
+sub emit {
+  my $prev = $prevLine;
+  chomp($prev);
+  if ($count) {
+    print("$prev: ", "*" x $count, "\n");
+  }
+}

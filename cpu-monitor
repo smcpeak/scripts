@@ -8,9 +8,10 @@ use IO::Handle;
 # which displays to show
 $showCpu = 1;         # c: total cpu utilization
 $showSys = 1;         # s: cpu time spent in kernel mode
-$showTemp = 1;        # cpu core temp in degrees celsius
+$showTemp = 0;        # cpu core temp in degrees celsius
+$showBatt = 0;        # battery charge percentage
 $showHda = 1;         # a: requests per second to /dev/hda
-$showHdb = 1;         # b: ..............................b
+$showHdb = 0;         # b: ..............................b
 $showHdc = 0;         # c: ..............................c
 $showEth = 1;         # e: packets sent/received over eth0
 $showPpp = 0;         # p: ...........................ppp0
@@ -21,7 +22,13 @@ $kernel22 = 0;        # true for 2.2 kernel, false for 2.4 kernel
 $ethDevice = "eth0";
 $pppDevice = "ppp0";
 $unreadFile = "$ENV{HOME}/settings/num.unread.news";
-$tempChip = "via686a-isa-6000";
+#$tempChip = "via686a-isa-6000";    # seamonkey
+$tempChip = "it8712-isa-0290";      # io
+#$THRM = "THM0";                    # ganymede
+$THRM = "THRM";                     # io
+$logFile = "$ENV{HOME}/.cpulog";
+$logInterval = 600;      # in seconds
+$hdaName = "8,0";        # actually /dev/sda; "3,0" is /dev/hda
 
 
 # flush all output immediately
@@ -35,6 +42,15 @@ $prevOutputLen = 0;
 
 # used to limit reading frequency of temperature data
 $tempReadDelay = 0;
+
+# similar for battery charge
+$battReadDelay = 0;
+
+# number of times we have displayed info since last log
+$unloggedDisplays = 0;
+
+# sum of tick counters since last log
+@unloggedTicks = asManyZeroesAs(@prev);
 
 # drop into infinite loop
 while (1) {
@@ -51,6 +67,10 @@ while (1) {
   $duty = $user + $nice + $system;
   $total = $duty + $idle;
 
+  # and running sum
+  @unloggedTicks = elementwiseAdd($#ticks + 1, @unloggedTicks, @ticks);
+  $unloggedDisplays++;
+
   #print("user=$user nice=$nice system=$system idle=$idle\n");
 
   # get # of unread news articles
@@ -63,6 +83,7 @@ while (1) {
   }
 
   $temp = readCpuTemp();
+  $batt = readBattery();
 
   # compute usages
   $output = "\r";        # begin by moving to beginning of line
@@ -90,6 +111,9 @@ while (1) {
   if ($showPpp) {
     $output .= "p$pppSendCt/$pppRecvCt ";
   }
+  if ($showBatt) {
+    $output .= "B$batt ";
+  }
   if ($unread > 0) {
     $output .= "n$unread ";
   }
@@ -106,6 +130,13 @@ while (1) {
 
   # replace prev with next
   @prev = @next;
+
+  # log this?
+  if ($unloggedDisplays >= $logInterval) {
+    makeLogEntry();
+    $unloggedDisplays = 0;
+    @unloggedTicks = asManyZeroesAs(@prev);
+  }
 }
 
 
@@ -121,37 +152,59 @@ sub getTickCounters {
     split(' ', <IN>);
   pretendUsed($label);
 
-  my ($disk1, $disk2, $disk3);
+  my ($disk1, $disk2, $disk3, $kbd, $mouse);
 
   if ($kernel22) {
     # 2.2: extract disks field from second line
     ($label, $disk1, $disk2, $disk3) = split(' ', <IN>);
+    $kbd = $mouse = 0;    # don't know how to get these in 2.2
   }
   else {
-    # 2.4: read lines until one begins with "disk_io"
+    # 2.4: read lines searching for key words
     my $line;
-    while (defined($line = <IN>) &&
-           $line !~ m/^disk_io/)
-      {}
+    while (defined($line = <IN>)) {
+      chomp($line);
 
-    chomp($line);
-    #print("line=$line\n");
+      # disk_io
+      if ($line =~ m/^disk_io/) {
+        #print("line=$line\n");
 
-    # pull the numbers after the colons; example line:
-    #   disk_io: (3,0):(7947,5235,331325,2712,184280) (3,1):(28060,8233,225218,19827,1095224)
-    #                   ^^^^=$disk1                          ^^^^^=$disk2
-    # if there are fewer than three disks, leave corresponding
-    # variable(s) undefined
-    ($disk1, $tail1, $disk2, $tail2, $disk3) =
-      ($line =~ m':\((\d+),[^:]+(:\((\d+),[^:]+(:\((\d+))?)?');
-    pretendUsed($tail1, $tail2);
+        # pull the numbers after the colons; example line:
+        #   disk_io: (3,0):(7947,5235,331325,2712,184280) (3,1):(28060,8233,225218,19827,1095224)
+        #                   ^^^^=$disk1                          ^^^^^=$disk2
 
-    # set undefined values to 0 to avoid warnings
-    if (!defined($disk1)) { $disk1 = 0; }
-    if (!defined($disk2)) { $disk2 = 0; }
-    if (!defined($disk3)) { $disk3 = 0; }
+        # The first number is the total number of I/O requests.
+        # The second is total number of read requests.
+        # The third is total number of read sectors.
+        # The fourth is total number of write requests.
+        # The fifth is total number of write sectors.
+        # Invariant: first = second + fourth.
+        #
+        # Info is from linux kernel (2.4.29) source:
+        #   fs/proc/proc_misc.c: prints kstat.dk_drive* stuff as "disk_io" line
+        #   include/linux/kernel_stat.h: defines kernel_stat structure
+        #   drivers/block/ll_rw_blk.c: updates kstat.dk_drive numbers
+        #     (only place that writes those numbers)
 
-    #print("disk1=$disk1 disk2=$disk2 disk3=$disk3\n");
+        # if there are fewer than three disks, leave corresponding
+        # variable(s) undefined
+        ($disk1) = ($line =~ m|\($hdaName\):\((\d+),|);
+        ($disk2) = ($line =~ m|\(3,1\):\((\d+),|);
+        ($disk3) = ($line =~ m|\(3,2\):\((\d+),|);
+
+        # set undefined values to 0 to avoid warnings
+        if (!defined($disk1)) { $disk1 = 0; }
+        if (!defined($disk2)) { $disk2 = 0; }
+        if (!defined($disk3)) { $disk3 = 0; }
+
+        #print("disk1=$disk1 disk2=$disk2 disk3=$disk3\n");
+      }
+      elsif ($line =~ m/^intr/) {
+        my @fields = split(' ', $line);
+        $kbd = $fields[3];     # keyboard interrupts
+        $mouse = $fields[14];  # mouse (ps/2 only, presumably) interrupts
+      }
+    }
   }
 
   # close the file
@@ -183,28 +236,69 @@ sub getTickCounters {
 
   # return relevant fields
   return ($user, $nice, $system, $idle, $disk1, $disk2, $disk3,
-          $sendCt, $recvCt, $pppSendCt, $pppRecvCt);
+          $sendCt, $recvCt, $pppSendCt, $pppRecvCt, $kbd, $mouse);
 }
 
 
 # sample temperature every 10 seconds (if at all)
 # see http://secure.netroedge.com/~lm78/
+# and http://www.thinkwiki.org/wiki/Ibm-acpi
 sub readCpuTemp {
   my $ret = 0;
   #print ("readCpuTemp called\n");
   if ($showTemp) {
     if ($tempReadDelay-- == 0) {
-      $line = `sensors $tempChip 2>/dev/null | grep 'CPU Temp'`;
-      #print ("line is $line\n");
-      ($ret) = ($line =~ /^CPU Temp: +\+(\d+\.\d.)C/);
-      if (!$ret) {
-        $ret = "??";
+      # use ACPI interface if available (woohoo!)
+      if ( -f "/proc/acpi/thermal_zone/$THRM/temperature" ) {
+        my $line = `cat /proc/acpi/thermal_zone/$THRM/temperature`;
+        ($ret) = ($line =~ /^temperature:\D*(\d+)/);
+        if ($ret) {
+          $ret .= "°";     # nonportable but pretty!
+        }
+        else {
+          $ret = "${THRM}?";
+        }
+      }
+      else {
+        my $line = `sensors $tempChip 2>/dev/null | grep 'CPU Temp'`;
+        #print ("line is $line\n");
+        ($ret) = ($line =~ /^CPU Temp: +\+(\d+\.\d.)C/);
+        if (!$ret) {
+          $ret = "??";
+        }
       }
       $saveTemp = $ret;        # save for when we don't really read
       $tempReadDelay = 10;     # reset delay counter
     }
     else {
       $ret = $saveTemp;
+    }
+  }
+  return $ret;
+}
+
+
+# sample battery charge via ACPI interface exported to /proc
+#
+# see /usr/src/linux/drivers/acpi/battery.c
+sub readBattery {
+  my $ret = "";
+  if ($showBatt) {
+    if ($battReadDelay-- == 0) {
+      my $line = `read-battery-state`;
+      chomp($line);
+      if ($line =~ m/^\s+$/) {
+        # no output
+        $ret = "????";
+      }
+      else {
+        $ret = $line;
+      }
+      $saveBatt = $ret;
+      $battReadDelay = 10;
+    }
+    else {
+      $ret = $saveBatt;
     }
   }
   return $ret;
@@ -256,6 +350,42 @@ sub elementwiseSubtract {
   }
 
   return @ret;
+}
+
+# ...
+sub elementwiseAdd {
+  ($count, @arrays) = @_;
+
+  @left = subarray(0, $count, @arrays);
+  @right = subarray($count, $count, @arrays);
+
+  my @ret = ();
+  for ($i = 0; $i < $count; $i++) {
+    $ret[$i] = $left[$i] + $right[$i];
+  }
+
+  return @ret;
+}
+
+
+# return an array with as many zeroes as arguments passed
+sub asManyZeroesAs {
+  my @ret = ();
+  for ($i = 0; $i < @_; $i++) {
+    $ret[$i] = 0;
+  }
+  return @ret;
+}
+
+
+# just spit out unlogged ticks with minimal formatting
+sub makeLogEntry {
+  if (open(LLOG, ">>$logFile")) {     # ignore failure
+    my $d = `date`;
+    chomp($d);
+    print LLOG ("$d: ($unloggedDisplays) ", join(' ', @unloggedTicks), "\n");
+    close(LLOG);
+  }
 }
 
 

@@ -1,0 +1,30 @@
+#!/bin/sh
+# unpack an RPM
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 file.rpm"
+  exit 2
+fi
+
+while [ "$1" != "" ]; do
+
+  tgz=`echo $1 | sed 's/\.rpm/.tgz/'`
+  if [ "$1" = "$tgz" ]; then
+    echo "extension should be .rpm"
+    exit 2
+  fi
+
+  echo "converting $1 to .tgz ..."
+  rpm2tgz "$1" || exit
+
+  echo "unpacking the .tgz ..."
+  tar xf "$tgz" || exit
+
+  echo "done"
+  rm "$tgz" || exit
+
+  shift
+
+done
+
+exit 0

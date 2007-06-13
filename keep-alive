@@ -1,0 +1,8 @@
+#!/bin/sh
+# echo something repeatedly to keep the ssh connection alive
+
+while true; do
+  echo -n 'x'
+  sleep 60
+done
+

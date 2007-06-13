@@ -1,0 +1,44 @@
+#!/usr/bin/perl -w
+# given a CVS date as an argument, add one minute
+
+use strict 'subs';
+
+if (@ARGV == 0) {
+  print("usage: $0 \"YYYY-MM-DD HH:MM -ZZZZ\"\n");
+  print("  prints time + one minute, in same format\n");
+  exit(0);
+}
+
+$input = $ARGV[0];
+
+# parse it
+($Y,$M,$D,$h,$m,$Z) = ($input =~ m/(\d\d\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d) ([+-]....)/);
+if (!defined($Z)) {
+  print STDERR ("unexpected date format: $input\n");
+  exit(2);
+}
+
+if ($m < 59) {
+  $m++;
+}
+else {
+  $m = 0;
+  if ($h < 23) {
+    $h++;
+  }
+  else {
+    $h = 0;
+    if ($D < 28) {
+      $D++;
+    }
+    else {
+      print STDERR ("unimplemented: date near midnight at end of month, sorry\n");
+      exit(2);
+    }
+  }
+}
+
+# print it
+printf("%04d-%02d-%02d %02d:%02d %s\n", $Y, $M, $D, $h, $m, $Z);
+exit(0);
+

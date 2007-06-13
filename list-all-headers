@@ -1,0 +1,4 @@
+#!/bin/sh
+# list all header files in CWD or below
+
+find . \( -name '*.h' -o -name '*.hpp' -o -name '*.hh' \) -print | grep -v SCCS

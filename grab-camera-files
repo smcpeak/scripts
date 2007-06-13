@@ -1,0 +1,49 @@
+#!/usr/bin/perl -w
+# grab the images off my camera
+
+use strict 'subs';
+
+$ENV{PATH} = "/opt/gphoto2-2.1.4/bin:$ENV{PATH}";
+
+# 2.3.1 doesn't seem to work
+#$ENV{PATH} = "/opt/gphoto2-2.3.1/bin:$ENV{PATH}";
+
+sub runecho {
+  my ($cmd) = @_;
+  print("$cmd\n");
+  if (system($cmd) != 0) {
+    die("failed: $cmd\n");
+  }
+}
+                                            
+print("getting list of files...\n");
+@file_list = `gphoto2.console --list-files`;
+if ($? != 0) {
+  die("failed to get list of files\n");
+}
+#@file_list = `cat file_list`;
+
+# collect the names of the nonempty folders
+@folders = ();
+for ($i = 0; $i < @file_list; $i++) {
+  my $line = $file_list[$i];
+
+  my ($n, $name) =
+    ($line =~ m/^There are (\d+) files in folder \'(.+)\'/);
+  if (defined($name)) {
+    print("  $name: $n files\n");
+    @folders = (@folders, $name);
+  }
+}
+
+# get the pictures themselves
+runecho("gphoto2.console --get-all-files");
+
+# delete them off the camera
+for ($i = 0; $i < @folders; $i++) {
+  my $f = $folders[$i];
+  runecho("gphoto2.console --folder $f --delete-all-files");
+  #print("DRY: gphoto2.console --folder $f --delete-all-files\n");
+}
+
+# EOF

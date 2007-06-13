@@ -1,0 +1,50 @@
+#!/usr/bin/perl -w
+# append to history.txt by retrieving later commits
+
+use strict 'subs';
+
+if (! -f "history.txt") {
+  print("this script must be run from a directory that has history.txt already\n");
+  exit(0);
+}
+                        
+# find the last date in history.txt
+open(IN,"<history.txt") or die;
+while (defined($line = <IN>)) {
+  if ($line =~ m/^\d\d\d\d-\d\d-\d\d \d\d:\d\d .\d\d\d\d/) {
+    $lastDateLine = $line;
+  }
+}
+close(IN) or die;
+
+if (!defined($lastDateLine)) {
+  die("could not find any date lines!\n");
+}
+print("last date: $lastDateLine");     # $lastDateLine has a newline
+
+# extract date fields
+($year,$month,$day,$hour,$min,$tz) =
+  ($lastDateLine =~ m/^(\d\d\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d) (.\d\d\d\d)/);
+if (!defined($tz)) {
+  die("what the?");
+}
+
+# increment by one minute
+$min++;
+if ($min == 60) {
+  $min = 0;
+  $hour++;
+  if ($hour == 24) {
+    $hour = 0;
+    $day++;
+    if ($day > 28) {
+      die("unimplemented: midnight near end of month!\n");
+    }
+  }
+}
+
+# invoke my-cvs-history
+# 2005-07-23: also pass through cvs-grab-diffs so I get each change as a diff
+exec("my-cvs-history -D \"$year-$month-$day $hour:$min $tz\" | tee -a history.txt | cvs-grab-diffs");
+
+exit(2);    # should not get here

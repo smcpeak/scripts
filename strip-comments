@@ -1,0 +1,22 @@
+#!/usr/bin/perl -w
+# remove all comments and blank lines
+
+use strict 'subs';
+
+if (-t STDIN) {
+  print("usage: $0 <in.c >out.c\n");
+  exit(0);
+}
+
+while (defined($line = <STDIN>)) {
+  # remove C++-style '//' comment lines
+  $line =~ s,^\s*//.*$,,;
+
+  # remove C-style /**/ comment lines
+  $line =~ s,^\s*/\*[^*]*\*/,,;
+
+  # are any nonblank chars left?
+  if ($line =~ m/\S/) {
+    print($line);
+  }
+}

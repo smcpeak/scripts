@@ -1,0 +1,14 @@
+#!/bin/sh
+# info about named rev
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 <revname>"
+  exit 2
+fi
+
+bk prs -r"$1" -d':REV:::DSUM:, :UTC: UTC, :USER:\n' ChangeSet
+bk changes -r"$1"
+bk cset -r"$1"
+bk prs -h -r"$1" -d'parents :PARENT: :MPARENT:\n' ChangeSet
+
+# EOF

@@ -1,0 +1,20 @@
+#!/usr/bin/perl -w
+# get a file mod time as unix time
+
+use strict 'subs';
+
+if (@ARGV != 1) {
+  print("usage: $0 file\n");
+  exit(0);
+}
+
+@s = stat($ARGV[0]);
+if (!@s) {
+  die("$0: $ARGV[0]: $!\n");
+}
+
+printf("%d\n", $s[9]);
+
+exit(0);
+
+# EOF

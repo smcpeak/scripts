@@ -1,0 +1,27 @@
+#!/usr/bin/perl -w
+# extract an ed2k hash from an ed2k link, and prepend the hash to the link
+
+use strict 'subs';
+
+$lineNum = 0;
+while (defined($line = <STDIN>)) {
+  $lineNum++;
+
+  @fields = split('\|', $line);
+  if ($fields[0] ne "ed2k://") {
+    # line w/o link: pass unchanged
+    #print STDERR ("f0: $fields[0]\n");
+    print($line);
+    next;
+  }
+
+  if (@fields < 4) {
+    print STDERR ("line $lineNum: less than 4 fields; passing unchanged\n");
+    print($line);
+    next;
+  }
+  
+  printf("%s  %s", uc($fields[4]), $line);
+}
+
+# EOF

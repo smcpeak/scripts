@@ -1,0 +1,257 @@
+#!/usr/bin/perl -w
+# given a set of push revs, and a single push rev, find the
+# set of nonpush revs that went into the push rev before
+# going into any other push rev; these are essentially the
+# set of private commits before a public push
+
+use strict 'subs';
+
+if (@ARGV != 1) {
+  print("usage: $0 <rev>\n");
+  exit(2);
+}
+
+$mainRev = $ARGV[0];
+
+# get info about the main rev
+$mainRevInfo = getRevInfo($mainRev);
+
+# frontier of pushes that flow into the main rev, sorted; each
+# string is of the form:
+#   <utc> <rev> <sum> <user> [<pred1> [<pred2>]]
+@frontier = ($mainRevInfo);
+
+# frontier of pushes that flow into some other push first, sorted;
+# strings are in same format as @frontier
+@blacklist = ();
+
+# The basic algorithm is to walk the parent chain backwards from
+# $mainRev, collecting all nonpush revs, and stopping at any push
+# rev.  But there is a complication, because a nonpush rev may
+# appear to flow into more than one push rev:
+#
+#   pushes: 1 ------- 2 -------- 3
+#                   /          /
+#   nonpushes:  1.1 ------ 2.1
+#
+# Here, I want 2.1 to be considered a constituent rev of 3, and
+# 1.1 to be considered *only* a constituent of 2, not both 2 and
+# 3, despite the fact that there is a path of nonpush revs from
+# 3 to 1.1.
+#
+# So, the approach is to maintain a blacklist set, which is the
+# backwards expansion of the push revs we've seen, and do not put
+# blacklist elements in the 'constitutent revs' output.  Above,
+# rev 2 gets put into the blacklist (b/c it is a push), and then
+# 1.1 is put into the blacklist b/c it is a parent of 2.
+
+while (@frontier != 0) {
+  if (@blacklist > 0 &&
+      $frontier[-1] lt $blacklist[-1]) {
+    # process next blacklist element, because it is
+    # later than the next frontier element
+    my @blackFields = split(' ', pop @blacklist);
+    diagnostic("processing blacklist element: @blackFields");
+
+    # discard the elements before the parent(s)
+    shift @blackFields;
+    shift @blackFields;
+    shift @blackFields;
+    shift @blackFields;
+
+    # put its predecessors into the blacklist
+    foreach my $pred (@blackFields) {
+      diagnostic("  predecessor: $pred");
+
+      my $predInfo = getRevInfo($pred);
+
+      if (!contains($predInfo, @blacklist)) {
+        push @blacklist, ($predInfo);
+        @blacklist = sort(@blacklist);
+        diagnostic("    added to blacklist");
+      }
+      else {
+        diagnostic("    already in blacklist");
+      }
+      
+      # also, have to remove them from the frontier; they can get
+      # into the frontier as in the example above, where 2.1 would
+      # be expanded before 2, since 2.1 is a later timestamp
+      @frontier = grep {
+        if ($_ eq $predInfo) {
+          diagnostic("    removed from frontier");
+          0;     # remove it
+        }
+        else {
+          1;     # keep it
+        }
+      } @frontier;
+    }
+
+    next;
+  }
+
+  # pop next frontier element
+  my @curFields = split(' ', pop @frontier);
+  diagnostic("processing frontier element: @curFields");
+
+  # print it, since it flows into the main rev
+  #printf("$curFields[0] UTC, %-11s $curFields[1]:$curFields[2]\n",
+  #       $curFields[3]);
+  # more terse
+  print("$curFields[0] $curFields[1] $curFields[2]");
+
+  # merge?
+  if (@curFields == 6) {
+    print(" (merge)\n");
+  }
+  else {
+    print("\n");
+
+    if (0) {
+      # print comments too
+      my @comments = `bk prs -h -r$curFields[1] -d:COMMENTS: ChangeSet`;
+      foreach my $c (@comments) {
+        $c =~ s/^./ /;  # change C into ' '
+        print($c);      # has newline already
+      }
+    }
+  }
+
+  # get its predecessors
+  my @preds = @curFields;
+  shift @preds;
+  shift @preds;
+  shift @preds;
+  shift @preds;
+
+  # examine them
+  foreach my $p (@preds) {
+    diagnostic("  predecessor: $p");
+    my $predInfo = getRevInfo($p);
+
+    if (contains($predInfo, @blacklist)) {
+      # do nothing, it's already in the blacklist
+      diagnostic("    already in blacklist");
+      next;
+    }
+
+    if (contains($predInfo, @frontier)) {
+      # do nothing, already in frontier
+      diagnostic("    already in frontier");
+      next;
+    }
+
+    # is it a push?
+    my @predFields = split(' ', $predInfo);
+    if (isPush($predFields[1])) {
+      # push
+      push @blacklist, ($predInfo);
+      @blacklist = sort(@blacklist);
+      diagnostic("    added to blacklist");
+    }
+    else {
+      # nonpush
+      push @frontier, ($predInfo);
+      @frontier = sort(@frontier);
+      diagnostic("    added to frontier");
+    }
+  }
+}
+
+diagnostic("final blacklist:");
+foreach $b (@blacklist) {
+  diagnostic("  $b");
+}
+
+exit(0);
+
+
+# given a rev, yield: <utc> <rev> <sum> <user> [<pred1> [<pred2>]]
+sub getRevInfo {
+  my ($rev) = @_;
+
+  diagnostic("getting info about $rev");
+  my $data = `bk prs -h -n -r$rev -d':UTC: :REV: :DSUM: :USER: :PARENT: :MPARENT:' ChangeSet`;
+  chomp($data);
+  if (whitespace($data)) {
+    die("bk prs -r$rev did not yield any output\n");
+  }
+  diagnostic("  info: $data");
+
+  # normalize the username
+  my @fields = split(' ', $data);
+  $fields[3] = normalizeUser($fields[3]);
+  $data = join(' ', @fields);
+
+  return $data;
+}
+
+
+sub contains {
+  my ($needle, @haystack) = @_;
+  
+  foreach $h (@haystack) {
+    if ($needle eq $h) {
+      return 1;
+    }
+  }
+  
+  return 0;
+}
+
+
+sub whitespace {
+  my ($s) = @_;
+  if ($s =~ m/^\s*$/) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+sub normalizeUser {
+  my ($u) = @_;
+
+  if ($u eq "scott") {
+    return "smcpeak";
+  }
+  if ($u eq "brian") {
+    return "bdantes";
+  }
+  if ($u eq "ch") {
+    return "chgros";
+  }
+  if ($u eq "Andy" || $u eq "ac") {
+    return "acc";
+  }
+  if ($u eq "hallem") {
+    return "shallem";
+  }
+
+  return $u;
+}
+
+
+# return true if $rev is the revision number of a push
+sub isPush {
+  my ($rev) = @_;
+  
+  my @lines = `bk prs -r$rev -n -d:TAGS: -h ChangeSet`;
+  if (grep(/^S push-/, @lines)) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+sub diagnostic {
+  #print("debug: ", @_, "\n");
+}
+
+
+# EOF

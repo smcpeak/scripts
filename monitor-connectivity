@@ -11,18 +11,16 @@ lastConnected=0
 pingOut=/dev/null
 
 # delay between attempts, in seconds
-#   was 300 (5 mins) for a while, but that was missing intermittent ~1 min
-#   outages, so I am dropping it to 60 secs to hopefully catch those
-delay=60
+delay=300
 
-# gatekeeper.dec.com
-gatekeeper=204.123.2.2
-# www.berkeley.edu
-berkeley=169.229.131.109
+# www.google.com
+machine2=66.102.7.99
+# manju.cs.berkeley.edu
+machine1=128.32.35.194
 # nearest machine that is not inside my apartment
-gateway=12.232.144.1
+gateway=24.4.218.1
 # first DNS server the DHCP server tells me about
-dns=216.148.227.68                               
+dns=216.148.227.68
 
 
 # -- where to send output --
@@ -52,8 +50,8 @@ report "began monitoring" `date` "with delay $delay secs"
 while true; do
   # use IP addresses instead of DNS names because the latter
   # incur a huge overhead when we're not connected
-  if ping -c 2 $gatekeeper >> $pingOut 2>&1 || \
-     ping -c 2 $berkeley>> $pingOut 2>&1 ; then
+  if ping -c 2 $machine2 >>$pingOut 2>&1 || \
+     ping -c 2 $machine1 >>$pingOut 2>&1 ; then
     # we are connected
     #echo "we are connected"
     if [ "$connected" != "1" ]; then

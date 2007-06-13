@@ -1,0 +1,24 @@
+#!/usr/bin/perl -w
+# set a file's access/mod times, specified as unix time
+
+# "touch" sucks because it can't accept a unix time
+
+use strict 'subs';
+
+if (@ARGV < 2) {
+  print("usage: $0 unix-time file [files...]\n");
+  exit(0);
+}
+
+$t = $ARGV[0];
+shift @ARGV;
+
+$ret = 0;
+foreach $fname (@ARGV) {
+  if (!utime($t, $t, $fname)) {
+    print("$0: $fname: $!\n");
+    $ret = 2;
+  }
+}
+
+exit($ret);

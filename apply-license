@@ -1,0 +1,55 @@
+#!/usr/bin/perl -w
+# insert a license.txt pointer into the named source files
+
+use strict 'subs';
+
+if (@ARGV == 0) {
+  print("usage: $0 file [file [..]]\n");
+  exit(0);
+}
+
+$errors = 0;
+
+while (@ARGV) {
+  $fname = $ARGV[0];
+  shift(@ARGV);
+
+  # read the file's contents
+  if (!open(IN, "<$fname")) {
+    print("$fname: can't read file: $!\n");
+    $errors++;
+    next;
+  }
+  @lines = <IN>;
+  close(IN) or die;
+
+  # check for existing message
+  if (grep(m/see license\.txt/, @lines)) {
+    print("$fname: already annotated\n");
+    # not considered an error
+    next;
+  }
+
+  # begin writing the file
+  if (!open(OUT, ">$fname")) {
+    print("$fname: can't write file: $!\n");
+    $errors++;
+    next;
+  }
+  
+  # write first line, with message inserted
+  $tmp = $lines[0];
+  chomp($tmp);
+  print OUT ("$tmp            see license.txt for copyright and terms of use\n");
+  
+  # write remaining lines
+  for ($i=1; $i < @lines; $i++) {
+    print OUT ($lines[$i]);
+  }
+
+  close(OUT) or die;
+  
+  print("$fname: ok\n");
+}
+
+exit($errors);

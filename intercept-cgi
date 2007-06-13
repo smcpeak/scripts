@@ -1,0 +1,15 @@
+#!/bin/sh
+# interceptor
+
+printenv >env.txt
+cat >stdin.txt
+
+./cov.cgi.orig env.txt <stdin.txt >stdout.txt 2>stderr.txt
+code=$?
+
+cat stdout.txt
+cat stderr.txt 1>&2
+
+exit $code
+
+# EOF

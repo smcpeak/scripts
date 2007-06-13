@@ -1,0 +1,42 @@
+#!/usr/bin/perl -w
+# use xwd to grab the currently shown mplayer frame
+
+# find an unused filename
+$i = 0;
+while (1) {
+  $nameNum = sprintf("%08d", $i);
+  $name = "$nameNum" . ".png";
+  if (! -e $name) {
+    last;
+  }
+  $i++;
+}
+
+# get the window id of mplayer
+@info = `xwininfo -name MPlayer`;
+@info = grep(/Window id/, @info);
+if (@info != 1) {
+  die("xwininfo didn't find anything, or returned unexpected output");
+}
+($id) = ($info[0] =~ m/Window id: (\S+)/);
+if (!defined($id)) {
+  die("Couldn't find the right window id\n");
+}
+
+# dump the mplayer frame
+if (system("xsg --png -id $id -o $nameNum")!=0) {
+  die("xsg failed\n");
+}
+
+# convert to png
+#  print("converting to PNG...\n");
+#  if (system("convert tmp.xpm $name")!=0) {
+#    die("convert failed\n");
+#  }
+#  print("done converting, saved as $name.\n");
+
+#  unlink("tmp.xpm");
+
+exit(0);
+
+

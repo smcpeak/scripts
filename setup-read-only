@@ -1,0 +1,106 @@
+#!/bin/sh
+# given a system that has booted with just a read-only
+# root filesystem, enable some other components to make
+# it usable interactively
+
+# stop on error
+set -e         
+
+# echo commands
+set -x
+
+ramdisk() {
+  # insert the ramdisk module
+  insmod rd
+
+  # make writable /tmp and /var
+  mkfs.ext2 /dev/ram0
+  mkfs.ext2 /dev/ram1
+
+  mount /dev/ram0 /tmp
+  mount /dev/ram1 /var
+
+  chmod 1777 /tmp /var
+
+  cd /var
+  mkdir X11R6 cache lib log man pid run spool tmp yp
+  mkdir adm games lock mail named qmail rwho state www
+
+  chmod 1777 lock tmp
+}
+
+# set up the network
+network() {
+  modprobe 8139too
+  ifconfig eth0 2.2.2.31
+  route add default gw 2.2.2.5
+}
+
+# sound
+sound() {
+  modprobe es1371
+}
+
+# video
+video() {
+  modprobe NVdriver
+}
+
+# temperature sensors
+sensors() {
+  /etc/rc.d/rc.sensors
+}
+
+# read-only mounts of the non-root filesystems
+nonroot() {
+  mount -o ro /wd
+  mount -o ro /ex
+}
+
+# fake 'scott' home directory
+scott() {
+  mkdir /tmp/scott
+  cd /tmp/scott
+  cp /home/scott/.* . || true
+  ln -s /home/scott/.* /home/scott/* . || true
+  rm .mozilla
+  chown -R scott.users .
+}
+
+help() {
+cat <<EOF
+usage: $0 component [component [...]]
+
+components:
+  ramdisk     - /tmp and /var ramdisks
+  network     - eth0
+  sound       - sound driver
+  video       - NVidia driver
+  sensors     - temperature sensors
+  nonroot     - /wd and /ex
+  scott       - /tmp/scott
+
+  all         - all of the above
+  help        - this message
+EOF
+  exit 0
+}
+
+all() {
+  ramdisk
+  network
+  sound
+  video
+  sensors
+  nonroot
+  scott
+}
+
+# -------------- main --------------
+if [ "$1" = "" ]; then
+  help
+fi
+
+while [ "$1" != "" ]; do
+  $1
+fi

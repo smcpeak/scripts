@@ -1,6 +1,6 @@
 #!/bin/sh
 # just want to capture the command line
 
-#echo "$0 called with arguments: $*"
+#echo "$0 called with arguments: $*" >/tmp/fig2dev.cmd
 
 exec /usr/X11R6/bin/fig2dev "$@"

@@ -1,0 +1,19 @@
+#!/bin/sh
+# rotate an image file counterclockwise by 90 degrees
+
+angle=-90
+if [ "$1" = "-cw" ]; then
+  angle=90
+  shift
+fi
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 [-cw] filename"
+  exit 0
+fi
+
+tmp="rotated.$$.$1"
+
+convert -rotate $angle "$1" "$tmp" || exit
+
+mv -f "$tmp" "$1"

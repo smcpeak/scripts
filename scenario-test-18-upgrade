@@ -1,0 +1,408 @@
+#!/usr/bin/perl -w
+# run scenario test 18: upgrade
+
+use strict 'subs';
+
+# requires scripts in /nfs/smcpeak/scripts:
+#   untargz     unpack .tar.gz files
+
+if (@ARGV == 0) {
+  print(<<"EOF");
+usage: $0 [options] [commands]
+options:
+  -guiPort=N      GUI port
+  -releaseDir=D   Release directory
+  -licenseDir=D   License directory
+  -opt=D          Parent directory for installed images
+  -ver=V          Run programs in prevent version V
+  -src=D          Directory with software to analyze
+  -platform=P     Platform (e.g. "linux")
+commands:
+  install         Install prevent
+  uninstall       Uninstall prevent
+EOF
+  exit(2);
+}
+
+$HOME = $ENV{"HOME"};
+
+# global variables and their default values
+
+# port number for GUI testing
+$guiPort = 7788;
+
+# where to get the releases
+#$releaseDir = "/nfs/qabuild/prevent-releases";
+$releaseDir = "$HOME/wrk/coverity/dist/prevent-releases";
+
+# directory containing the licenses
+$licenseDir = "$HOME/wrk/coverity/dist/licenses";
+
+# parent directory for installed images
+$opt = "$HOME/opt";
+
+# version of Prevent whose executables we will run; usually must be
+# set on command line
+$ver = "";
+
+# version of Prevent to upgrade from; needs to be set for the
+# "upgrade" command
+$oldVer = "";
+
+# directory containing software to analyze
+#$src = "$HOME/bld/elsa-2005.08.22/smbase";
+$src = "$HOME/bld/tiny";
+
+# platform we are running on
+$platform = getCurrentPlatform();
+
+# set of params that can be changed from command line
+@commandParams = qw( guiPort releaseDir licenseDir opt ver oldVer src platform );
+
+
+# process command-line arguments
+while (@ARGV) {
+  my $cmd = $ARGV[0];
+  shift @ARGV;
+
+  # set a global variable
+  my ($var, $val) = ($cmd =~ m/^-([a-zA-Z]+)=(.*)$/);
+  if (defined($val)) {
+    if ($var eq "ver") {
+      # shift old value into $oldVer
+      $oldVer = $ver;
+    }
+    if (among($var, @commandParams)) {
+      $$var = $val;
+    }
+    else {
+      die("unrecognized variable name: $var\n");
+    }
+    next;
+  }
+
+  # reset current dir; no command should depend on it
+  mychdirNoEcho($HOME);
+
+  # all subsequent commands require $ver
+  requireParams("ver");
+  $installDir = getInstallDir($ver);
+
+  # install a version of Prevent
+  if ($cmd eq "install") {
+    print("Installing into $installDir\n");
+
+    # unpack tarball
+    mychdir($opt);
+    if ( -d $installDir ) {
+      die("Already exists: $installDir\n");
+    }
+    run("tar", "xfz", "$releaseDir/$platform/prevent-$platform-$ver/" .
+                      "prevent-$platform-$ver.tar.gz");
+    if ( ! -d $installDir ) {
+      die("failed to untar into $installDir\n");
+    }
+
+    # copy in license file
+    mychdir("$installDir/bin");
+    run("cp", "$licenseDir/dot-security-$ver", ".security");
+    next;
+  }
+  
+  # configure a new version of Prevent for use; this should *not* be
+  # done if the next step is to upgrade another install
+  if ($cmd eq "configure") {
+    print("Configuring $installDir\n");
+    mychdir("$installDir/bin");
+
+    # configure gcc
+    run("./cov-configure", "--compiler=gcc");
+
+    # create GUI database
+    run("./cov-install-gui", "--password", "pass", "--port", $guiPort);
+
+    next;
+  }
+
+  # remove an installation
+  if ($cmd eq "uninstall") {
+    print("Uninstalling $installDir\n");
+
+    run("rm", "-rf", $installDir);
+    next;
+  }
+  
+  # remove an installation if it exists, then install
+  if ($cmd eq "reinstall") {
+    unshift @ARGV, "install";
+    if (-d $installDir) {
+      unshift @ARGV, "uninstall";
+    }
+    next;
+  }
+
+  # build the software
+  if ($cmd eq "build") {
+    print("Building $src\n");
+
+    mychdir($src);
+    run("make", "clean");
+    run("rm", "-rf", "emit", "output");
+    run("$installDir/bin/cov-build", "-e", "emit", "-o", "output", "make");
+    next;
+  }
+
+  # analyze the software
+  if ($cmd eq "analyze") {
+    print("Analyzing $src\n");
+    
+    mychdir($src);
+    if (! -d "emit") { die("missing emit directory; do 'build' first\n"); }
+    if (! -d "output") { die("missing output directory\n"); }
+
+    # I want a fresh analysis
+    run("rm", "-rf", "emit/.cache");
+
+    run("$installDir/bin/cov-analyze", "-e", "emit", "-o", "output");
+    next;
+  }
+
+  # commit the results to the GUI database
+  if ($cmd eq "commit") {
+    print("Committing results in $src\n");
+
+    mychdir($src);
+    if (! -d "emit/.cache") { die("missing emit/.cache directory; do 'analyze' first\n"); }
+    
+    run("$installDir/bin/cov-commit-errors", "-e", "emit", "-o", "output",
+        "--user", "admin");
+    next;
+  }
+  
+  # start fresh, go all the way through commit
+  if ($cmd eq "fresh-commit") {
+    unshift @ARGV, ("reinstall", "configure", "build", "analyze", "commit");
+    next;
+  }
+
+  # start the GUI
+  if ($cmd eq "start-gui") {
+    print("Starting the GUI\n");
+    run("$installDir/bin/cov-start-gui");
+
+    my $host = `hostname`;
+    chomp($host);
+    print("GUI can be viewed at:\n",
+          "  http://$host:$guiPort\n",
+          "  user: admin\n",
+          "  pass: pass\n");
+    next;
+  }
+
+  # wait for keyboard press
+  if ($cmd eq "pause") {
+    print("Press Enter to continue\n");
+    my $dummy = <STDIN>;
+    next;
+  }
+
+  # stop the GUI
+  if ($cmd eq "stop-gui") {
+    print("Stopping the GUI\n");
+    run("$installDir/bin/cov-stop-gui");
+    next;
+  }
+
+  # upgrade from an old version
+  if ($cmd eq "upgrade") {
+    requireParams("oldVer");
+    my $oldInstallDir = getInstallDir($oldVer);
+    print("Upgrading $oldInstallDir to $installDir\n");
+
+    # --use-new-release claims it will not modify anything in the
+    # old release, so compute a checksum for the old release
+    mychdir($oldInstallDir);
+    my $before = checksumContents();
+
+    run("$installDir/bin/cov-upgrade-prevent",
+          "--old-release", "$oldInstallDir",
+          "--use-new-release");
+
+    my $after = checksumContents();
+    if ($before ne $after) {
+      # diff them
+      diffStrings($before, $after);
+      die("upgrade --use-new-release modified the old release!\n");
+    }
+    else {
+      print("$oldInstallDir is unmodified (modulo DR 4020)\n");
+    }
+
+    next;
+  }
+  
+  # start fresh and upgrade
+  if ($cmd eq "fresh-upgrade") {
+    unshift @ARGV, ("reinstall", "upgrade");
+    next;
+  }
+
+  print("unrecognized argument: $cmd\n");
+  exit(2);
+}
+
+exit(0);
+
+
+# return true if $x is among @lst
+sub among {
+  my ($x, @lst) = @_;
+
+  foreach $e (@lst) {
+    if ($x eq $e) {
+      return 1;
+    }
+  }
+
+  return 0;   # not found
+}
+
+
+# directory where prevent $ver would be installed
+sub getInstallDir {
+  my ($ver) = @_;
+  return "$opt/prevent-$platform-$ver";
+}
+
+
+# use 'uname'; returns "linux", "freebsd", etc.
+sub getCurrentPlatform {
+  my $s = `uname -s`;
+  my $m = `uname -m`;
+
+  if ($s =~ m/^[lL]inux$/ && $m =~ m/^i.86$/) {
+    return "linux";
+  }
+
+  if ($s eq "SunOS") {
+    if ($m eq "i86pc") {
+      return "solaris-x86";
+    }
+    if ($m eq "sun4u") {
+      return "solaris-sparc";
+    }
+  }
+
+  if ($s eq "FreeBSD" && $m =~ m/^i.86$/) {
+    return "freebsd";
+  }
+
+  die("unknown platform; s=$s m=$m");
+}
+
+
+# chdir or die
+sub mychdirNoEcho {
+  my ($d) = @_;
+  if (!chdir($d)) {
+    die("cannot chdir to $d: $!\n");
+  }
+}
+
+# chdir and echo
+sub mychdir {
+  my ($d) = @_;
+  print("cd $d\n");
+  mychdirNoEcho($d);
+}
+
+
+# run; if exit code is greater than $maxCode, die; otherwise
+# return the exit code
+sub run_ec {
+  my ($maxCode, @cmds) = @_;
+  print("@cmds\n");
+  if (system(@cmds) != 0) {
+    my $exit_value  = $? >> 8;
+    my $signal_num  = $? & 127;
+    my $cmd = $cmds[0];
+    if (@cmds == 1 && $cmd =~ m/ /) {
+      # there is just one command, and it has a space; that means it
+      # is an entire command in one string with shell metacharacters,
+      # do not re-echo the whole thing in an error msg
+      $cmd = "command";
+    }
+    if ($signal_num) {
+      die("$cmd died by signal $signal_num\n");
+    }
+    if ($exit_value) {
+      if ($exit_value > $maxCode) {
+        die("$cmd exited with code $exit_value\n");
+      }
+      else {
+        return $exit_value;
+      }
+    }
+    die("$cmd died for unknown reason");  # no newline
+  }
+  
+  return 0;
+}
+
+# run or die
+sub run {
+  run_ec(0, @_);
+}
+
+
+# require that the given set of parameters have values
+sub requireParams {
+  foreach $name (@_) {
+    if (!$$name) {
+      die("must set on command line: $name\n");
+    }
+  }
+}
+
+
+# checksom the contents of the current directory
+sub checksumContents {
+  # due to bug 4020, filter out lock files
+  return `find . -type f -print | sort | grep -v -w lock | xargs md5sum`;
+}
+
+
+sub writeStringToFile {
+  my ($str, $fname) = @_;
+
+  open(OUT, ">$fname") or die("cannot write $fname: $!\n");
+  print OUT ($str);
+  close(OUT) or die;
+}
+
+
+sub diffStrings {
+  my ($before, $after) = @_;
+
+  my $bf = "/tmp/before.$$";
+  my $af = "/tmp/after.$$";
+
+  writeStringToFile($before, $bf);
+  writeStringToFile($after, $af);
+
+  run_ec(1, "diff", $bf, $af);
+
+  if (!unlink($bf)) {
+    die("unlink: $bf: $!\n");
+  }
+  if (!unlink($af)) {
+    die("unlink: $af: $!\n");
+  }
+}
+
+
+sub pretendUsed {
+}
+
+
+# EOF

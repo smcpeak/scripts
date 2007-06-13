@@ -1,0 +1,386 @@
+#!/usr/bin/perl -w
+# sync a directory with that on mantis-e.com
+
+use strict 'subs';
+       
+# autoflush
+$| = 1;
+
+
+$debug = 0;
+$runLocal = 0;
+$allFiles = 0;                        # whether to pass "-a" to ls
+$sumSizeThreshold = 0;                # size >= this: don't bother with md5sum
+$direction = "compare";
+
+$localPrefix = "";
+$remotePrefix = "run-at-mantis ";
+$printFormat = "%-12s  %9d %s\n";     # $compar, $lsize, $name
+
+sub getNextArg {
+  shift @ARGV;
+  if (!@ARGV) {
+    die("-thres needs an argument\n");
+  }
+  return $ARGV[0];
+}
+
+while (@ARGV && $ARGV[0] =~ m/^-/) {
+  my $op = $ARGV[0];
+  if ($op eq "-debug") {
+    $debug = 1;
+  }
+  elsif ($op eq "-local") {
+    $runLocal = 1;
+    $remotePrefix .= "-local ";
+  }
+  elsif ($op eq "-localp") {
+    $runLocal = 1;
+    $remotePrefix .= "-local -path " . getNextArg() . " ";
+  }
+  elsif ($op eq "-a") {
+    $allFiles = 1;
+  }
+  elsif ($op eq "-push") {
+    $direction = "push";
+  }
+  elsif ($op eq "-pull") {
+    $direction = "pull";
+  }
+  elsif ($op eq "-thres") {
+    $sumSizeThreshold = getNextArg();
+  }
+  elsif ($op eq "-nosum") {
+    $sumSizeThreshold = 0;
+  }
+  elsif ($op eq "-sum") {
+    $sumSizeThreshold = 1000000;
+  }
+  elsif ($op eq "-send") {
+    sendFile(getNextArg());
+    exit(0);
+  }
+  elsif ($op eq "-get") {
+    getFile(getNextArg());
+    exit(0);
+  }
+  elsif ($op eq "-help") {
+    usage();
+    exit(0);
+  }
+  else {
+    usage();
+    die("unknown option: $op\n");
+  }
+  shift @ARGV;
+}
+
+sub usage {
+  print(<<"EOF");
+usage: $0 [options]
+
+Synchronize files between here and mantis.
+
+Options:
+  -debug     Turn on debug output
+  -local     Use 'run-at-mantis -local'.
+  -localp P  Use 'run-at-mantis -local -path P'.
+  -a         Synchronize files starting with '.' too.
+  -compare   (default) Just compare contents.
+  -push      Copy newer files from here to there.
+  -pull      Copy newer files from there to here.
+  -thres N   Run md5sum if size is less than N.
+  -nosum     (default) Do not use md5sum (equivalent to "-thres 0").
+  -sum       Use md5sum if size is less than 1MB.
+  -send FN   Send local file FN to the remote machine, then exit.
+  -get FN    Get remote file FN from the remote machine, then exit.
+  -help      Print this message.
+EOF
+}
+
+
+# local file info
+getFileInfo($localPrefix);
+%localFiles = %files;
+
+# remote file info
+getFileInfo($remotePrefix);
+%remoteFiles = %files;
+
+
+print("-------- only on local --------\n");
+foreach $name (sort(keys %localFiles)) {
+  if (defined($remoteFiles{$name})) {
+    next;
+  }
+
+  my ($size,$date,$mode) = split(':', $localFiles{$name});
+  printf($printFormat, "", $size, $name);
+
+  if ($direction eq "push") {
+    sendFile($name);
+    setFileStats($remotePrefix, $name, $date, $mode);
+  }
+}
+
+
+print("-------- exists on both --------\n");
+foreach $name (sort(keys %localFiles)) {
+  if (!defined($remoteFiles{$name})) {
+    next;
+  }
+
+  my ($lsize,$ldate,$lmode) = split(':', $localFiles{$name});
+  my ($rsize,$rdate,$rmode) = split(':', $remoteFiles{$name});
+
+  my $compar = "";
+  if ($lsize == $rsize) {
+    if ($lsize < $sumSizeThreshold) {
+      my $lsum = get_local_md5sum($name);
+      my $rsum = get_remote_md5sum($name);
+
+      if ($lsum eq $rsum) {
+        $compar = "==";
+      }
+      else {
+        # different; will print more details below
+      }
+    }
+    else {
+      $compar = "== (prob'ly)";
+    }
+  }
+
+  if (!$compar) {
+    if ($ldate < $rdate) {
+      $compar = "remote newer";
+
+      if ($direction eq "pull") {
+        getFile($name);
+        setFileDate($localPrefix, $name, $rdate);
+      }
+    }
+    elsif ($ldate > $rdate) {
+      $compar = "local newer";
+
+      if ($direction eq "push") {
+        sendFile($name);
+        setFileDate($remotePrefix, $name, $ldate);
+      }
+    }
+    else {
+      $compar = "diff sums";
+    }
+  }
+
+  printf($printFormat, $compar, $lsize, $name);
+}
+
+
+print("-------- only on remote --------\n");
+foreach $name (sort(keys %remoteFiles)) {
+  if (defined($localFiles{$name})) {
+    next;
+  }
+
+  my ($size,$date,$mode) = split(':', $remoteFiles{$name});
+  printf($printFormat, "", $size, $name);
+
+  if ($direction eq "pull") {
+    getFile($name);
+    setFileStats($localPrefix, $name, $date, $mode);
+  }
+}
+
+
+# get name/size/date/mode of files, store in %files
+sub getFileInfo {
+  my ($cmdPrefix) = @_;
+
+  if ($debug) {
+    print("getFileInfo, cmdPrefix=\"$cmdPrefix\"\n");
+  }
+
+  %files = ();
+
+  # collect file statistics
+  my $opts = "-l --full-time";
+  if ($allFiles) {
+    $opts .= " -a";
+  }
+  @lines = `${cmdPrefix}ls $opts`;
+  if ($?) {
+    die("ls died with code $?\n");
+  }
+
+  foreach $line (@lines) {
+    if ($line =~ m/^total/) {
+      next;     # skip initial "total ..." line
+    }
+
+    # get basic file statistics
+    my ($type, $perm, $size, $date, $name) =
+      ($line =~ m|(.)(\S{9})\s+\d+\s+\S+\s+\S+\s+(\d+)\s(\S+\s+\S+\s+\d+\s+..:..:..\s\d+)\s(.*)$|);
+      #           ty perm      inode user  group size    Thu   Jan   20    04:26:48  2005  name
+    if (!defined($name)) {
+      die("malformed ls line: $line\n");
+    }
+
+    if ($type ne "-") {
+      # non-file; ignore
+      next;
+    }
+
+    # convert date to unix time
+    my $unixtime = `date -d '$date' +%s`;
+    if ($?) {
+      if ($debug) {
+        print("date=$date\n");
+      }
+      die("unixtime for $name died with code $?\n");
+    }
+    chomp($unixtime);
+
+    # add record to hash
+    chomp($name);
+    $files{$name} = "$size:$unixtime:$perm";
+  }
+}
+
+
+sub printFilesInfo {
+  foreach $name (keys %files) {
+    my ($size, $date, $perm) = split(':', $files{$name});
+    print("$name:\n" .
+          "  size: $size\n" .
+          "  date: $date\n" .
+          "  perm: $perm\n");
+  }
+}
+
+
+sub get_md5sum {
+  my ($cmdPrefix, $name) = @_;
+
+  my $DQ = "";
+  if ($cmdPrefix) {
+    $DQ = '"';
+  }
+
+  # get md5sum
+  my $sum = `${cmdPrefix}md5sum ${DQ}'$name'${DQ}`;
+  if ($?) {
+    die("md5sum $name: died with code $?\n");
+  }
+  $sum =~ s/\s.*//;
+  chomp($sum);
+
+  return $sum;
+}
+
+sub get_local_md5sum {
+  my ($name) = @_;
+
+  return get_md5sum($localPrefix, $name);
+}
+
+sub get_remote_md5sum {
+  my ($name) = @_;
+
+  return get_md5sum($remotePrefix, $name);
+}
+
+
+sub sendFile {
+  my ($name) = @_;
+
+  print("  sending $name ... ");
+
+  if (0!=system("${remotePrefix}-post \"cat >'$name'\" <'$name'")) {
+    die("\nfailed to send $name\n");
+  }
+
+  print("done\n");
+}
+
+
+sub getFile {
+  my ($name) = @_;
+
+  my $cmd = "${remotePrefix}\"cat '$name'\" >'$name'";
+  if ($debug) {
+    print("$cmd\n");
+  }
+
+  print("  getting $name ... ");
+  if (0!=system($cmd)) {
+    die("\nfailed to get $name\n");
+  }
+
+  print("done\n");
+}
+
+
+sub setFileStats {
+  my ($cmdPrefix, $name, $date, $mode) = @_;
+
+  setFileDate($cmdPrefix, $name, $date);
+  setFileMode($cmdPrefix, $name, $mode);
+}
+
+
+sub setFileDate {
+  my ($cmdPrefix, $name, $date) = @_;
+
+  my $DQ = "";
+  if ($cmdPrefix) {
+    $DQ = '"';
+  }
+
+  `${cmdPrefix}set-file-time $date ${DQ}'$name'${DQ}`;
+  if ($?) {
+    die("set-file-time $name: died with code $?\n");
+  }
+}
+
+
+sub setFileMode {
+  my ($cmdPrefix, $name, $mode) = @_;
+
+  my $DQ = "";
+  if ($cmdPrefix) {
+    $DQ = '"';
+  }
+
+  # convert symbolic mode to octal
+  my $octMode = "";
+  my $origMode = $mode;
+  while ($mode) {
+    my ($r, $w, $x, $rest) =
+      ($mode =~ m/^(.)(.)(.)(.*)$/);
+    if (!defined($rest)) {
+      die("malformed mode: $origMode");
+    }
+
+    my $d = 0;
+    if ($r eq "r") { $d += 4; }
+    if ($w eq "w") { $d += 2; }
+    if ($x eq "x") { $d += 1; }
+
+    $octMode .= $d;
+
+    $mode = $rest;
+  }
+
+  if ($debug) {
+    printf("symbolic mode $origMode is octal $octMode\n");
+  }
+
+  `${cmdPrefix}chmod $octMode ${DQ}'$name'${DQ}`;
+  if ($?) {
+    die("chmod $name: died with code $?\n");
+  }
+}
+
+
+# EOF

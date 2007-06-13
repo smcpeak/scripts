@@ -1,0 +1,6 @@
+#!/bin/sh
+# produce a list of files similar to what citool displays
+
+bk sfiles -c -g -v -x | grep -v '@'
+
+# EOF

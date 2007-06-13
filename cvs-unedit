@@ -1,0 +1,18 @@
+#!/bin/sh
+# unedit something under CVS control
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 filename"
+  exit 2
+fi
+
+if grep "^/$1/" CVS/Entries >/dev/null; then
+  # ok, file is under CVS control
+  rm "$1" || exit
+  cvs update "$1" || exit
+else
+  echo "$1 does not appear in CVS/Entries"
+  exit 4
+fi
+
+# EOF

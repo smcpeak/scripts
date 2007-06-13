@@ -1,0 +1,21 @@
+#!/bin/sh
+# ping a host every 10s
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 host"
+  exit 2
+fi
+
+while true; do  
+  # -c: count of # of packets to send
+  # -w: how long to wait, in seconds
+  if ping -c 1 -w 2 $1 >/dev/null; then
+    date "+%c: $1 is up"
+  else
+    date "+%c: $1 is down"
+  fi
+  
+  sleep 10
+done
+
+# EOF

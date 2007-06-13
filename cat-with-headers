@@ -1,0 +1,26 @@
+#!/usr/bin/perl -w
+# cat a sequence of files, putting headers above each
+
+use strict 'subs';
+
+foreach $fname (@ARGV) {
+  # header
+  $len = length($fname);
+  if ($len <= 50) {          # minimum of 10 dashes
+    $ct1 = (70 - $len);
+    $ct2 = int($ct1 / 2);
+    $ct1 -= $ct2;
+  }
+  else {
+    $ct1 = 10;
+    $ct2 = 10;
+  }
+  print("-" x $ct1, " $fname ", "-" x $ct2, "\n");
+
+  # file contents
+  if (0 != system("cat", $fname)) {
+    exit(2);
+  }
+}
+
+# EOF

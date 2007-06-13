@@ -1,0 +1,31 @@
+#!/bin/sh
+# flush spam from the EECS IMAP folders
+
+# kill fetchmail if it is running     
+fetchmailWasRunning=false
+if killall fetchmail 2>/dev/null; then
+  echo "killed fetchmail daemon"
+  fetchmailWasRunning=true
+
+  # give it a second to quiesce
+  sleep 1
+fi
+
+# folder: folder to retrieve messages from
+# mda: script to process the email
+# fetchlimit: max # of messages to retrieve
+# expunge: # messages processed between 'flush' commands
+run-fetchmail --folder "EECS-Filtered/High,EECS-Filtered/Low,EECS-Filtered/Virus,EECS-Filtered/Spam" \
+              --mda "$HOME/scripts/handle-spam" \
+              --expunge 100
+
+#              --silent \
+#              --fetchlimit 100
+
+if $fetchmailWasRunning; then        
+  sleep 1
+  echo "re-starting fetchmail daemon"
+  start-fetchmail
+fi
+
+echo "spam flushed to $HOME/tmp/spam.log"

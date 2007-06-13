@@ -1,0 +1,6 @@
+#!/bin/sh
+# this is in a shell script b/c bash job control sucks
+
+make clean && make && make testsuite && bk-pull-push-pull
+
+# EOF

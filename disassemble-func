@@ -1,0 +1,70 @@
+#!/usr/bin/perl -w
+# disassemble a single function from a binary
+
+use strict 'subs';
+
+if (@ARGV != 2) {
+  print(<<"EOF");
+usage: $0 executable function-name
+EOF
+  exit(2);
+}
+
+$executable = $ARGV[0];
+$funcName = $ARGV[1];
+
+$funcOffset = "";        # until we find it
+$nextFuncOffset = "";    # until we find it
+
+# look through the symbols
+open(IN, "nm -n $executable |") or die("failed to run 'nm'\n");
+while (defined($line = <IN>)) {
+  chomp($line);
+
+  # parse the line
+  my ($offset, $name) =
+    ($line =~ m/^(\S+)\s+\S+\s+(.*)$/);
+  if (!defined($name)) {
+    # happens for symbols that are not defined; just ignore
+    next;
+  }
+
+  # is this the line?
+  if ($name eq $funcName) {
+    if (!$funcOffset) {
+      # first occurrence
+      $funcOffset = $offset;
+      next;
+    }
+    else {
+      # second occurrence
+      die("symbol appears twice: $funcName\n");
+    }
+  }
+
+  # is this the next line?
+  if ($funcOffset && !$nextFuncOffset) {
+    $nextFuncOffset = $offset;
+  }
+}
+close(IN);
+
+if (!$funcOffset) {
+  die("did not find symbol: $funcName\n");
+}
+if (!$nextFuncOffset) {
+  # not too hard to implement, but I'm lazy
+  die("sorry, unimplemented: symbol is last in file\n");
+}
+
+# disassemble the found range
+@cmd = ("objdump",
+        "--disassemble",
+        "--start-address=0x$funcOffset",
+        "--stop-address=0x$nextFuncOffset",
+        $executable);
+#print("@cmd\n");
+exec(@cmd);
+exit(2);
+
+# EOF

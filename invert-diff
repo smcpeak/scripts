@@ -1,0 +1,38 @@
+#!/usr/bin/perl
+# given a diff, make it look like the diff in the opposite direction
+
+# NOTE: I'm not sure if 'patch' would actually accept this, I just
+# use this for interactive purposes
+
+# also, since I can't really tell when a leading "+++" or "---" is
+# a header line, this will give the wrong answer in pathological cases
+
+while (defined($line = <STDIN>)) {
+  chomp($line);
+
+  ($rest) = ($line =~ m|^\+\+\+(.*)$|);
+  if (defined($rest)) {
+    print("---$rest\n");
+    next;
+  }
+
+  ($rest) = ($line =~ m|^---(.*)$|);
+  if (defined($rest)) {
+    print("+++$rest\n");
+    next;
+  }
+
+  ($rest) = ($line =~ m|^\+(.*)$|);
+  if (defined($rest)) {
+    print("-$rest\n");
+    next;
+  }
+
+  ($rest) = ($line =~ m|^-(.*)$|);
+  if (defined($rest)) {
+    print("+$rest\n");
+    next;
+  }
+
+  print($line . "\n");
+}

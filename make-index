@@ -1,0 +1,102 @@
+#!/usr/bin/perl -w
+# output html index of current directory's contents
+
+use strict 'subs';
+
+
+#  $qsize = 0;
+#  foreach $arg (@ARGV) {
+#    if ($arg eq "-qsize") {
+#      qsize = 1;
+#    }
+#    else {
+#      die("unknown argument: $arg\n");
+#    }
+#  }
+
+
+# get list of filenames
+@filenames = `ls`;
+@filenames = map { chomp($_); $_; } @filenames;
+
+# separate the directories
+@dirs = grep { isDir($_) } @filenames;
+@files = grep { !isDir($_) } @filenames;
+
+# create output file
+open(OUT, ">", "index.html") or die("cannot write index.html: $!\n");
+
+$cwd = `pwd`;
+chomp($cwd);
+$cwd =~ s|.*/||;    # keep only final component
+
+# header
+print OUT (<<"EOF");
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+<HEAD>
+  <TITLE>$cwd</TITLE>
+  <meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+</HEAD>
+<body>
+EOF
+
+# directories
+foreach $dir (@dirs) {
+  my $escaped = htmlEscape($dir);
+  
+  if (-f "$dir/index.html") {
+    $dir = "$dir/index.html";
+  }
+  print OUT ("<p><a href=\"$dir\">$escaped</a></p>\n");
+}
+
+print OUT ("<hr>\n");
+
+# files
+foreach $fname (@files) {
+  if ($fname eq "index.html") {
+    next;   # skip
+  }
+
+  my $escaped = htmlEscape($fname);
+
+  # handle images specially
+  if ($fname =~ m/\.(png|gif|bmp|jpg|JPG)$/) {
+    print OUT ("<p><img src=\"$fname\">$escaped</p>\n");
+    next;
+  }
+
+  # generic
+  print OUT ("<p><a href=\"$fname\">$escaped</a></p>\n");
+}
+
+print OUT ("</body>\n</html>\n");
+
+close(OUT) or die;
+exit (0);
+
+
+sub htmlEscape {
+  my ($str) = @_;
+
+  $str =~ s/</\&lt;/g;
+  $str =~ s/>/\&gt;/g;
+  $str =~ s/\&/\&amp;/g;
+
+  return $str;
+}
+
+sub isDir {
+  my ($fname) = @_;
+
+  if (-d $fname) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+# EOF

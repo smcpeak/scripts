@@ -4,13 +4,30 @@
 #   $1: who fetchmail thinks it's from
 #   $2: the name of the local user who ran fetchmail
 
-if [ "$1" = "" ]; then
-  echo "usage: $0 from-addr local-user < message"
-  exit
-fi
+if [ "$1" = "-manual" ]; then
+  # this is for running manually, when a message gets mis-classifed
+  export -n QMAILINJECT
+  export -n MAILUSER
+  export -n MAILHOST
+  export -n MAILNAME
+  shift
+fi  
 
-from="$1"
-localUser="$2"
+if [ "$1" = "" -a "$2" = "" ]; then
+  if [ "$FORCE_EMAIL" = "yes" ]; then
+    # 8/21/03: someone sent me an email that contained a "From:" header,
+    # but the rest of the line was blank; I think fetchmail set $1 to "",
+    # thus confusing me.  if I see it again I might try to detect it
+    from="someone@somewhere.com"
+    localUser="$USER"
+  else
+    echo "usage: $0 from-addr local-user < message"
+    exit
+  fi
+else
+  from="$1"
+  localUser="$2"
+fi
 
 # send any output this script generates to a file
 exec >>"$HOME/tmp/var/handle-email.err" 2>&1
@@ -33,8 +50,11 @@ sexual='fuck|piss|cock|pervert|naked|britney|porn|pheromones|tits|nude'
 suggestive='amateur|adult|girl|prescription|zyban|viagra'
 
 # strings in the 'from' which automatically make it not spam
-friends="johnmcpeak|sunnemcpeak|toddmcpeak|smcpeak|\
-necula|mirabito|weimer|dsw|hurwitz|aclu.org|harmonia|gm3576|aycock"
+# had to remove 'smcpeak' because the spammers like to fill in my
+# own address as the 'from' line
+friends="johnmcpeak|sunnemcpeak|toddmcpeak|johnloff|\
+necula|mirabito|weimer|dsw|hurwitz|aclu.org|harmonia|gm3576|aycock|\
+ashleybanana|mcpeak6|ralphpboland|todd|josefrisco|ashleymcpeak"
 
 # these are grepped in the subject
 scoreTwo='income|scott.*mcpeak|toner'
@@ -42,15 +62,23 @@ scoreThree='mortgage.*rates|special.*offer'
 scoreFour='make.*money|output.*from.*cron'
 
 # these are grepped in the body
-scoreThreeBody='one  *time  *advertisement|eudoramail\.com|this is not spam|click  *here'
+scoreThreeBody='one  *time  *advertisement|eudoramail\.com|this is not spam|click  *here|<font color="#ffffff">'
+
+scoreFourBody='Found virus [^ ]+ in file|e-hostzz\.'
 
 # specific known spammers who use consistent 'from' addresses;
 # spam from these people isn't even logged
-spamFrom='customoffers\.com|The Investment Journal|s.*t.*a.*y.*h.*a.*r.*d|choiceoffers\.smtp0\.net|investor relations|hotpop\.com'
+spamFrom='customoffers\.com|The Investment Journal|s.*t.*a.*y.*h.*a.*r.*d|choiceoffers\.smtp0\.net|investor relations|hotpop\.com|darkprofits'
 
 # send email message to a temporary file
 msg="$HOME/tmp/var/msg/msg.$$"
-cat >"$msg"
+if cat >"$msg"; then
+  true
+else
+  # this is to avoid accepting email when the disk is full
+  echo "[$$] cat failed!"
+  exit 2
+fi
 
 # log some information about the email
 log="$HOME/tmp/var/handle-email.log"
@@ -148,6 +176,12 @@ else
   oneTimeAdvert=0
 fi
 
+if egrep -i "$scoreFourBody" <"$msg" >/dev/null; then
+  scoreFourB=4
+else
+  scoreFourB=0
+fi
+
 # known spammer
 if grep '^From:' <"$msg" | egrep -i "$spamFrom" >/dev/null; then
   spammerSource=4
@@ -163,8 +197,10 @@ else
 fi
 
 # use of sexual words?  count lines which have them
-naughty=`egrep -i "$sexual" <"$msg" | wc -l`
-naughty=$[ $naughty ]
+#naughty=`egrep -i "$sexual" <"$msg" | wc -l`
+#naughty=$[ $naughty ]
+# the above is falsely-flagging too many messages..
+naughty=0
 
 # use of suggestive words?  count lines which have them
 suggCt=`egrep -i "$suggestive" <"$msg" | wc -l`
@@ -253,6 +289,13 @@ else
   javascript=0
 fi
 
+# is it one of the three-liners?
+if egrep -i '<html><body>smcpeak' <"$msg" >/dev/null; then
+  threeLiner=4
+else
+  threeLiner=0
+fi
+
 # is the message in base64?
 #  if grep -i '^Content-Transfer-Encoding: base64' <"$msg" >/dev/null; then
 #    messageBase64=4
@@ -278,6 +321,14 @@ else
   big5=0
 fi
 
+# does the EECS filter think it's spam?  this tests for
+# a "level" of 5 or more
+if grep '^X-Spam-Level: \*\*\*\*\*' <"$msg" >/dev/null; then
+  eecsSaysSpam=4
+else
+  eecsSaysSpam=0
+fi
+
 
 # ---------- check for things which are *not* spam --------
 # email from Mom/Dad, which happens to originate at yahoo or aol
@@ -300,6 +351,7 @@ score=$[ $fromFree +          \
          $income +            \
          $specialOffer +      \
          $oneTimeAdvert +     \
+         $scoreFourB +        \
          $spammerSource +     \
          $makeMoney +         \
          $naughty +           \
@@ -317,6 +369,8 @@ score=$[ $fromFree +          \
          $messageBase64 +     \
          $bulkHeader +        \
          $big5 +              \
+         $eecsSaysSpam +      \
+         $threeLiner +        \
          $friends ]
 
 # log the analysis results
@@ -331,6 +385,7 @@ echo "[$$] ($score) " \
      "income=$income " \
      "specialOffer=$specialOffer " \
      "oneTimeAdvert=$oneTimeAdvert " \
+     "scoreFourB=$scoreFourB " \
      "spammerSource=$spammerSource " \
      "makeMoney=$makeMoney " \
      "naughty=$naughty " \
@@ -348,12 +403,21 @@ echo "[$$] ($score) " \
      "messageBase64=$messageBase64" \
      "bulkHeader=$bulkHeader" \
      "big5=$big5" \
+     "eecsSaysSpam=$eecsSaysSpam" \
+     "threeLiner=$threeLiner" \
      "friends=$friends " >>"$log"
+
+if [ "$SCORE_OVERRIDE" != "" ]; then
+  # this is a command-line override number I've specified
+  score="$SCORE_OVERRIDE"
+fi
 
 # test against threshold
 if [ $score -ge $threshold ]; then
   # spam!
-  ln -f "$msg" "$spamDir"         
+  rm -f "${msg}.gz"
+  gzip "$msg"
+  ln -f "${msg}.gz" "$spamDir"
   # log it, unless it's that damned 'customoffers.com', in which case
   # don't even pollute my log with that trash
   if [ $spammerSource = 0 ]; then
@@ -366,9 +430,21 @@ else
   # deliver the email to my Mailbox
   if ! /usr/sbin/sendmail -oem -f "$from" "$localUser" <"$msg"; then
     # print a message to my log, but otherwise drop it on floor
-    # (relying on its being retained in $msg)
+    # (relying on it being retained in $msg)
     echo "[$$] qmail choked on message" >>"$log"
+
+  else
+    # wait just a sec so qmail has time to deliver it (otherwise sometimes
+    # my message is scrolled beyond the part I can see easily)
+    sleep 1
+
+    # print a log message too, so I can see who it's from w/o clicking on pine
+    logger -t handle-email "[$$] new mail from $from, $subject"
   fi
+
+  # compress it
+  rm -f "${msg}.gz"
+  gzip "$msg"
 fi
 
 # remove the temporary message

@@ -1,0 +1,20 @@
+#!/bin/sh
+# convert a GIF to a letter-sized PS
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 file.gif"
+  exit 2
+fi
+
+while [ "$1" != "" ]; do
+  psname=`echo $1 | sed 's/\.gif$/.ps/i'`
+  if [ "$psname" = "$1" ]; then
+    echo "I do not recognize the extension of $1"
+    exit 2
+  fi
+  runecho convert-letter "$1" "$psname" || exit
+
+  shift
+done
+
+# EOF

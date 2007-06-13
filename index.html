@@ -1,0 +1,1806 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+
+<HTML>
+
+<HEAD>
+  <TITLE>Scott's Scripts</TITLE>
+  <meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+  <style type="text/css">
+    H1 { font-size: 150% }
+    H2 { font-size: 125% }
+    H3 { font-size: 100% }
+    P.title { font-size: 175% }
+  </style>
+</HEAD>
+
+<body>
+
+<center>
+<p class="title"><b>Scott's Scripts</b></p>
+</center>
+
+<p>
+This is the contents of my <tt>$HOME/scripts</tt> directory, which contains
+a grab-bag of shell scripts I find useful.
+
+<p>
+Each script uses one of four scripting languages:
+<ul>
+<li>sh: Bourne shell, the original Unix shell.  Very portable.
+<li>bash: The GNU Bourne-again shell, an extended version of <tt>sh</tt>.
+    Ubiquitous on Linux, less so on other Unix variants.
+    I've only identified a few scripts that require the bash extensions,
+    there are probably others.
+<li>csh: Bill Joy's C Shell.  I do not write scripts with it anymore.  
+    Very portable.
+<li>perl: Larry Wall's multipurpose scripting language.  Fairly portable,
+    but with annoying inconsistencies between versions that make it less 
+    portable than it might initially appear.
+</ul>
+
+<p>
+At this point my strategy for choosing a language is to use <tt>sh</tt>
+when possible, and <tt>perl</tt> when I have to.  Typically, "possible"
+means the script is small and doesn't require much string processing.
+I try to avoid using the bash extensions, but since I do not have a
+true Bourne shell installed, they inevitably creep in and I fix them
+when someone complains.
+
+<p>
+<table border="2">
+<tr>
+  <th>Name</th>
+  <th>Language</th>
+  <th>Description</th>
+</tr>
+<tr>
+  <td><a href="add-64k-repeat">add-64k-repeat</a></td>
+  <td>bash</td>
+  <td>Add 65536 to a number until it surpasses some threshold, then
+      print it.</td>
+</tr>
+<tr>
+  <td><a href="addctlm">addctlm</a></td>
+  <td>sh</td>
+  <td>Add ctrl-Ms to line endings for DOS.</td>
+</tr>
+<tr>
+  <td><a href="addhost">addhost</a></td>
+  <td>csh</td>
+  <td>Add hostname and username to <tt>$HOME/.rhosts</tt>.</td>
+</tr>
+<tr>
+  <td><a href="all">all</a></td>
+  <td>perl</td>
+  <td>Print all 256 characters.</td>
+</tr>
+<tr>
+  <td><a href="append-cvs-history">append-cvs-history</a></td>
+  <td>perl</td>
+  <td>Append to <tt>history.txt</tt> by retrieving later commits.  The idea is to
+      maintain the file <tt>history.txt</tt> in each CVS working directory,
+      containing a running list of all the commits.</td>
+</tr>
+<tr>
+  <td><a href="append-to-lines">append-to-lines</a></td>
+  <td>sh</td>
+  <td>Append a string to every line of stdin.</td>
+</tr>
+<tr>
+  <td><a href="apply">apply</a></td>
+  <td>perl</td>
+  <td>Apply a stdin<tt>-&gt;</tt>stdout filter/transform to a file or set of files,
+      modifying them in place.</td>
+</tr>
+<tr>
+  <td><a href="apply-by-ext">apply-by-ext</a></td>
+  <td>sh</td>
+  <td>Apply a converter to a list of files, yielding output
+      files with changed extensions.</td>
+</tr>
+<tr>
+  <td><a href="apply-license">apply-license</a></td>
+  <td>perl</td>
+  <td>Insert a license.txt pointer into the named source files.</td>
+</tr>
+<tr>
+  <td><a href="args.pl">args.pl</a></td>
+  <td>perl</td>
+  <td>Print command-line arguments (for debugging).</td>
+</tr>
+<tr>
+  <td><a href="ast-strip-names">ast-strip-names</a></td>
+  <td>perl</td>
+  <td>Given a fragment of an .ast file, extract the ctor names.
+      This is useful for creating a skeleton for implementing some
+      function that is defined for each ctor.</td>
+</tr>
+<tr>
+  <td><a href="batch-rename">batch-rename</a></td>
+  <td>perl</td>
+  <td>Rename a bunch of files according to what is given in another file.
+      This is a helper for <a href="emacs-batch-rename">emacs-batch-rename</a>.</td>
+</tr>
+<tr>
+  <td><a href="beep">beep</a></td>
+  <td>csh</td>
+  <td>Beep the speaker.</td>
+</tr>
+<tr>
+  <td><a href="black-screen">black-screen</a></td>
+  <td>sh</td>
+  <td>Make a bunch of black xterms for watching 
+      <a href="http://www.atomfilms.com">atomfilms.com</a> movies.</td>
+</tr>
+<tr>
+  <td><a href="build.sftpd">build.sftpd</a></td>
+  <td>csh</td>
+  <td>(Obsolete) Do an sww build of sftpd; this is run on the server after
+      ssh'ing in.</td>
+</tr>
+<tr>
+  <td><a href="bulletin-board">bulletin-board</a></td>
+  <td>sh</td>
+  <td>Run a network service to accept connections and log whatever
+      data is sent.</td>
+</tr>
+<tr>
+  <td><a href="c++-to-c-comments">c++-to-c-comments</a></td>
+  <td>sh</td>
+  <td>Convert (somewhat clumsily) C++ comments to C comments.</td>
+</tr>
+<tr>
+  <td><a href="capture-thumb-images">capture-thumb-images</a></td>
+  <td>sh</td>
+  <td>Start playing a movie, saving captured images to files.
+      Requires a privately modified version of mplayer.</td>
+</tr>
+<tr>
+  <td><a href="catsrc">catsrc</a></td>
+  <td>sh</td>
+  <td>Display the source of a script, or ldd info on binaries.</td>
+</tr>
+<tr>
+  <td><a href="cc-to-c-comments">cc-to-c-comments</a></td>
+  <td>perl</td>
+  <td>Script to translate C++ // comments to C /**/ comments (yet
+      another version).</td>
+</tr>
+<tr>
+  <td><a href="ccrun">ccrun</a></td>
+  <td>csh</td>
+  <td>Attempt to use C source files like shell scripts, in that the
+      compilation step is transparent.  Never worked well.</td>
+</tr>
+<tr>
+  <td><a href="change-cvs-repository">change-cvs-repository</a></td>
+  <td>sh</td>
+  <td>Change the Root entry in a CVS tree systematically.</td>
+</tr>
+<tr>
+  <td><a href="char7">char7</a></td>
+  <td></td>
+  <td>Not a script; simply the character ASCII 7 (BEL).</td>
+</tr>
+<tr>
+  <td><a href="check">check</a></td>
+  <td>csh</td>
+  <td>Attempt to determine (by pinging) which of a set of machines
+      is down.</td>
+</tr>
+<tr>
+  <td><a href="check-links">check-links</a></td>
+  <td>perl</td>
+  <td>Check a bunch of links fed in on stdin 
+      (not HTML--just the links themselves).</td>
+</tr>
+<tr>
+  <td><a href="check-news">check-news</a></td>
+  <td>perl</td>
+  <td>Find out if any new USENET posts have been made in a particular
+      newsgroup.</td>
+</tr>
+<tr>
+  <td><a href="check-news-loop">check-news-loop</a></td>
+  <td>sh</td>
+  <td>Run <a href="check-news">check-news</a> periodically.</td>
+</tr>
+<tr>
+  <td><a href="check2">check2</a></td>
+  <td>csh</td>
+  <td>Variant of <a href="check">check</a>.</td>
+</tr>
+<tr>
+  <td><a href="check2.old1">check2.old1</a></td>
+  <td>csh</td>
+  <td>Variant of <a href="check">check</a>.</td>
+</tr>
+<tr>
+  <td><a href="checkclubs">checkclubs</a></td>
+  <td>csh</td>
+  <td>Run several <tt>finger</tt> commands.</td>
+</tr>
+<tr>
+  <td><a href="checkone">checkone</a></td>
+  <td>csh</td>
+  <td>Part of the <a href="check">check</a> system.</td>
+</tr>
+<tr>
+  <td><a href="cil-slice">cil-slice</a></td>
+  <td>sh</td>
+  <td>Slice an input C file, using #pragmas already present.
+      Requires CIL.</td>
+</tr>
+<tr>
+  <td><a href="cklpstat">cklpstat</a></td>
+  <td>csh</td>
+  <td>Keep polling lpstat to see when a print job finishes.</td>
+</tr>
+<tr>
+  <td><a href="cklpstat.tmp">cklpstat.tmp</a></td>
+  <td></td>
+  <td>Data file for <a href="cklpstat">cklpstat</a>.</td>
+</tr>
+<tr>
+  <td><a href="clean-cvsignore">clean-cvsignore</a></td>
+  <td>sh</td>
+  <td>Read the contents of .cvsignore, and delete everything
+      that matches any line in it.</td>
+</tr>
+<tr>
+  <td><a href="clean-path">clean-path</a></td>
+  <td>csh</td>
+  <td>Get a clean (as if from initial login) path, then emit it.</td>
+</tr>
+<tr>
+  <td><a href="clean-ps">clean-ps</a></td>
+  <td>sh</td>
+  <td>Take a postscript file as stdin, clean up the crap
+      that ms-Windows puts in it when it generates ps, and
+      output result to stdout (only fixes some Windows PS bugs).</td>
+</tr>
+<tr>
+  <td><a href="collectto">collectto</a></td>
+  <td>csh</td>
+  <td>Collects all of stdin, and when that EOFs, writes to its argument.
+      Useful at the end of pipes, to write the output back to one
+      of the input files, without clobbering the input until it
+      is no longer needed.</td>
+</tr>
+<tr>
+  <td><a href="compare-set-date">compare-set-date</a></td>
+  <td>sh</td>
+  <td>Compare system date to that of a remote server, and set system
+      date if we're very inaccurate.</td>
+</tr>
+<tr>
+  <td><a href="conn">conn</a></td>
+  <td></td>
+  <td>empty file</td>
+</tr>
+<tr>
+  <td><a href="convert-append-2x2">convert-append-2x2</a></td>
+  <td>sh</td>
+  <td>Combine four images, arranged 2x2.  
+      Uses <tt>convert</tt>, part of ImageMagick.</td>
+</tr>
+<tr>
+  <td><a href="copy-bins-to-here">copy-bins-to-here</a></td>
+  <td>sh</td>
+  <td>Copy a list of binaries, specified at the command-line, to 
+      the current directory.  Does $PATH lookup via <tt>which</tt> 
+      to find them.</td>
+</tr>
+<tr>
+  <td><a href="copy-music-cd">copy-music-cd</a></td>
+  <td>sh</td>
+  <td>Copy a music CD by ripping the first to .wav files and
+      burning them onto the second.  Assumes there are two CD
+      drives (reader and writer).  Uses several external
+      programs.</td>
+</tr>
+<tr>
+  <td><a href="count-noncomment">count-noncomment</a></td>
+  <td>perl</td>
+  <td>Count lines of code that are noncomment, nonblank lines.  Does
+      <em>not</em> know how to filter C-style <tt>/**/</tt> comments.</td>
+</tr>
+<tr>
+  <td><a href="cp-to-here">cp-to-here</a></td>
+  <td>sh</td>
+  <td>(unknown purpose)</td>
+</tr>
+<tr>
+  <td><a href="cpp2cc">cpp2cc</a></td>
+  <td>csh</td>
+  <td>Rename every <tt>.cpp</tt> file in the current directory
+      to <tt>.cc</tt>.</td>
+</tr>
+<tr>
+  <td><a href="cpu-monitor">cpu-monitor</a></td>
+  <td>perl</td>
+  <td>Monitor CPU usage (among other things) at much finer
+      granularity than load average.  Useful for continuous display
+      in a small xterm.</td>
+</tr>
+<tr>
+  <td><a href="cs164-check-newsgroup">cs164-check-newsgroup</a></td>
+  <td>sh</td>
+  <td>Check to see if there's any unread news in cs164 group.</td>
+</tr>
+<tr>
+  <td><a href="cs164-remove-superceded">cs164-remove-superceded</a></td>
+  <td>perl</td>
+  <td>Remove submissions superceded by newer ones.</td>
+</tr>
+<tr>
+  <td><a href="cs164-testsubm-pa3">cs164-testsubm-pa3</a></td>
+  <td>sh</td>
+  <td>Test a PA3 submission.</td>
+</tr>
+<tr>
+  <td><a href="cs164-testsubm-pa4">cs164-testsubm-pa4</a></td>
+  <td>sh</td>
+  <td>Test a PA4 submission.</td>
+</tr>
+<tr>
+  <td><a href="cs164-unpack-subms">cs164-unpack-subms</a></td>
+  <td>perl</td>
+  <td>Unpack a directory full of submissions.</td>
+</tr>
+<tr>
+  <td><a href="cvs">cvs</a></td>
+  <td>sh</td>
+  <td>Wrapper around cvs to remember what I did when; useful for knowing
+      which version of a repository I was using before a 'cvs update'
+      that broke everything..</td>
+</tr>
+<tr>
+  <td><a href="cvs-add-smart">cvs-add-smart</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="cvs-all-changes">cvs-all-changes</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="cvs-check-clean">cvs-check-clean</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="cvs-date-changes">cvs-date-changes</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="cvs-day-changes">cvs-day-changes</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="cvs-latest-update.pl">cvs-latest-update.pl</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="cvs2">cvs2</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="diff-fileset">diff-fileset</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="dl">dl</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="dls">dls</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="dumbloop">dumbloop</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="echorun">echorun</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="emacs-batch-rename">emacs-batch-rename</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="emacsclient">emacsclient</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="empty-dir">empty-dir</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="exists">exists</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="extract-refs">extract-refs</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="extract-undef-names">extract-undef-names</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="faucet-serve-stdin">faucet-serve-stdin</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="fig2dev">fig2dev</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="fig2gif">fig2gif</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="fig2ps.landscape">fig2ps.landscape</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="find-executables">find-executables</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="find-include">find-include</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="find-lib-symbol">find-lib-symbol</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="find-not-accessed-recently">find-not-accessed-recently</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="find-recent">find-recent</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="find-setuid">find-setuid</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="find-sources">find-sources</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="find-std-lib-symbol">find-std-lib-symbol</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="findctlm">findctlm</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="findlibfn">findlibfn</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="findpeople">findpeople</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="fip">fip</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="fix-kicker">fix-kicker</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="fix-mozilla">fix-mozilla</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="flush-spam">flush-spam</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="formfeed">formfeed</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="frame-go">frame-go</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="gen-ipchains-nfs-harden.pl">gen-ipchains-nfs-harden.pl</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="gennums">gennums</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="get-most-frames-tmp">get-most-frames-tmp</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="ghostview-gunzip">ghostview-gunzip</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="grab-camera-files">grab-camera-files</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="grab-cd-tracks">grab-cd-tracks</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="grab-current-mplayer-frame">grab-current-mplayer-frame</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="grab-x-key">grab-x-key</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="grep-noerr">grep-noerr</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="grep-src-name">grep-src-name</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="handle-email">handle-email</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="handle-mime">handle-mime</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="handle-spam">handle-spam</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="hexdump">hexdump</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="hexdump.csh">hexdump.csh</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="histogram">histogram</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="hose-get-stdout">hose-get-stdout</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="hostprompt">hostprompt</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="html-escape">html-escape</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="imgone">imgone</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="index.html">index.html</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="insert-html-toc">insert-html-toc</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="invert-diff">invert-diff</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="isgzip">isgzip</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="keep-alive">keep-alive</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="killgrep">killgrep</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="killn">killn</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="kmv">kmv</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="lf2crlf">lf2crlf</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="link-roms">link-roms</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="list-critical">list-critical</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="listlibfns">listlibfns</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="logtodd">logtodd</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="logwin">logwin</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="loop">loop</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="lowerall">lowerall</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="lpbannerlesstext">lpbannerlesstext</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="lpps">lpps</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="lptext">lptext</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="lscatch">lscatch</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="lynxhome">lynxhome</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="lyx-old">lyx-old</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-2x2-composites">make-2x2-composites</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-backup-dir">make-backup-dir</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-boot-message">make-boot-message</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-camera-index">make-camera-index</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-cd-label">make-cd-label</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-image-index">make-image-index</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-index">make-index</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-loop">make-loop</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-make-preproc">make-make-preproc</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-qsize">make-qsize</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-quiet">make-quiet</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-text-pic">make-text-pic</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-thumb-index">make-thumb-index</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-video-index">make-video-index</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="make-x-key">make-x-key</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="makemine">makemine</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="map">map</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="markmoved">markmoved</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mass-mail">mass-mail</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="median-of-5">median-of-5</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mkman">mkman</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mkurl">mkurl</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mkx">mkx</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mon2">mon2</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mon3">mon3</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mon4">mon4</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="monitor">monitor</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="monitor-connectivity">monitor-connectivity</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="monitor-link">monitor-link</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="monitor-x-clipboard">monitor-x-clipboard</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="monitor-x-clipboard~">monitor-x-clipboard~</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="monitor.df">monitor.df</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="monitor2">monitor2</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mount-cd-image">mount-cd-image</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="move">move</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mozilla">mozilla</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="multidiff">multidiff</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mvsym">mvsym</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mvsym-output">mvsym-output</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mvsym-test">mvsym-test</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="my-cvs-history">my-cvs-history</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="my-qmail-inject">my-qmail-inject</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="myinstallpkg">myinstallpkg</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="myip">myip</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mymake">mymake</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mypine">mypine</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="myreset">myreset</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="mywxcopy">mywxcopy</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="myxbiff">myxbiff</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="myxdvi">myxdvi</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="myxlock">myxlock</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="myxsnow">myxsnow</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="netpipe">netpipe</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="number-lines">number-lines</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="objdump-to-C-array.pl">objdump-to-C-array.pl</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="otherusers">otherusers</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="p">p</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="paragraphize">paragraphize</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="perror">perror</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="pgp-encrypt">pgp-encrypt</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="pgp-encrypt-any">pgp-encrypt-any</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="pgp-encrypt-no-sign">pgp-encrypt-no-sign</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="pgp-sign">pgp-sign</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="pgp-view">pgp-view</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="pingall">pingall</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="playem">playem</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="playlist">playlist</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="plot">plot</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="pop">pop</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="post-commit">post-commit</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="ppp-on">ppp-on</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="pr">pr</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="prepend">prepend</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="prepend-smconfig">prepend-smconfig</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="prepend-to-lines">prepend-to-lines</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="print7.c">print7.c</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="printf-to-cout">printf-to-cout</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="proc-new-fonts">proc-new-fonts</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="ps2djet500">ps2djet500</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="ps2gdi">ps2gdi</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="ps2laserjet">ps2laserjet</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="psall">psall</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="psall.old">psall.old</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="psgrep">psgrep</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="psn">psn</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="pstex-to-eps">pstex-to-eps</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="psusers">psusers</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="psusersnotme">psusersnotme</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="range">range</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="read-man">read-man</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="readnews">readnews</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="recursivediff.pl">recursivediff.pl</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="removeNthWith">removeNthWith</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="ren">ren</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="renall">renall</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="rename-_20-to-space">rename-_20-to-space</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="rename-by-filter">rename-by-filter</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="replace-with-link-to-changes">replace-with-link-to-changes</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="reseat-cvs">reseat-cvs</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="reset-ps2-mouse">reset-ps2-mouse</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="retrydl">retrydl</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="reverse-diff">reverse-diff</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="rmctlh">rmctlh</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="rmctlm">rmctlm</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="rmline">rmline</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="rmmods">rmmods</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="rotate-img-90">rotate-img-90</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="run-fetchmail">run-fetchmail</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="runecho">runecho</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="saveman">saveman</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="sbin">sbin</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="search">search</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="searchpath">searchpath</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="searchset">searchset</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="sequester">sequester</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="server-socket-to-stdout">server-socket-to-stdout</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="setos">setos</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="setprompt">setprompt</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="setup-desktop">setup-desktop</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="setup-logs">setup-logs</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="setup-mp3s">setup-mp3s</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="setup-pine">setup-pine</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="setup-qt2">setup-qt2</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="setup-read-only">setup-read-only</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="shar.trim">shar.trim</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="showargs">showargs</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="showcols">showcols</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="snap-critical">snap-critical</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="squirrel-files">squirrel-files</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="ssh-logcmd">ssh-logcmd</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="ssh-p522">ssh-p522</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="ssh2-logcmd">ssh2-logcmd</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="start-both">start-both</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="start-cpu-monitor">start-cpu-monitor</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="start-fetchmail">start-fetchmail</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="start-logwin">start-logwin</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="start-session">start-session</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="start-stuff">start-stuff</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="start-xbiff">start-xbiff</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="start-xclock">start-xclock</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="stdin-to-client-socket">stdin-to-client-socket</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="stdin-to-log">stdin-to-log</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="stdin2file">stdin2file</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="stitle">stitle</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="stitle.org">stitle.org</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="strip-comments">strip-comments</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="strip-line-directives">strip-line-directives</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="strip13">strip13</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="strip13all">strip13all</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="sttydel">sttydel</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="subtract-lines">subtract-lines</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="sumlines">sumlines</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="sumlinesf">sumlinesf</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="swap">swap</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="switchmouse">switchmouse</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="tarbz">tarbz</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="tardir">tardir</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="targz">targz</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="targz.csh">targz.csh</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="targzto">targzto</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="teetwo">teetwo</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="tempfname">tempfname</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="test-elsa-dist">test-elsa-dist</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="test-respfile">test-respfile</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="test.sh">test.sh</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="testarg">testarg</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="testargs">testargs</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="testctlm">testctlm</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="text2ps">text2ps</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="tmp1">tmp1</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="tmp2">tmp2</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="tolower">tolower</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="tolower.flex">tolower.flex</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="tossup">tossup</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="toupper">toupper</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="trash">trash</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="turn-off">turn-off</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="turnoff">turnoff</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="untar">untar</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="untargz">untargz</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="untargz.old">untargz.old</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="use-gcc-2.95.3">use-gcc-2.95.3</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="use-qt2">use-qt2</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="ut">ut</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="v">v</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="view-dot-stdin">view-dot-stdin</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="viewtargz">viewtargz</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="vuepad">vuepad</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="wav2mp3">wav2mp3</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="wherefrom">wherefrom</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="who.gen">who.gen</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="wine">wine</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="wine-gunman">wine-gunman</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="wine-hl">wine-hl</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="wine-hunting">wine-hunting</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="wine-tfc">wine-tfc</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="wine-winamp">wine-winamp</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="xmodmap-dont.use.windows.keys">xmodmap-dont.use.windows.keys</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="xmodmap-keyboard">xmodmap-keyboard</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="xmodmap-laptop">xmodmap-laptop</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="xmodmap-make.caps.another.ctrl">xmodmap-make.caps.another.ctrl</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="xmodmap-make.caps.normal">xmodmap-make.caps.normal</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="xmodmap-reset">xmodmap-reset</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="xmodmap-swap.caps.ctrl">xmodmap-swap.caps.ctrl</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="xmodmap-testing">xmodmap-testing</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="xmodmap-use.windows.keys">xmodmap-use.windows.keys</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="yak">yak</a></td>
+  <td></td>
+  <td></td>
+</tr>
+<tr>
+  <td><a href="yzermann-gateway">yzermann-gateway</a></td>
+  <td></td>
+  <td></td>
+</tr>
+</table>
+
+</body>
+</html>

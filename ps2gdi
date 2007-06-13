@@ -1,0 +1,11 @@
+#!/bin/sh
+# convert postscript into GDI, the input language for the ML-1430
+
+if [ -t 0 ]; then
+  # stdin is a tty, so print usage
+  echo "usage: $0 <infile.ps >outfile.gdi"
+  exit 0
+fi
+
+/opt/gs-7.07-gdi/bin/gs -q -dBATCH -dSAFER -dQUIET -dNOPAUSE \
+  -sDEVICE=gdi -sPAPERSIZE=letter -r600 -sOutputFile=- -

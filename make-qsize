@@ -1,0 +1,19 @@
+#!/bin/sh
+# make a directory called "qsize" and make 25% size copies there
+
+if [ ! -d qsize ]; then
+  mkdir qsize || exit
+fi
+
+for fn in *.[jJ][pP][gG]; do
+  if [ -f "qsize/$fn" ]; then
+    # exists already, do nothing
+    true
+  else
+    # make the smaller version
+    echo "reducing $fn"
+    convert -geometry 25%x25% "$fn" "qsize/$fn" || exit
+  fi
+done
+
+

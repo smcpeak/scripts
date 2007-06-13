@@ -1,0 +1,111 @@
+#!/usr/bin/perl -w
+# interpret the output of 'bk makepatch'
+
+use strict 'subs';
+
+expect("^#");
+expect("^#");
+expect("^#");
+expect("^\$");
+expect("^#");
+expect("^#");
+expect("^\$");
+
+$fname = getNextFile(readLine());
+while ($fname) {
+  readLine();     # origKey
+  $baseKey = readLine();
+  while (1) {
+    $newPath = skipToNewpath();
+    expect("^-+\$");
+    expect("^\$");
+    $contentChange = skipToBlankLine();
+
+    # more deltas?
+    $nextLine = readLine();
+    if ($nextLine =~ m/^(==|\#)/) {
+      last;   # no, stop
+    }
+  }
+
+  print("$fname:");
+
+  if ($newPath ne $fname) {
+    print STDERR ("newPath: $newPath\n");
+    print STDERR ("fname: $fname\n");
+    die;
+  }
+
+  # get the old path
+  ($oldPath) = ($baseKey =~ m/^[^|]*\|([^|]*)\|[^|]*\|[^|]*$/);
+  if (!defined($oldPath)) {
+    print STDERR ("baseKey: $baseKey\n");
+    die;
+  }
+
+  $anyChange = 0;
+
+  if ($oldPath ne $newPath) {
+    print(" renamed from $oldPath");
+    $anyChange++;
+  }
+
+  if ($contentChange) {
+    print(" (content)");
+    $anyChange++;
+  }
+  
+  if (!$anyChange) {
+    print(" (no change)");
+  }
+
+  print("\n");
+
+  $fname = getNextFile($nextLine);
+}
+
+
+sub readLine {
+  my $ret = <STDIN>;
+  if (!defined($ret)) {
+    die("unexpected EOF\n");
+  }
+  chomp($ret);
+  return $ret;
+}
+
+
+sub expect {
+  my ($re) = @_;
+  my $line = readLine();
+  die if (!( $line =~ m/$re/ ));
+}
+
+sub getNextFile {
+  my ($s) = @_;
+  my ($ret) = ($s =~ m/^== (.*) ==$/);
+  return $ret;
+}
+
+
+sub skipToBlankLine {
+  $ret = 0;
+  while (readLine() !~ m/^$/) {
+    $ret++;
+  }
+  return $ret;
+}
+
+
+sub skipToNewpath {
+  while (1) {
+    my $line = readLine();
+    my ($ret) = ($line =~ m/^P (.*)$/);
+    if (defined($ret)) {
+      return $ret;
+    }
+  }
+}
+
+
+# EOF

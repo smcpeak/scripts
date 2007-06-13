@@ -1,0 +1,186 @@
+#!/usr/bin/perl -w
+# given a numeric address and the output of "nm -n <executable>",
+# map the address to the symbol name according to the map
+
+use strict 'subs';
+
+sub usage() {
+  die("usage: $0 [options] mapfile < symbols\n" .
+      "for example:\n" .
+      "  \$ nm -n --demangle foo.exe >foo.map\n" .
+      "  \$ echo 0x12345678 | $0 foo.map\n" .
+      "options:\n" .
+      "  -v      verbose\n" .
+      "  -oNNN   hex offset to add to addresses prior to mapping\n" .
+      "  -x      <mapfile> is the name of an executable, so run 'nm' myself\n" .
+      "");
+}
+
+# defaults
+$verbose = 0;
+$offset = 0;
+$executable = 0;
+
+# process command-line arguments
+while (@ARGV != 0 && $ARGV[0] =~ m/^-/) {
+  my $opt = $ARGV[0];
+  shift @ARGV;
+
+  if ($opt eq "-v") {
+    $verbose = 1;
+    next;
+  }
+  if ($opt =~ m/^-o/) {
+    ($offset) = ($opt -~ m/^-o([0-9a-fA-F]+)$/);
+    if (!defined($offset)) {
+      die("malformed argument: $opt\n");
+    }
+    $offset = hex($offset);
+    next;
+  }
+  if ($opt eq "-x") {
+    $executable = 1;
+    next;
+  }
+  if ($opt eq "--") {
+    last;
+  }
+
+  print STDERR ("unknown argument: $opt\n");
+  usage();
+}
+
+if (@ARGV != 1) {
+  usage();
+}
+
+$mapfile = $ARGV[0];
+
+# the map is stored as three arrays, all in increasing order
+@address = ();      # index -> address
+@type = ();         # index -> type
+@name = ();         # index -> name
+
+# last-seen address, to detect cases where the map is not
+# actually in increasing order
+$prevAddress = 0;
+
+# open the map
+if (!$executable) {
+  if ($mapfile =~ m/\.gz$/) {
+    # ends in .gz, so decompress
+    open(IN, "gzip -d -c $mapfile |") or die("could not run 'gzip'\n");
+  }
+  else {
+    # normal file
+    open(IN, $mapfile) or die("cannot read $mapfile: $!\n");
+  }
+}
+else {
+  # executable name, run 'nm' to get symbol information
+  open(IN, "nm -n --demangle $mapfile |") or die("could not run 'nm'\n");
+}
+
+# process map lines
+while (defined($line = <IN>)) {
+  chomp($line);
+
+  # remove CR too if any ...
+  $line =~ s/\r$//;
+
+  # format: <address> <type> <name>
+  my ($a, $t, $n) =
+    ($line =~ m/^([0-9a-fA-F]+)\s+(\S+)\s+(.*)$/);
+
+  if (defined($n)) {
+    $a = hex($a);
+
+    if ($a < $prevAddress) {
+      die("addresses are not in increasing order; sort them first\n");
+    }
+
+    push @address, ($a);
+    push @type, ($t);
+    push @name, ($n);
+
+    $prevAddress = $a;
+  }
+}
+close(IN) or die;
+
+if ($verbose) {
+  printf STDERR ("map contains %d symbols\n", scalar @address);
+}
+
+if (@address == 0) {
+  die("map does not contain any symbols!\n");
+}
+
+# read the input lines
+while (defined($line = <STDIN>)) {
+  chomp($line);
+  $line =~ s/\r$//;
+
+  # read the address as hex
+  my $prefix;
+  my $addr;
+  ($prefix, $_, $addr) = ($line =~ m/^(\s*(0x)?)([0-9a-fA-F]+)\b/);
+  if (!defined($addr)) {
+    if ($verbose) {
+      print("no hex value in line: ");
+    }
+    print("$line\n");
+    next;
+  }
+  $addr = hex($addr);
+
+  if ($addr == 0) {
+    # do not try to map address 0
+    print("$line\n");
+    next;
+  }
+
+  # apply the offset
+  $addr += $offset;
+
+  # binary search for it in the @address array; looking for the
+  # greatest address that is not greater than $addr
+  my $lo = 0;
+  my $hi = (scalar @address) - 1;
+
+  while ($lo < $hi) {
+    my $mid = int(($lo + $hi + 1) / 2);
+
+    if ($address[$mid] > $addr) {
+      # everything from $mid and beyond is ruled out
+      $hi = $mid-1;
+    }
+    else {
+      # everything above $mid is ruled out
+      $lo = $mid;
+    }
+  }
+
+  if ($lo == (scalar @address) - 1 &&
+      $addr > $address[$lo] + 0x2000) {
+    # the selected map entry is the last one, and the given address is
+    # more than 8k higher than the highest address; it's likely
+    # outside the address space we have information for, so don't
+    # print the last symbol's name (since that's just noise)
+    print("$line\n");
+    next;
+  }
+
+  if ($addr < $address[$lo]) {
+    # address is lower than the first map entry
+    print("$line\n");
+    next;
+  }
+
+  # $lo contains the answer
+  printf("%s%08x: %08x %s %s\n",
+         $prefix, $addr, $address[$lo], $type[$lo], $name[$lo]);
+}
+
+
+# EOF

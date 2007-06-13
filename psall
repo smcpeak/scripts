@@ -2,8 +2,4 @@
 # script to portably report list of all jobs
 
 #ps ax --forest --format "%p %u %a" "$@"
-ps ax --forest --format pid,user,args "$@"
-
-
-
-
+ps ax --forest --format pid,user,wchan,args "$@"

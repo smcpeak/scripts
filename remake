@@ -1,0 +1,16 @@
+#!/bin/sh
+# remove given targets, then make them
+
+MAKE="${MAKE:-make}"
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 file [file2 [...]]"
+  echo "  removes the given files, then invokes '$MAKE' on them"
+  exit 0
+fi
+
+echo rm -f "$@"
+rm -f "$@" || exit
+
+echo $MAKE "$@"
+exec $MAKE "$@"

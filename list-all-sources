@@ -1,0 +1,12 @@
+#!/bin/sh
+# list all C/C++ source files in CWD or below
+
+find . \( -name '*.h' -o \
+          -name '*.hpp' -o \
+          -name '*.hh' -o \
+          -name '*.H' -o \
+          -name '*.c' -o \
+          -name '*.cpp' -o \
+          -name '*.cc' -o \
+          -name '*.C' \
+       \) -print | grep -v SCCS

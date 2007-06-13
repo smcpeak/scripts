@@ -1,0 +1,82 @@
+#!/usr/bin/perl -w
+# sort of like 'find', but for files checked in to CVS
+
+use strict 'subs';
+
+$wd = `pwd`;
+chomp($wd);
+
+# get all the Entries files
+@entriesFiles = `find . -name Entries -print`;
+
+foreach $entry (@entriesFiles) {
+  # extract directory that comes before "CVS/Entries"
+  ($dir) = ($entry =~ m|^(.*)/CVS/Entries$|);
+  if (!defined($dir)) {
+    next;    # some file called Entries but not CVS/Entries
+  }
+
+  # read the Entries file
+  open(ENT, "<$entry") or die("could not read $entry: $!\n");
+  @lines = <ENT>;
+  close(ENT) or die;
+
+  # parse it
+  foreach $line (@lines) {
+    #print("line: $line");
+
+    ($fname, $dummy, $date) = ($line =~ m|^/([^/]+)/([^/]+)/([^/]+)/|);
+    $dummy = $dummy;    # silence warning
+    if (!defined($date)) {
+      next;    # header line or whatever
+
+      # TODO: Added files will get skipped here.  It would be nice
+      # to mention them.  But I don't know the format of such lines,
+      # and lacking net conn, it's hard to experiment.
+    }
+
+    $i = 0;
+    $didSomething = 0;
+
+    while ($i < @ARGV) {
+      if ($ARGV[$i] eq "-exec") {
+        $i++;
+
+        # apply substitution while creating command line
+        @cmd = ();
+
+        while ($i < @ARGV && $ARGV[$i] ne ";") {
+          my $s = $ARGV[$i++];
+          $s =~ s|\{\}|$dir/$fname|;      # "{}" -> filename
+          push @cmd, ($s);
+        }
+
+        if ($i >= @ARGV) {
+          die("-exec missing semicolon\n");
+        }
+        $i++;
+
+        #print("running: @cmd\n");
+        system(@cmd);
+
+        $didSomething++;
+      }
+      elsif ($ARGV[$i] eq "-print") {
+        print("$dir/$fname\n");
+        $i++;
+        $didSomething++;
+      }
+      else {
+        # not very many commands implemented yet ...
+        die("unknown command: $ARGV[$i]\n");
+      }
+    }
+
+    if (!$didSomething) {
+      print("$dir/$fname\n");     # like default action to print
+    }
+  }
+}
+
+
+# EOF

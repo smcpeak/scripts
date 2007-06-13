@@ -1,0 +1,30 @@
+#!/usr/bin/perl -w
+# write to stdout my usual C++ header template
+
+use strict 'subs';
+
+if (@ARGV != 1) {
+  print(<<"EOF");
+usage: $0 <header-name>
+EOF
+  exit(2);
+}
+
+$filename = $ARGV[0];
+
+# version suitable for use as inclusion guard symbol
+$symbol = $filename;
+$symbol =~ tr|-a-z/.|_A-Z__|;
+
+print(<<"EOF")
+// $filename
+// (description goes here)
+
+#ifndef $symbol
+#define $symbol
+
+
+#endif // $symbol
+EOF
+
+# EOF

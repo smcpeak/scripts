@@ -2,6 +2,6 @@
 # output html index of some images
 
 while [ "$1" != "" ]; do
-  echo '<img src="'$1'">'
+  echo '<img src="'$1'">'"$1<br>"
   shift
 done

@@ -1,0 +1,7 @@
+#!/bin/sh
+# escape text for inclusion in C string literal
+
+exec sed -e 's/"/\\"/g' \
+         -e 's/\(.*\)/"\1\\n"/'
+
+# EOF

@@ -2,6 +2,11 @@
 # view - script to view or play media
 # the script choose which program to use based on file extension
 
+if [ "$1" = "" -a -f "playlist.txt" ]; then
+  # shorthand: say 'v' in a directory with a playlist to play it
+  exec "$0" playlist.txt
+fi
+
 if [ "$1" = "" ]; then
 cat <<EOF
 usage: $0 file [file..]
@@ -17,8 +22,13 @@ known file formats, an associated players
   video: mplayer
     .asf - ?
     .mov - Apple Quicktime
-    .mpg - MPEG video
+    .mpg - MPEG video (also .mpeg)
     .avi - Windows AVI video format
+    .wmv - Windows Media Video
+    .wma - Windows Media Audio
+
+  streaming video: realplayer
+    .rmm,.rm - realplayer
 
   image: xv
     .jpg - JPEG
@@ -26,8 +36,9 @@ known file formats, an associated players
     .png - Portable Network Graphics format
 
   postscript: gv
-    .ps - Postscript
-    .eps - Encapsulated Postscript
+    .ps    - Postscript
+    .ps.gz - Compressed postscript
+    .eps   - Encapsulated Postscript
 
   Portable document format: acroread
     .pdf - Adobe PDF
@@ -45,7 +56,7 @@ while [ "$1" != "" ]; do
   fname="$1"
   shift
 
-  case "$fname" in
+  case `echo "$fname" | tolower` in
     *.mp3|*.txt)
       playlist "$fname"
       ;;
@@ -54,18 +65,22 @@ while [ "$1" != "" ]; do
       ogg123 "$fname"
       ;;
 
-    *.asf|*.mov|*.mpg|*.avi)
+    *.asf|*.mov|*.mpg|*.mpeg|*.avi|*.wmv|*.wma)
       mplayer "$fname"
+      ;;
+
+    *.rmm|*.rm)
+      realplay "$fname"
       ;;
 
     *.jpg|*.gif|*.png)
       xv "$fname"
       ;;
-      
-    *.ps|*.eps)
+
+    *.ps|*.ps.gz|*.eps)
       gv "$fname"
       ;;
-      
+
     *.pdf)
       acroread "$fname"
       ;;

@@ -1,0 +1,18 @@
+#!/bin/sh
+# grab a screenshot
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 filename.png"
+  exit 2
+fi
+
+echo "pausing for 2 seconds ..."
+sleep 2
+
+xwd > tmp.xwd || exit
+convert tmp.xwd "$1" || exit
+rm tmp.xwd
+
+echo "saved output to $1"
+
+# EOF
