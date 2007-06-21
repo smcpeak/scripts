@@ -41,6 +41,9 @@ if (-e $rosettaRepo) {
 # hash (e.g., 2d08e5ffe52586991b23032730b7849f9aa4725e)
 %revHashes = (-1 => "0000000000000000000000000000000000000000");
 
+# maximum-valued revision number
+$maxRevisionNumber = -1;
+
 # map from revision number to primary parent
 %revParent = ();
 
@@ -50,7 +53,7 @@ $revMParent = ();
 # look at all revisions
 foreach my $line (hgCmdLines('log', '--template', "{rev} {node} {parents}\n")) {
   my ($rev, $hash, $p1r, $p1h, $p2r, $p2h) =
-    ($line =~ m/^([0-9-]+) ([0-9a-f]+) (?:([0-9-]+):([0-9a-f]+)(?: ([0-9-]+):([0-9a-f]+))?)?$/);
+    ($line =~ m/^([0-9-]+) ([0-9a-f]+) (?:([0-9-]+):([0-9a-f]+) (?:([0-9-]+):([0-9a-f]+) )?)?$/);
     #            ^^^^^^^^^ ^^^^^^^^^^^    ^^^^^^^^^ ^^^^^^^^^^^    ^^^^^^^^^ ^^^^^^^^^^^
     #              $rev       $hash         $p1r       $p1h          $p2r       $p2h
 
@@ -58,6 +61,10 @@ foreach my $line (hgCmdLines('log', '--template', "{rev} {node} {parents}\n")) {
     die("malformed log line: $line\n");
   }
   $revHashes{$rev} = $hash;
+  
+  if ($rev > $maxRevisionNumber) {
+    $maxRevisionNumber = $rev;
+  }
   
   if (!defined($p1r)) {
     # special case: sole parent is numerically preceding
@@ -98,7 +105,7 @@ foreach my $r (sort {$a <=> $b} keys(%revHashes)) {
 
 sub getRevInfo {
   my ($rev) = @_;
-  print("getting revision $rev ...\n");
+  print("getting revision $rev (max is $maxRevisionNumber) ...\n");
 
   # create Rosetta directory for this rev
   mkdirOrDie("$rosettaRepo/revs/$rev");
@@ -161,131 +168,195 @@ sub getFileEvents {
   my %revManifest = getManifest($rev);
   my %parentManifest = getManifest($parent);
 
-  # see what happened to files in %parentManifest
-  foreach my $path (keys(%parentManifest)) {
-    my ($parentFileHash, $parentMode) =
-      split(' ', $parentManifest{$path});
+  # what to add in case of exception (this is rather ugly,
+  # but perl is too stupid to allow 'next' to work when
+  # inside an 'eval' in a loop)
+  my $context = "";
 
-    # NOTE: Mercurial does not have a notion of file rename in
-    # its metadata; it simply has (history-preserving) copy and
-    # remove.  Even though Rosetta does have direct support for
-    # rename, I do *not* try to recover renames at this stage.
-    # Instead, a post-process history refactorer can transform
-    # remove/copy operations into renames.
+  eval {
+    # see what happened to files in %revManifest
+    #
+    # do this *before* processing those in %parentManifest
+    # so that creations happen before removals
+    foreach my $path (keys(%revManifest)) {
+      $context = $path;
 
-    # deleted?
-    if (!defined($revManifest{$path})) {
-      push @ret, stringifyEvent('remove',
-                                'path' => $path);
-      next;
-    }
+      # anything also in %parentManifest will be
+      # handled by the loop below
+      if (defined($parentManifest{$path})) {
+        next;
+      }
 
-    # get current info
-    my ($revFileHash, $revMode) =
-      split(' ', $revManifest{$path});
-    
-    # mode change?
-    if ($parentMode ne $revMode) {
-      push @ret, stringifyEvent('chmod-abs',
-                                'path' => $path,
-                                'mode' => $revMode);
-    }
-    
-    # content change?
-    if ($parentFileHash ne $revFileHash) {
-      # look at the file-level history to see if the change
-      # recorded there names a different parent than $rev
-      
-      # get file-level history
+      # file info
+      my ($revFileHash, $revMode) =
+        split(' ', $revManifest{$path});
+
+      # the file was either created from scratch, copied or reverted
+
+      # get file-level history info, similar to above
       my %fileHistory = getFileHistory($path);
-
-      # get parent and revlink specifically for the version
-      # of the file as it exists in $rev
       my ($revFileParent, $revFileLinkRev) =
         split(' ', $fileHistory{shortenHash($revFileHash)});
 
-      # does the file DAG match the revision DAG?
-      if (shortenHash($parentFileHash) eq $revFileParent) {
-        # yes: this is the easy case where we just need to
-        # show a content diff
+      if ($revFileParent eq "000000000000" && 
+          $revFileLinkRev == $rev) {
+        # copied or created
 
-        # write the diff to a file
-        my $diffFname = getUniqueFname($rosettaRevDir,
-                                       basename($path) . ".diff");
-        hgCmdRedirect($rosettaRevDir . $diffFname,
-          "diff", "-r", $revHashes{$parent},
-                  "-r", $revHashes{$rev},
-                  "$hgRepo/$path");
+        # copied?  this is the only way I know to detect a file copy;
+        # "hg log --copies" claims to show copies, but apparently
+        # does not
+        my @dataLines = hgCmdLines(
+          "debugdata", "$hgRepo/.hg/store/data/${path}.i", $revFileHash);
+        if (@dataLines >= 4 &&
+            $dataLines[0] eq "\x01" &&    # this is how it comes out ...
+            $dataLines[3] eq "\x01") {
+          my ($copiedFileRev) = ($dataLines[1] =~ m/^copyrev: ([0-9a-f]+)$/);
+          my ($copiedFile) = ($dataLines[2] =~ m/^copy: (.*)$/);
 
-        # include a diff record
-        push @ret, stringifyEvent('modified-diff',
-                                  'path' => $path,
-                                  'diff' => $diffFname);
+          if (!defined($copiedFileRev) || !defined($copiedFile)) {
+            goto not_a_copy;
+          }
+
+          # see if $copiedFile was in $copiedFileRev state in the
+          # $parent revision, because if so, then we can use the
+          # abbreviated form of the 'copy' event
+          #
+          # note that simply comparing $copiedRev (computed below)
+          # to $parent is not sufficient, because the file might
+          # not have changed recently, in which case $copiedRev will
+          # be an ancestor of $parent
+          #
+          if (fileExistsAndHasContents($parent, $copiedFile, $copiedFileRev)) {
+            # use short version
+            push @ret, stringifyEvent('copy',
+                                      'dest' => $path,
+                                      'source' => $copiedFile);
+          }
+          else {
+            # map from $copiedFileRev to a global revision
+            my $copiedRev = fileRevToGlobalRev($copiedFile, $copiedFileRev);
+
+            # add a record of the copy
+            push @ret, stringifyEvent('copy',
+                                      'dest' => $path,
+                                      'source' => $copiedFile,
+                                      'revision' => $copiedRev);
+          }
+        }
+        else {
+        not_a_copy:
+          # created from scratch
+          my $fname = getUniqueFname($rosettaRevDir,
+                                     basename($path) . ".new");
+          hgCmdRedirect($rosettaRevDir . $fname,
+            "cat", "-r", $revHashes{$rev}, "$hgRepo/$path");
+          push @ret, stringifyEvent('created',
+                                    'path' => $path,
+                                    'contents' => $fname,
+                                    'mode' => $revMode);
+        }
       }
       else {
-        # no: let's treat this as a reversion
+        # reverted; similar to above
         push @ret, stringifyEvent('revert',
                                   'path' => $path,
                                   'rev' => $revFileLinkRev);
 
-        # just a sanity check
-        if ($revFileLinkRev == $parent) {
-          # if this was the case, then we should have already found
-          # that the file-level DAG matched
-          die("should not happen");
-        }
-
-        # we need to confirm that $revFileLinkRev is among
-        # the ancestors of $rev
         if (!amongAncestors($revFileLinkRev, $rev)) {
           die("want to revert $path to rev $revFileLinkRev, but it is " .
               "not among the ancestors of rev $rev\n");
         }
       }
     }
-  }
 
-  # see what happened to files in %revManifest
-  foreach my $path (keys(%revManifest)) {
-    # anything also in %parentManifest has already been
-    # handled by the loop above
-    if (defined($parentManifest{$path})) {
-      next;
-    }
+    # see what happened to files in %parentManifest
+    foreach my $path (keys(%parentManifest)) {
+      $context = $path;
 
-    # file info
-    my ($revFileHash, $revMode) =
-      split(' ', $revManifest{$path});
-      
-    # the file was either created from scratch or reverted
-    
-    # get file-level history info, similar to above
-    my %fileHistory = getFileHistory($path);
-    my ($revFileParent, $revFileLinkRev) =
-      split(' ', $fileHistory{shortenHash($revFileHash)});
-      
-    if ($revFileParent eq "000000000000") {
-      # created from scratch
-      my $fname = getUniqueFname($rosettaRevDir,
-                                 basename($path) . ".new");
-      hgCmdRedirect($rosettaRevDir . $fname,
-        "cat", "-r", $revHashes{$rev}, "$hgRepo/$path");
-      push @ret, stringifyEvent('created',
-                                'path' => $path,
-                                'contents' => $fname,
-                                'mode' => $revMode);
-    }
-    else {
-      # reverted; similar to above
-      push @ret, stringifyEvent('revert',
-                                'path' => $path,
-                                'rev' => $revFileLinkRev);
+      my ($parentFileHash, $parentMode) =
+        split(' ', $parentManifest{$path});
 
-      if (!amongAncestors($revFileLinkRev, $rev)) {
-        die("want to revert $path to rev $revFileLinkRev, but it is " .
-            "not among the ancestors of rev $rev\n");
+      # NOTE: Mercurial does not have a notion of file rename in
+      # its metadata; it simply has (history-preserving) copy and
+      # remove.  Even though Rosetta does have direct support for
+      # rename, I do *not* try to recover renames at this stage.
+      # Instead, a post-process history refactorer can transform
+      # remove/copy operations into renames.
+
+      # deleted?
+      if (!defined($revManifest{$path})) {
+        push @ret, stringifyEvent('remove',
+                                  'path' => $path);
+        next;
+      }
+
+      # get current info
+      my ($revFileHash, $revMode) =
+        split(' ', $revManifest{$path});
+
+      # mode change?
+      if ($parentMode ne $revMode) {
+        push @ret, stringifyEvent('chmod-abs',
+                                  'path' => $path,
+                                  'mode' => $revMode);
+      }
+
+      # content change?
+      if ($parentFileHash ne $revFileHash) {
+        # look at the file-level history to see if the change
+        # recorded there names a different parent than $rev
+
+        # get file-level history
+        my %fileHistory = getFileHistory($path);
+
+        # get parent and revlink specifically for the version
+        # of the file as it exists in $rev
+        my ($revFileParent, $revFileLinkRev) =
+          split(' ', $fileHistory{shortenHash($revFileHash)});
+
+        # does the file DAG match the revision DAG?
+        if (shortenHash($parentFileHash) eq $revFileParent) {
+          # yes: this is the easy case where we just need to
+          # show a content diff
+
+          # write the diff to a file
+          my $diffFname = getUniqueFname($rosettaRevDir,
+                                         basename($path) . ".diff");
+          hgCmdRedirect($rosettaRevDir . $diffFname,
+            "diff", "-r", $revHashes{$parent},
+                    "-r", $revHashes{$rev},
+                    "$hgRepo/$path");
+
+          # include a diff record
+          push @ret, stringifyEvent('modified-diff',
+                                    'path' => $path,
+                                    'diff' => $diffFname);
+        }
+        else {
+          # no: let's treat this as a reversion
+          push @ret, stringifyEvent('revert',
+                                    'path' => $path,
+                                    'rev' => $revFileLinkRev);
+
+          # just a sanity check
+          if ($revFileLinkRev == $parent) {
+            # if this was the case, then we should have already found
+            # that the file-level DAG matched
+            die("should not happen");
+          }
+
+          # we need to confirm that $revFileLinkRev is among
+          # the ancestors of $rev
+          if (!amongAncestors($revFileLinkRev, $rev)) {
+            die("want to revert $path to rev $revFileLinkRev, but it is " .
+                "not among the ancestors of rev $rev\n");
+          }
+        }
       }
     }
+  };
+  if ($@) {
+    die("$context: $@");
   }
 
   return @ret;
@@ -328,6 +399,27 @@ sub getManifest {
   return %ret;
 }
 
+
+# return true if in revision $rev there exists $file, and
+# its file contents hash is $fileRev
+sub fileExistsAndHasContents {
+  my ($rev, $file, $fileRev) = @_;
+  
+  my %manifest = getManifest($rev);
+  
+  my $info = $manifest{$file};
+  if (!defined($info)) {
+    return 0;
+  }
+  
+  my ($hash, $mode) = split(' ', $info);
+  if ($hash eq $fileRev) {
+    return 1;
+  }
+  
+  pretendUsed($mode);
+  return 0;
+}
 
 
 # return history info for $path:
@@ -376,16 +468,27 @@ sub getFileHistory {
 # turn a long hash into a short hash
 sub shortenHash {
   my ($h) = @_;
-  
+
   my ($s) = ($h =~ m/^([0-9a-f]{12})/);
   if (!defined($s)) {
     die("malformed hash: $h\n");
   }
-  
+
   return $s;
 }
 
 
+# given a file name and a file revision hash, find the global revision
+# number that introduced that file revision
+sub fileRevToGlobalRev {
+  my ($path, $fileRev) = @_;
+
+  my %history = getFileHistory($path);
+  my @info = split(' ', $history{shortenHash($fileRev)});
+  return $info[1];
+}
+
+      
 # see if $needle is among the ancestors of $child
 #
 # This algorithm by itself is linear.  Since it can be called a linear
