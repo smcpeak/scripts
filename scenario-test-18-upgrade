@@ -32,8 +32,7 @@ $HOME = $ENV{"HOME"};
 $guiPort = 7788;
 
 # where to get the releases
-#$releaseDir = "/nfs/qabuild/prevent-releases";
-$releaseDir = "$HOME/wrk/coverity/dist/prevent-releases";
+$releaseDir = "/nfs/qabuild/prevent-releases";
 
 # directory containing the licenses
 $licenseDir = "$HOME/wrk/coverity/dist/licenses";
@@ -50,8 +49,7 @@ $ver = "";
 $oldVer = "";
 
 # directory containing software to analyze
-#$src = "$HOME/bld/elsa-2005.08.22/smbase";
-$src = "$HOME/bld/tiny";
+$src = "$HOME/bld/elsa-2005.08.22/smbase";
 
 # platform we are running on
 $platform = getCurrentPlatform();
@@ -97,8 +95,27 @@ while (@ARGV) {
     if ( -d $installDir ) {
       die("Already exists: $installDir\n");
     }
-    run("tar", "xfz", "$releaseDir/$platform/prevent-$platform-$ver/" .
-                      "prevent-$platform-$ver.tar.gz");
+    my $fname = "$releaseDir/$platform/prevent-$ver/prevent-$platform-$ver.tar.gz";
+    if (! -f $fname) {
+      print("Does not exist: $fname\n");
+
+      # try the latest-qa-prevent thing; needed for
+      # prevent-linux-2.1.2; in general I prefer not to use this b/c I
+      # am not sure what exactly it contains that is different
+      $fname = "$releaseDir/$platform/prevent-$ver/latest-qa-prevent.tar.gz";
+    }
+    if (! -f $fname) {
+      print("Does not exist: $fname\n");
+
+      # try the "latest"
+      $fname = "$releaseDir/latest/prevent-$platform-$ver-stable.tar.gz";
+    }
+    if (! -f $fname) {
+      print("Does not exist: $fname\n");
+
+      die("Could not find Prevent tarball\n");
+    }
+    run("tar", "xfz", $fname);
     if ( ! -d $installDir ) {
       die("failed to untar into $installDir\n");
     }
@@ -278,7 +295,9 @@ sub getInstallDir {
 # use 'uname'; returns "linux", "freebsd", etc.
 sub getCurrentPlatform {
   my $s = `uname -s`;
+  chomp($s);
   my $m = `uname -m`;
+  chomp($m);
 
   if ($s =~ m/^[lL]inux$/ && $m =~ m/^i.86$/) {
     return "linux";
