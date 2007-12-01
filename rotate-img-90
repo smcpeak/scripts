@@ -1,6 +1,11 @@
 #!/bin/sh
 # rotate an image file counterclockwise by 90 degrees
 
+if [ -d qsize ]; then
+  "Do not rotate the originals."
+  exit 2
+fi
+
 angle=-90
 if [ "$1" = "-cw" ]; then
   angle=90

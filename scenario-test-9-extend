@@ -11,12 +11,14 @@ Where <command> is one of:
   install-prevent
   install-extend
   install-extend-compiler
+  install                   The above 3 commands in sequence
   extend-tests              Makefile-based tests
   extend-gui-start          Start a GUI with Extend results
   pause                     Wait for keyboard press
   extend-gui-stop           Kill the GUI
   uninstall-extend
   uninstall-prevent
+  uninstall                 The above 2 commands in sequence
   all                       Run all above commands in sequence
 Specifying multiple commands will run them all in sequence, stopping
 if any fails.
@@ -38,12 +40,16 @@ fi
 
 # version of the extend compiler; nominally should be the
 # same as $VERSION, but we've been having issues lately
-if [ "$VERSION" = "2.4.0" ]; then
-  # Extend 2.4.0 will use the 2.3.0 version of extend-compiler
-  EXTEND_COMP_VER="2.3.0"
-else
-  EXTEND_COMP_VER="$VERSION"
-fi
+EXTEND_COMP_VER="$VERSION"
+case "${EXTEND_COMP_VER}-${PLATFORM}" in
+  3.*.*-linux64)
+    EXTEND_COMP_VER=3.4.0
+    ;;
+
+  3.*.*-*)
+    EXTEND_COMP_VER=3.0.0
+    ;;
+esac
 
 # port number for GUI testing
 GUI_PORT=7788
@@ -85,12 +91,13 @@ while [ "$1" != "" ]; do
       echo "Installing Prevent into $PREVENT_ROOT"
 
       # expand tarball
+      mkdir -p "$HOME/opt" || exit
       cd "$HOME/opt" || exit
       if [ -d "$PREVENT_ROOT" ]; then
         echo "$PREVENT_ROOT already exists"
         exit 4
       fi
-      runecho tar xfz "$PREVENT_RELEASES/prevent-$PLATFORM-$VERSION-stable.tar.gz" || exit
+      runecho tar xfz "$PREVENT_RELEASES/prevent-$PLATFORM-$VERSION.tar.gz" || exit
       if [ ! -d "$PREVENT_ROOT" ]; then
         echo "$PREVENT_ROOT did not get created by tar command"
         exit 4
@@ -101,7 +108,7 @@ while [ "$1" != "" ]; do
 
       # copy in license file from my development directory
       cd "$PREVENT_ROOT/bin" || exit
-      runecho cp "$HOME/swat/bin/.security" . || exit
+      runecho cp "$HOME/dev/bin/license.dat" . || exit
 
       # configure gcc
       runecho ./cov-configure --compiler=gcc || exit
@@ -121,12 +128,13 @@ while [ "$1" != "" ]; do
       echo "Installing Extend into $EXTEND_TOP"
 
       # unpack the tarball
+      mkdir -p "$HOME/program files" || exit
       cd "$HOME/program files" || exit
       if [ -d "$EXTEND_TOP" ]; then
         echo "$EXTEND_TOP already exists"
         exit 4
       fi
-      runecho tar xfz "$PREVENT_RELEASES/extend-$PLATFORM-$VERSION-stable.tar.gz" || exit
+      runecho tar xfz "$PREVENT_RELEASES/extend-$PLATFORM-$VERSION.tar.gz" || exit
       if [ ! -d "$EXTEND_TOP" ]; then
         echo "$EXTEND_TOP did not get created by tar command"
         exit 4
@@ -187,17 +195,17 @@ while [ "$1" != "" ]; do
       runecho "$PREVENT_ROOT/bin/cov-emit" --emitdir=./emit --c hello.test.c || exit
 
       # analyze it
-      runecho ../hello --security-file="$PREVENT_ROOT/bin/.security" \
+      runecho ../hello --security-file="$PREVENT_ROOT/bin/license.dat" \
         --dtd="$PREVENT_ROOT/dtd" \
         --ticker-mode=none --no-watchdog \
         -c "$PREVENT_ROOT/config/coverity_config.xml" -e ./emit -o ./output || exit
 
       # install/start the gui
-      runecho "$PREVENT_ROOT/bin/cov-install-gui" -d data --password pass || exit
+      runecho "$PREVENT_ROOT/bin/cov-install-gui" -d data --password pass --product ExtendTests || exit
       runecho "$PREVENT_ROOT/bin/cov-start-gui" -d data --port $GUI_PORT || exit
 
       # commit the errors to it
-      runecho "$PREVENT_ROOT/bin/cov-commit-errors" -d data -e emit -o output --user admin || exit
+      runecho "$PREVENT_ROOT/bin/cov-commit-defects" -d data -e emit -o output --user admin || exit
 
       echo "The errors can be viewed at:"
       echo "  http://"`hostname`":$GUI_PORT"
@@ -220,7 +228,20 @@ while [ "$1" != "" ]; do
         exit 2
       fi
 
-      runecho "$PREVENT_ROOT/bin/cov-stop-gui" -d data --port $GUI_PORT || exit
+      runecho "$PREVENT_ROOT/bin/cov-stop-gui" -d data || exit
+      ;;
+
+    install)
+      exec runecho "$0" \
+        install-prevent \
+        install-extend \
+        install-extend-compiler
+      ;;
+
+    uninstall)
+      exec runecho "$0" \
+        uninstall-extend \
+        uninstall-prevent
       ;;
 
     all)

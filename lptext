@@ -7,6 +7,7 @@ usage()
   echo "  options:"
   echo "    -dummy:       just print how many pages it would be; don't print"
   echo "    -dummyO:      dummy print with output in tmp.ps (\"O\" is \"oh\")"
+  echo "    -tofile:      print to file.txt.ps"
   echo "    -2up:         print 2-up landscape"
   echo "    -fontSize N:  use font size N"
   echo "    --no-header:  do not page headers"
@@ -27,6 +28,10 @@ while [ "$#" -gt 1 ]; do
 
     -dummyO)
       dummy=2
+      ;;
+
+    -tofile)
+      dummy=3
       ;;
 
     -2up)
@@ -64,8 +69,10 @@ if [ "$dummy" = "0" ]; then
 else
   if [ "$dummy" = "1" ]; then
     args="$args --output=/dev/null"
-  else
+  elif [ "$dummy" = "2" ]; then
     args="$args --output=tmp.ps"
+  else
+    args="$args --output=$1.ps"
   fi
 
   # convert to postscript (printing pages), then dump it

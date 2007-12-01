@@ -9,4 +9,4 @@ find . \( -name '*.h' -o \
           -name '*.cpp' -o \
           -name '*.cc' -o \
           -name '*.C' \
-       \) -print | grep -v SCCS
+       \) -type f -print | grep -v SCCS

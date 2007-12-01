@@ -137,6 +137,12 @@ foreach $notesFname (@ARGV) {
 
       next;
     }
+
+    # forgotten "start" or "end"?
+    ($date) = ($line =~ m/^(\d\d\d\d-\d\d-\d\d) (\d\d:\d\d)/);
+    if (defined($date) && $active) {
+      print("warning: suspicious line: $line\n");
+    }
   }
   close(IN) or die;
 }
