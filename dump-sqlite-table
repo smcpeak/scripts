@@ -9,7 +9,8 @@ fi
 db="$1"
 shift
 
-BIN=$HOME/wrk/coverity/dev/packages/bin
+#BIN=$HOME/dev/packages/bin
+BIN=$HOME/dev/objs/linux64/root/test-bin
 
 # 2006-07-04: No longer explicitly asking for 'rowid', as our current
 # database schema includes explicit integer primary keys, which are
@@ -17,19 +18,19 @@ BIN=$HOME/wrk/coverity/dev/packages/bin
 
 # no table?  dump them all
 if [ "$1" == "" ]; then
-  for tbl in `$BIN/sqlite3 "$db" .schema | \
+  for tbl in `$BIN/sqlite "$db" .schema | \
                 grep "CREATE TABLE" | sed 's/(.*//' | awk '{ print $3 }'`; do
     echo "---- $tbl ----"
-    $BIN/sqlite3 "$db" ".schema $tbl" | grep TABLE
-    $BIN/sqlite3 "$db" "select * from $tbl;"
+    $BIN/sqlite "$db" ".schema $tbl" | grep TABLE
+    $BIN/sqlite "$db" "select * from $tbl;"
   done
   exit
 fi
 
 while [ "$1" != "" ]; do
   echo "---- $1 ----"
-  $BIN/sqlite3 "$db" ".schema $1" | grep TABLE
-  $BIN/sqlite3 "$db" "select * from $1;"
+  $BIN/sqlite "$db" ".schema $1" | grep TABLE
+  $BIN/sqlite "$db" "select * from $1;"
   shift
 done
 

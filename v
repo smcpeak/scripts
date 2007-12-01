@@ -1,9 +1,16 @@
 #!/bin/sh
 # view - script to view or play media
-# the script choose which program to use based on file extension
+#
+# the script chooses which program to use based on file extension
 
 if [ "$1" = "" -a -f "playlist.txt" ]; then
   # shorthand: say 'v' in a directory with a playlist to play it
+  exec "$0" playlist.txt
+fi
+
+if [ -d "$1" -a -f "$1/playlist.txt" ]; then
+  # yet more shorthand: say 'v' *of* a directory with a playlist
+  cd "$1"
   exec "$0" playlist.txt
 fi
 

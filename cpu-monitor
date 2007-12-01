@@ -16,7 +16,8 @@ $showHdc = 0;         # c: ..............................c
 $showEth = 1;         # e: packets sent/received over eth0
 $showPpp = 0;         # p: ...........................ppp0
 $showNews = 0;        # n: # of unread news articles
-$kernel22 = 0;        # true for 2.2 kernel, false for 2.4 kernel
+$kernel22 = 0;        # true for 2.2 kernel, false for 2.4+ kernel
+$kernel24 = 0;        # true for 2.4 kernel, false for 2.6+ kernel
 
 # configuration of some input sources
 $ethDevice = "eth0";
@@ -29,6 +30,15 @@ $THRM = "THRM";                     # io
 $logFile = "$ENV{HOME}/.cpulog";
 $logInterval = 600;      # in seconds
 $hdaName = "8,0";        # actually /dev/sda; "3,0" is /dev/hda
+
+# kernel detection
+$kernelVersion = `uname -r`;
+if ($kernelVersion =~ m/^2\.2\./) {
+  $kernel22 = 1;
+}
+elsif ($kernelVersion =~ m/^2\.4\./) {
+  $kernel24 = 1;
+}
 
 
 # flush all output immediately
@@ -64,6 +74,9 @@ while (1) {
   @ticks = elementwiseSubtract($#next + 1, @next, @prev);
   ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, 
    $sendCt, $recvCt, $pppSendCt, $pppRecvCt) = @ticks;
+  die if !defined($user);
+  die if !defined($nice);
+  die if !defined($system);
   $duty = $user + $nice + $system;
   $total = $duty + $idle;
 
@@ -148,11 +161,14 @@ sub getTickCounters {
   open(IN, "</proc/stat") or die;
 
   # extract cpu fields from first line
+  #
+  # note that for a multi-cpu system, these are sums across
+  # those CPUs
   my ($label, $user, $nice, $system, $idle) =
     split(' ', <IN>);
   pretendUsed($label);
 
-  my ($disk1, $disk2, $disk3, $kbd, $mouse);
+  my ($disk1, $disk2, $disk3, $kbd, $mouse) = (0,0,0,0,0);
 
   if ($kernel22) {
     # 2.2: extract disks field from second line
@@ -210,6 +226,37 @@ sub getTickCounters {
   # close the file
   close(IN) or die;
 
+  
+  if (!$kernel22 && !$kernel24) {
+    # 2.6 and above: look in /proc/diskstats
+    open(IN, "</proc/diskstats") or die;
+
+    # look for sda, sdb, sdc (i.e., assume SATA)
+    my $line;
+    while (defined($line = <IN>)) {
+      chomp($line);
+
+      if ($line =~ m/ sda /) {
+        $disk1 = readDiskStatsLine($line);
+      }
+      if ($line =~ m/ sdb /) {
+        $disk2 = readDiskStatsLine($line);
+      }
+      if ($line =~ m/ sdc /) {
+        $disk3 = readDiskStatsLine($line);
+      }
+
+      # see linux-2.6.9/drivers/block/genhd.c, diskstats_show()
+      sub readDiskStatsLine {
+        my ($line) = @_;
+        my @values = split(' ', $line);
+        return $values[3] + $values[7];
+      }
+    }
+
+    close(IN) or die;
+  }
+
 
   # open /proc/net/dev also, to get network device stats
   open(IN, "</proc/net/dev") or die;
@@ -235,8 +282,17 @@ sub getTickCounters {
   close(IN) or die;
 
   # return relevant fields
-  return ($user, $nice, $system, $idle, $disk1, $disk2, $disk3,
-          $sendCt, $recvCt, $pppSendCt, $pppRecvCt, $kbd, $mouse);
+  my @ret = ($user, $nice, $system, $idle, $disk1, $disk2, $disk3,
+             $sendCt, $recvCt, $pppSendCt, $pppRecvCt, $kbd, $mouse);
+
+  # check that all are defined
+  for (my $i = 0; $i < @ret; $i++) {
+    if (!defined($ret[$i])) {
+      die("field $i is not defined");
+    }
+  }
+
+  return @ret;
 }
 
 
@@ -341,11 +397,17 @@ sub subarray {
 sub elementwiseSubtract {
   ($count, @arrays) = @_;
 
+  if (@arrays != $count * 2) {
+    die("\@arrays has length " . scalar(@arrays) . ", but count is $count");
+  }
+
   @left = subarray(0, $count, @arrays);
   @right = subarray($count, $count, @arrays);
 
   my @ret = ();
   for ($i = 0; $i < $count; $i++) {
+    if (!defined($left[$i])) { die("left has no element $i"); }
+    if (!defined($right[$i])) { die("right has no element $i"); }
     $ret[$i] = $left[$i] - $right[$i];
   }
 
@@ -355,6 +417,10 @@ sub elementwiseSubtract {
 # ...
 sub elementwiseAdd {
   ($count, @arrays) = @_;
+
+  if (@arrays != $count * 2) {
+    die("\@arrays has length " . scalar(@arrays) . ", but count is $count");
+  }
 
   @left = subarray(0, $count, @arrays);
   @right = subarray($count, $count, @arrays);
