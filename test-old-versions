@@ -1,0 +1,10 @@
+#!/bin/sh
+
+while [ "$1" != "" ]; do
+  echo "-------- $1 --------"
+  bk undo -a$1 -f >bk.undo.$1 2>&1
+  (make clean && make) >make.out.$1 2>&1
+  (cd audit/derive/relax-freed-arguments/test1; make testsuite && echo "PASSED" || echo "FAILED")
+  shift
+done
+

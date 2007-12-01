@@ -1,0 +1,6 @@
+#!/bin/sh
+# strip #-line directives from stdin, producing stdout
+
+exec grep -v '^ *#'
+
+# EOF

@@ -1,0 +1,65 @@
+#!/usr/bin/perl -w
+# given a delta name like "global/db/db.c|1.39", print the
+# diff between it and the previous version
+
+use strict 'subs';
+
+if (@ARGV == 0) {
+  print("usage: $0 <file>|<rev>\n" .
+        "  example: $0 global/db/db.c|1.39\n" .
+        "(remember to quote the '|' symbol for the shell)\n");
+}
+
+$exitVal = 0;
+
+foreach $delta (@ARGV) {
+  # separate the file name from the rev
+  my ($fname, $rev) = ($delta =~ m/^(.*)\|([0-9.]+)$/);
+  if (!defined($rev)) {
+    print STDERR ("malformed delta name: $delta\n");
+    $exitVal = 2;
+    next;
+  }      
+  
+  # pull the rev apart into an array of numbers
+  @revNums = split(/\./, $rev);
+  $revNumLen = scalar @revNums;
+
+  # decrement it
+  if ($revNums[$revNumLen - 1] > 1) {
+    # final component > 1, so we can just decrement it
+    $revNums[$revNumLen - 1] = $revNums[$revNumLen - 1] - 1;
+  }
+  elsif ($revNumLen == 2) {
+    # there are only two components, so decrement to N.0; the
+    # N.0 (I think) always means an empty file
+    $revNums[$revNumLen - 1] = 0;
+  }
+  elsif ($revNumLen == 4 && $revNums[2] == 1) {
+    # name is of form N.M.1.1, which I think always gets
+    # decrement to N.M
+    pop @revNums;
+    pop @revNums;
+  }
+  else {
+    # give up on it; maybe someday I will figure out bk revnums
+    print STDERR ("Sorry, I don't know how to decrement rev: $rev\n");
+    $exitVal = 2;
+    next;
+  }
+  
+  # put it back together as a string
+  $prev = join('.', @revNums);
+
+  # ask bk for the diff
+  @cmd = ("bk", "diffs", "-u", "-r${prev}..${rev}", $fname);
+  print("@cmd\n");
+  if (0!=system(@cmd)) {
+    # hopefully bk already printed an error message
+    $exitVal = 2;
+  }
+}
+
+exit($exitVal);
+
+# EOF

@@ -1,0 +1,46 @@
+#!/bin/sh
+# run gdb with a command and arguments
+#
+# this script is only needed b/c gdb is retarded
+
+if [ "$1" == "" ]; then
+  echo "usage: $0 program [args...]"
+  exit 2
+fi
+
+cmd="$1"
+shift
+
+if [ ! -x "$cmd" ]; then
+  echo "not an executable: $cmd"
+  exit 2
+fi
+
+# make a temporary .gdbinit file, since this is the only
+# way to communicate the command-line arguments
+tmp=/tmp/run-gdb.$$.tmp
+cat >"$tmp" <<EOF
+# .gdbinit (temporary)
+file $cmd
+set args $*
+break main
+run
+EOF
+
+# debugging
+if false; then
+  echo "---- BEGIN: $tmp ---"
+  cat "$tmp"
+  echo "---- END: $tmp ---"
+fi
+
+# fork off something that will delete that temporary file
+(sleep 5; rm $tmp) &
+
+# start gdb and hope it reads (opens) the .gdbinit before it gets deleted
+#   -x: command file
+#   -n: do not read .gdbinit
+exec gdb -x "$tmp" -n "$cmd"
+
+
+# EOF

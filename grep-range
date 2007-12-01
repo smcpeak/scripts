@@ -1,0 +1,31 @@
+#!/usr/bin/perl -w
+# print lines in between two regexps
+
+use strict 'subs';
+
+if (@ARGV != 2) {
+  print("usage: $0 begin-regexp end-regexp <input >output\n");
+  exit(2);
+}
+      
+$outputting = 0;
+while (defined($line = <STDIN>)) {
+  if (!$outputting) {
+    # start?
+    if ($line =~ m/$ARGV[0]/) {
+      $outputting = 1;
+      print($line);
+    }
+  }
+  else {
+    print($line);
+    
+    # stop?
+    if ($line =~ m/$ARGV[1]/) {
+      $outputting = 0;
+    }
+  }
+}
+
+
+# EOF

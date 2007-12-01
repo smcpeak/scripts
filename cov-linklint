@@ -1,0 +1,6 @@
+#!/bin/sh
+# run linklint on our docs
+
+exec linklint -index index.html /@ -error -warn
+
+# EOF

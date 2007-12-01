@@ -1,0 +1,115 @@
+#!/usr/bin/perl -w
+# read battery status via ACPI as exported to /proc
+#
+# normally returns a four-letter string: PPPC
+#   PPP: percentage of battery charge as a percentage or "100" 
+#        or "???" if the charge cannot be determined
+#   C: charging status, "+" for charging, "=" for charged, "-" for discharging
+#
+# returns "____" if the battery is not present
+# returns "????" if the ACPI files in /proc are not there
+#
+# see /usr/src/linux/drivers/acpi/battery.c for info on
+# the format of the /proc files
+
+use strict 'subs';
+
+if ( ! -f "/proc/acpi/battery/BAT0/state" ||
+     ! -f "/proc/acpi/battery/BAT0/info" ) {
+  diagnostic("/proc/acpi/battery/BAT0 files are missing");
+  print("????\n");
+  exit(4);
+}
+
+$remain = -1;
+$capacity = -1;
+$charging = "?";
+
+# analyze 'state'
+@lines = `cat /proc/acpi/battery/BAT0/state`;
+foreach $line (@lines) {
+  # battery present?
+  if ($line =~ m/^present:\s+no$/) {
+    diagnostic("battery is not present");
+    print("____\n");
+    exit(3);
+  }
+
+  # charging?
+  ($tmp) = ($line =~ m/^charging state:\s+(.+)/);
+  if (defined($tmp)) {
+    diagnostic("charging state: $tmp");
+    if ($tmp eq "charging") {
+      $charging = "+";
+    }
+    elsif ($tmp eq "charged") {
+      $charging = "=";
+    }
+    elsif ($tmp eq "discharging") {
+      $charging = "-";
+    }
+    next;
+  }
+
+  # remaining charge?
+  ($tmp) = ($line =~ m/^remaining capacity:\s+(\d+)/);
+  if (defined($tmp)) {
+    diagnostic("remaining capacity: $tmp");
+    $remain = $tmp;
+    next;
+  }
+}
+
+if ($remain == -1) {
+  diagnostic("did not find the remaining-capacity line");
+  return "???$charging";
+}
+
+# analyze 'info'
+@lines = `cat /proc/acpi/battery/BAT0/info`;
+foreach $line (@lines) {
+  # capacity?
+  ($tmp) = ($line =~ m/^last full capacity:\s+(\d+)/);
+  if (defined($tmp)) {
+    diagnostic("last full capacity: $tmp");
+    $capacity = $tmp;
+    last;
+  }
+}
+
+if ($capacity == -1) {
+  diagnostic("did not find last-full-capacity line");
+  print("???$charging\n");
+  exit(2);
+}
+
+# print final result
+printf("%s$charging\n", pctString($remain * 100 / $capacity));
+exit(0);
+
+
+# return a percentage as a 3-char string
+sub pctString {
+  ($val) = @_;
+
+  if ($val < 0) {
+    return "<0%";
+  }
+  elsif ($val < 100) {
+    return sprintf("%02d%%", $val);
+  }
+  elsif ($val == 100) {
+    return "100";
+  }
+  else {
+    return ">C%";
+  }
+}
+
+
+sub diagnostic {
+  #print(@_, "\n");
+}
+
+
+# EOF

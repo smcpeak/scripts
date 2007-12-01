@@ -1,0 +1,16 @@
+#!/bin/sh
+# set environment variables for extend
+
+# this file is meant to be sourced, not executed, which is why
+# it is not marked as executable
+
+if [ -d extend -a -d extend-compiler ]; then
+  export EXTEND_ROOT=`pwd`/extend
+  export EXTEND_COMP_DIR=`pwd`/extend-compiler
+else
+  echo "this is meant to be run from a directory that has subdirs"
+  echo "extend and extend-compiler"
+fi
+
+
+# EOF

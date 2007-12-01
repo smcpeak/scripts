@@ -1,0 +1,30 @@
+#!/bin/sh
+# run multidelta in a loop with increasing levels
+
+DELTA=$HOME/wrk/cplr/delta/bin/multidelta
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 test-program input-file"
+  exit 2
+fi
+
+$DELTA -level=0 "$@" || exit
+$DELTA -level=1 "$@" || exit
+
+$DELTA -level=0 "$@" || exit
+$DELTA -level=1 "$@" || exit
+$DELTA -level=2 "$@" || exit
+
+$DELTA -level=0 "$@" || exit
+$DELTA -level=1 "$@" || exit
+$DELTA -level=2 "$@" || exit
+$DELTA -level=3 "$@" || exit
+
+$DELTA -level=0 "$@" || exit
+$DELTA -level=1 "$@" || exit
+$DELTA -level=2 "$@" || exit
+$DELTA -level=3 "$@" || exit
+$DELTA -level=4 "$@" || exit
+
+
+# EOF

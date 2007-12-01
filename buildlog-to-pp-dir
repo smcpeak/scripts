@@ -1,0 +1,222 @@
+#!/usr/bin/perl -w
+# read in the output of a 'make' command, and use that to
+# build a directory full of preprocessed source files
+
+use strict 'subs';
+
+$SIG{INT} = \&sigIntHandler;
+
+if (@ARGV != 1) {
+  print(<<"EOF");
+usage: $0 [options] make.out
+EOF
+  exit(0);
+}
+
+# directory where to put pp files
+$cwd = `pwd`;
+chomp($cwd);
+$ppfilesdir = $cwd . "/ppfiles";
+if (! -d $ppfilesdir) {
+  mkdir($ppfilesdir) || die("mkdir $ppfilesdir: $!\n");
+}
+
+$buildlog = $ARGV[0];
+$diag = 0;
+
+
+# stack of directories; return to the topmost when we see
+# make say "Leaving directory ..."
+@dirstack = ();
+
+# initial directory: wherever $buildlog is
+($cwd) = ($buildlog =~ m|^(.*)/[^/]*$|);
+if (defined($cwd)) {
+  mychdir($cwd);
+}
+$cwd = `pwd`;
+chomp($cwd);
+
+open(IN,"<$buildlog") or die("can't open $buildlog: $!\n");
+while (defined($line = <IN>)) {
+  chomp($line);
+  my $s;
+
+  # "Entering directory ..."
+  ($s) = ($line =~ m|^g?make.*: Entering directory \`(.*)\'$|);
+  if (defined($s)) {
+    pushdir($s);
+    next;
+  }
+
+  # "Leaving directory ..."
+  ($s) = ($line =~ m|^g?make.*: Leaving directory \`(.*)\'$|);
+  if (defined($s)) {
+    if ($s ne $cwd) {
+      warning("I think cwd is $cwd, but make thinks it is $s");
+    }
+    popdir();
+    next;
+  }
+
+  # modify command to preprocess instead of compile
+  if ($line !~ s/ -c/ -E/) {
+    # link command.. ignore it
+    next;
+  }
+
+  # gcc or g++
+  ($s) = ($line =~ m/^(cc|gcc|g\+\+) /);
+  if (defined($s)) {
+    # normalize cc vs gcc
+    if ($s eq "cc") {
+      $translator = "gcc";
+    }
+    else {
+      $translator = $s;
+    }
+
+    # splice lines if it ends in backslash
+    while (substr($line, -1, 1) eq "\\") {
+      diagnostic("continued line");
+      chop($line);             # throw away the backslash
+      my $next = <IN>;
+      if (!defined($next)) {
+        die("log ended with a backslash!\n");
+      }
+      chomp($next);
+      $line = $line . $next;
+    }
+
+    # what extension do I want?
+    my $ppext = ($translator eq "gcc")? ".i" : ".ii";
+
+    # does the command include an explicit output designation?
+    my ($outfile) = ($line =~ m/-o (\S+)/);
+    if (defined($outfile)) {
+      # remove the explicit output specification
+      $line =~ s/-o \S+//;
+    }
+    else {
+      # look for the name of the input file
+      ($outfile) = ($line =~ m/ (\S+\.(c|cc|cpp|C|cxx|c\+\+))/);
+      if (!defined($outfile)) {
+        # make up a name (will make it unique among outputs later)
+        $outfile = "anon.c";
+      }
+    }
+
+    # throw away any existing directory component of $outfile
+    $outfile =~ s|^.*/||;
+
+    # throw away any existing extension too
+    $outfile =~ s|\.[^.]+$||;
+
+    # so now, $outfile is the name I want the preprocessed output to
+    # go to; but I still haven't specified a directory, nor made the
+    # name unique in that directory; do both now
+    #
+    # yes, this algorithm can race with other processes, I don't care
+    if (! -f $ppfilesdir . "/" . $outfile . $ppext &&
+        ! -f $ppfilesdir . "/" . $outfile . $ppext . ".gz") {
+      $outfile = $ppfilesdir . "/" . $outfile . $ppext;
+    }
+    else {
+      my $n = 2;
+      while (-f $ppfilesdir . "/" . $outfile . $n . $ppext ||
+             -f $ppfilesdir . "/" . $outfile . $n . $ppext . ".gz") {
+        $n++;
+        if ($n >= 1000) {
+          die("could not make a unique name from prefix: $ppfilesdir/$outfile\n");
+        }
+      }
+      $outfile = $ppfilesdir . "/" . $outfile . $n . $ppext;
+    }
+
+    # modify command string to send output to desired file
+    $line .= " -o $outfile";
+
+    # run the gcc/g++ command to preprocess the input
+    print("$line\n");
+    if (!run($line)) {
+      exit(4);
+    }
+
+    # compress it
+    run("gzip $outfile");
+
+    next;
+  }
+
+  # skip other lines
+}
+close(IN);
+
+exit(0);
+
+
+sub sigIntHandler {
+  exit(130);
+}
+
+
+sub run {
+  my ($cmd) = @_;
+
+  my $code = 0;
+  $code = system($cmd);
+
+  if ($code != 0) {
+    my $expl;
+    if ($code >= 256) {
+      # ordinary exit with nonzero status
+      $code = $code >> 8;
+      $expl = "code $code";
+    }
+    else {
+      # terminated by signal
+      $expl = "signal $code";
+      if ($code == 2) {
+        # ctrl-c
+        sigIntHandler();
+      }
+    }
+    printf("failing command ($expl): $cmd\n");
+    return 0;
+  }
+  else {
+    return 1;
+  }
+}
+
+sub warning {
+  my ($msg) = @_;
+  print("warning: $msg\n");
+}
+
+sub diagnostic {
+  my ($msg) = @_;
+  if ($diag) {
+    print("diagnostic: $msg\n");
+  }
+}
+
+sub pushdir {
+  my ($d) = @_;
+  push @dirstack, ($cwd);
+  $cwd = $d;
+  mychdir($cwd);
+}
+
+sub popdir {
+  $cwd = pop @dirstack;
+  mychdir($cwd);
+}
+
+sub mychdir {
+  my ($d) = @_;
+  diagnostic("cd $d");
+  chdir($d) or die("can't chdir to $d: $!\n");
+}
+
+# EOF

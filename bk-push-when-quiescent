@@ -1,0 +1,32 @@
+#!/bin/sh
+# pull, make, make testsuite until quiescense
+
+n=0
+limit=10
+
+while [ "`bk changes -R`" != "" -a $n -lt $limit ]; do
+  # changes need to be pulled
+  echo "-- pull $n --"
+  date
+  runecho bk pull || exit
+
+  # Do all these, including 'make clean', because sometimes the build
+  # will succeed w/o 'make clean' but the testsuite won't pass, but
+  # then doing 'make clean' will allow the testsuite to pass.
+  runecho make clean || exit
+  runecho make || exit
+  runecho make testsuite || exit
+
+  n=`expr $n + 1`
+done
+
+if [ $n -lt $limit ]; then
+  echo "quiescent after $n pulls; pushing"
+  runecho bk-mypush
+  echo "finished at `date`"
+else
+  echo "reached iter limit: $n"
+  exit 4
+fi
+
+# EOF

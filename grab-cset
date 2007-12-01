@@ -1,0 +1,22 @@
+#!/bin/sh
+# export a single cset to a patch file
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 revnum"
+  exit 2
+fi
+
+rev="$1"
+
+# get the parent of the revision
+parent=`bk prs -h -r$rev -d:PARENT:`
+if [ x = x$parent ]; then
+  echo "failed to get parent of $rev"
+  exit 2
+fi
+
+echo bk export -tpatch "-r$parent..$rev" \> "changeset-$rev.patch"
+bk export -tpatch "-r$parent..$rev" > "changeset-$rev.patch"
+exit
+
+# EOF

@@ -1,0 +1,8 @@
+#!/bin/sh
+
+bk push || exit
+
+# print the push name
+exec bk-revname
+
+# EOF

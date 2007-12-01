@@ -1,0 +1,44 @@
+#!/usr/bin/perl -w
+# run bk annotate, storing result in tmp/<name>, and fixing
+# the formatting
+
+use strict 'subs';
+
+if (@ARGV != 1) {
+  print("usage: $0 <filename>\n");
+  exit(2);
+}
+
+# remove any trailing slashes
+$fullname = $ARGV[0];
+$fullname =~ s|/+$||;
+
+# split name into path and name
+($path, $name) = ($fullname =~ m|^(.*)/([^/]+)|);
+if (!defined($name)) {
+  # must not be any slashes
+  $path = ".";
+  $name = $fullname;
+}
+if (!$name) {
+  die("filename cannot be empty\n");
+}
+
+# make directory for the .ann files
+if (-d "$path/tmp") {
+  # already exists
+}
+else {
+  if (!mkdir("$path/tmp")) {
+    die("cannot create directory $path/tmp: $!\n");
+  }
+}
+
+# run bk annotate
+$outfname = "${path}/tmp/${name}.ann";
+print("bk annotate -a -u -m $fullname > $outfname\n");
+if (0!=system("bk annotate -a -u -m '$fullname' > '$outfname'")) {
+  die("bk annotate failed\n");
+}
+
+# EOF

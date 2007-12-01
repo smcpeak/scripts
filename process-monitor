@@ -1,0 +1,166 @@
+#!/usr/bin/perl -w
+# monitor a running process to see cpu/disk stats
+#
+# related to cpu-monitor
+
+use strict 'subs';
+$| = 1;    # autoflush
+
+if (@ARGV != 1) {
+  print("usage: $0 pid\n");
+  exit(2);
+}
+$pid = $ARGV[0];
+$state = '.';
+$rss = 0;
+$eip = 0;
+print("pid: $pid\n");
+
+@prev = getTickCounters();
+
+while (1) {
+  my @next = getTickCounters();
+
+  my @ticks = elementwiseSubtract($#next + 1, @next, @prev);
+  my ($user, $system, $total, $disk,
+      $min_flt, $maj_flt, $tms_utime, $tms_stime) = @ticks;
+
+  if ($total == 0) { $total = 1; }
+
+  my $out = "$state ";
+  $out .= "C" . pctString(($user+$system) * 100 / $total) . " ";
+  $out .= "S" . pctString($system * 100 / $total) . " ";
+  $out .= "c" . pctString(($tms_utime+$tms_stime) * 100 / $total) . " ";
+  $out .= "s" . pctString($tms_stime * 100 / $total) . " ";
+  $out .= "D$disk ";
+  $out .= "maj${maj_flt} ";
+  $out .= "min${min_flt} ";
+  $out .= "r$rss i$eip\n";
+  print($out);
+
+  sleep(5);
+  @prev = @next;
+}
+
+
+# get various counts
+sub getTickCounters {
+  # open the file for stats about whole OS
+  #
+  # decode using linux/fs/proc/proc_misc.c
+  open(IN, "</proc/stat") or die;
+
+  # extract cpu fields from first line
+  my ($label, $user, $nice, $system, $idle) =
+    split(' ', <IN>);
+  pretendUsed($label);
+
+  my ($disk1, $disk2, $disk3);
+
+  # assume 2.4 kernel: read lines searching for key words
+  my $line;
+  while (defined($line = <IN>)) {
+    chomp($line);
+
+    # disk_io
+    if ($line =~ m/^disk_io/) {
+      #print("line=$line\n");
+
+      # pull the numbers after the colons; example line:
+      #   disk_io: (3,0):(7947,5235,331325,2712,184280) (3,1):(28060,8233,225218,19827,1095224)
+      #                   ^^^^=$disk1                          ^^^^^=$disk2
+      # if there are fewer than three disks, leave corresponding
+      # variable(s) undefined
+      ($disk1) = ($line =~ m|\(3,0\):\((\d+),|);
+      ($disk2) = ($line =~ m|\(3,1\):\((\d+),|);
+      ($disk3) = ($line =~ m|\(3,2\):\((\d+),|);
+
+      # set undefined values to 0 to avoid warnings
+      if (!defined($disk1)) { $disk1 = 0; }
+      if (!defined($disk2)) { $disk2 = 0; }
+      if (!defined($disk3)) { $disk3 = 0; }
+
+      #print("disk1=$disk1 disk2=$disk2 disk3=$disk3\n");
+    }
+  }
+
+  # close the file
+  close(IN) or die;
+
+  # and then the file for the specific process of interest
+  #
+  # decode using linux/fs/proc/array.c
+  if (!open(IN, "</proc/${pid}/stat")) {
+    print("process $pid is dead\n");
+    exit(0);
+  }
+
+  my @fields = split(' ',<IN>);
+  $main::state = $fields[2];    # like R for running, T for stopped, etc.
+  my $min_flt = $fields[9];     # minor faults
+  my $maj_flt = $fields[11];    # major faults
+  my $tms_utime = $fields[13];  # user ticks
+  my $tms_stime = $fields[14];  # system ticks
+  $main::rss = $fields[23];     # resident set size.. units?
+  $main::eip = $fields[29];     # EIP
+
+  close(IN);
+
+  return ($user+$nice, $system, $user+$system+$idle, $disk1+$disk2+$disk3,
+          $min_flt, $maj_flt, $tms_utime, $tms_stime);
+}
+
+
+# return a percentage as a 3-char string
+sub pctString {
+  ($val) = @_;
+
+  if ($val < 0) {
+    return "<0%";
+  }
+  elsif ($val < 100) {
+    return sprintf("%02d%%", $val);
+  }
+  elsif ($val == 100) {
+    return "100";
+  }
+  else {
+    return ">C%";
+  }
+}
+
+
+# return a subarray
+sub subarray {
+  ($start, $count, @array) = @_;
+
+  my @ret = ();
+  for ($i = 0; $i < $count; $i++) {
+    $ret[$i] = $array[$i + $start];
+  }
+
+  return @ret;
+}
+
+
+# return an array computed by subtracting elements of one from another
+sub elementwiseSubtract {
+  ($count, @arrays) = @_;
+
+  @left = subarray(0, $count, @arrays);
+  @right = subarray($count, $count, @arrays);
+
+  my @ret = ();
+  for ($i = 0; $i < $count; $i++) {
+    $ret[$i] = $left[$i] - $right[$i];
+  }
+
+  return @ret;
+}
+
+
+sub pretendUsed {
+}
+
+
+# EOF

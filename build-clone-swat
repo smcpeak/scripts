@@ -1,0 +1,37 @@
+#!/bin/sh
+# clone swat and build it
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 <UTC>"
+  exit 2
+fi
+
+echo "cd $HOME"
+cd $HOME || exit
+
+runecho bk clone swat2 swat-$1 || exit
+
+echo "cd swat-$1"
+cd swat-$1 || exit
+
+rev=`bk-utc-to-rev $1`
+if [ $? -ne 0 ]; then
+  exit 2
+fi
+
+runecho bk undo -a$rev -f || exit
+
+echo "checking the bk revname after the undo"
+if bk-revname | grep $1; then
+  echo "ok"
+else
+  echo "somehow got to the wrong rev?"
+  exit 2
+fi
+
+runecho ln -s $HOME/swat/linux-packages . || exit
+
+runecho sh configure || exit
+runecho make || exit
+
+# EOF

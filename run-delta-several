@@ -1,0 +1,12 @@
+#!/bin/sh
+# run multidelta several times
+
+multidelta=$HOME/wrk/cplr/delta/bin/multidelta
+
+runecho $multidelta -level=0 "$@" || exit
+runecho $multidelta -level=1 "$@" || exit
+runecho $multidelta -level=2 "$@" || exit
+runecho $multidelta -level=3 "$@" || exit
+runecho $multidelta -level=4 "$@" || exit
+
+# EOF

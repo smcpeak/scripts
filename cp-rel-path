@@ -1,0 +1,84 @@
+#!/usr/bin/perl -w
+# copy files to a destination, maintaining relative paths
+
+use strict 'subs';
+
+if (@ARGV < 2) {
+  print(<<"EOF");
+usage: $0 <sources> <dest>
+
+  <sources> is a list of source files, all of which should be
+  relative paths.  A source file "-" means to read source names
+  from stdin, one per line.
+
+EOF
+  exit(2);
+}
+
+$dest = pop @ARGV;
+while ($dest =~ s,/$,,) {}     # remove trailing slashes
+if (! -d $dest) {
+  die("must be a directory: $dest\n");
+}
+
+$exitCode = 0;
+
+foreach $src (@ARGV) {
+  if ($src eq "-") {
+    while (defined($line = <STDIN>)) {
+      chomp($line);
+      copyFile($line);
+    }
+  }
+  else {
+    copyFile($src);
+  }
+}
+
+exit($exitCode);
+
+sub copyFile {
+  my ($src) = @_;
+
+  if ($src =~ m,^/,) {
+    print STDERR ("Ignoring absolute path: $src\n");
+    $exitCode = 2;
+    return;
+  }
+  
+  if (-d $src) {
+    print("Ignoring directory: $src\n");
+    $exitCode = 2;
+    return;
+  }
+
+  # strip leading "./" if any
+  while ($src =~ s,^\./,,) {}
+
+  # split into path, name
+  my ($path, $name) = ($src =~ m|^(.*)/([^/]+)$|);
+  if (!defined($name)) {
+    # no slashes
+    $path = ".";
+    $name = $src;
+  }
+
+  # create destination directory
+  if (0!=system("mkdir", "-p", "$dest/$path")) {
+    print STDERR ("mkdir failed for $dest/$path\n");
+    $exitCode = 2;
+    return;
+  }
+
+  # copy                                       
+  my @cmd = ("cp", $src, "$dest/$path/$name");
+  print("@cmd\n");
+  if (0!=system(@cmd)) {
+    print STDERR ("cp failed for $src\n");
+    $exitCode = 2;
+    return;
+  }
+}
+
+
+# EOF

@@ -1,0 +1,73 @@
+#!/usr/bin/perl
+# run a program multiple times to establish memory usage
+
+sub usage {
+  print(<<"EOF");
+usage: $0 initial-mem command [args...]
+Will determine mem usage within 10%
+EOF
+  exit(2);
+}
+
+if (@ARGV == 0) {
+  usage();
+}
+
+$mem = $ARGV[0];
+shift(@ARGV);
+
+if ($mem <= 0) {
+  usage();
+}
+
+# first determine initial bounds
+if (tryRun($mem)) {
+  do {
+    $sufficient = $mem;
+    $mem = $mem / 2;
+  } while (tryRun($mem));
+  $inadequate = $mem;
+}
+else {
+  do {
+    if ($mem >= 1000000) {
+      die("failed at 1G, not going further");
+    }
+    $inadequate = $mem;
+    $mem = $mem * 2;
+  } while (!tryRun($mem));
+  $sufficient = $mem;
+}
+
+print("initial sufficient: $sufficient\n");
+print("initial inadequate: $inadequate\n");
+
+while (abs($sufficient - $inadequate) * 100 / $sufficient > 10) {
+  $mem = ($sufficient + $inadequate) / 2;
+  if (tryRun($mem)) {
+    $sufficient = $mem;
+  }
+  else {
+    $inadequate = $mem;
+  }
+}
+
+print("final sufficient: $sufficient\n");
+print("final inadequate: $inadequate\n");
+exit(0);
+
+
+sub tryRun {
+  my ($mem) = @_;
+
+  print("trying with memory: $mem\n");  
+  my $code = system("ulimit -v $mem; @ARGV >/dev/null 2>&1");
+  #print("code: $code\n");
+  if ($code == 2) {
+    die("hit ctrl-c\n");
+  }
+  return $code == 0;
+}
+
+
+# EOF
