@@ -42,11 +42,11 @@ fi
 # same as $VERSION, but we've been having issues lately
 EXTEND_COMP_VER="$VERSION"
 case "${EXTEND_COMP_VER}-${PLATFORM}" in
-  3.*.*-linux64)
+  3.[4567].*-linux64)
     EXTEND_COMP_VER=3.4.0
     ;;
 
-  3.*.*-*)
+  3.[01234567].*-*)
     EXTEND_COMP_VER=3.0.0
     ;;
 esac
@@ -73,6 +73,9 @@ export EXTEND_COMP_DIR
 EXTEND_TOP="$HOME/program files/extend-$PLATFORM-$VERSION"
 
 # where to get the releases; can be overridden from the command line
+#
+# This is just for the Prevent and Extend tarballs; the Extend compiler
+# tarball is obtained without using this variable.
 PREVENT_RELEASES=${PREVENT_RELEASES:-/nfs/qabuild/prevent-releases/latest}
 
 # This script is structured as a set of "commands"; the command to run

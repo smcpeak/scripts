@@ -40,6 +40,17 @@ elsif ($kernelVersion =~ m/^2\.4\./) {
   $kernel24 = 1;
 }
 
+# machine dependencies
+$host = `hostname`;
+chomp($host);
+if ($host eq "ganymede") {
+  $showTemp = 1;
+  $showBatt = 1;
+  $THRM = "THM0";
+  $tempChip = "via686a-isa-6000";
+  $hdaName = "3,0";      # /dev/hda
+}
+
 
 # flush all output immediately
 STDOUT->autoflush(1);
