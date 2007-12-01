@@ -4,8 +4,8 @@
 echo "connectivity monitor..."
 monitor-connectivity >> ~/doc/logs/connectivity-log 2>&1 &
 
-echo "email fetcher..."
-start-fetchmail
+#echo "email fetcher..."
+#start-fetchmail
 
 #echo "news monitor..."
 #check-news-loop &

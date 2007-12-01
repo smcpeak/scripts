@@ -1,0 +1,12 @@
+#!/bin/sh
+# unedit a file tracked by git
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 file [files...]"
+  echo "Will revert specific files to their original state"
+  exit 2
+fi
+
+runecho git checkout HEAD^ "$@"
+
+# EOF

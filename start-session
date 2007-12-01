@@ -22,7 +22,7 @@ rm -rf Desktop/Trash
 
 start-xclock
 start-cpu-monitor
-start-xbiff
+#start-xbiff
 start-logwin
 
 # mp3
@@ -35,13 +35,13 @@ else
 fi
 
 # pine
-xterm -title pine -fn "-misc-fixed-medium-r-normal-*-15-*-*-*-*-*-iso8859-1" -e /bin/sh -c 'mypine; exec bash' &
-grab_id pine
-if [ -f /etc/slack8 ]; then
-  movewin $id -move 530 537 -size 739 430
-else
-  movewin $id -move 535 537 -size 739 430
-fi
+#  xterm -title pine -fn "-misc-fixed-medium-r-normal-*-15-*-*-*-*-*-iso8859-1" -e /bin/sh -c 'mypine; exec bash' &
+#  grab_id pine
+#  if [ -f /etc/slack8 ]; then
+#    movewin $id -move 530 537 -size 739 430
+#  else
+#    movewin $id -move 535 537 -size 739 430
+#  fi
 
 # cpu-monitor, which ends up in the wrong position when the MWM-style
 # window decorations are used..
@@ -49,6 +49,8 @@ grab_id cpu-monitor
 movewin $id -llcorner -move 0 992 -size 250 10
 
 kmix
+
+killall artsd
 
 # it turns out klipper is the horrible thing which brings up that
 # window when I select a URL text
