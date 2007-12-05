@@ -22,7 +22,9 @@ if (@ARGV != 3) {
 #$SIG{INT} = \&handleSigInt;
 
 $HOME = $ENV{"HOME"};
-$delta = "$HOME/wrk/cplr/delta/bin/delta";
+$deltadir = "$HOME/wrk/cplr/delta";
+$delta = "$deltadir/bin/delta";
+$topformflat = "$deltadir/bin/topformflat";
 
 $checker = $ARGV[0];
 $function = $ARGV[1];
@@ -78,14 +80,23 @@ elsif ($task eq "test") {
 elsif ($task eq "model-tunits") {
   modelTunits();
 }
-elsif ($task eq "preprocess") {
-  preprocess();
-}
 elsif ($task eq "min-req-tunits") {
   minimizeTunits("required-commands.sh");
 }
 elsif ($task eq "min-main-tunits") {
   minimizeTunits("compile-commands.sh");
+}
+elsif ($task eq "preprocess") {
+  preprocess();
+}
+elsif ($task eq "strip-hashline") {
+  stripHashline();
+}
+elsif ($task eq "flat0") {
+  topformflat(0);
+}
+elsif ($task eq "min-pp-code") {
+  minimizePPCode();
 }
 else {
   die("unknown task: $task\n");
@@ -426,6 +437,67 @@ sub preprocessCmdFile {
 }
 
 
+# ------------------------- stripHashline -----------------------
+
+# Remove the # lines from the pp input.
+
+sub stripHashline {
+  my $olddir = getcwd();
+
+  mychdir("$workdir/pp");
+
+  my @fnames = `ls *.i*`;
+  foreach my $fn (@fnames) {
+    chomp($fn);
+    run("mv $fn $fn.prev && strip-hashline < $fn.prev > $fn && rm $fn.prev");
+  }
+
+  mychdir($olddir);
+}
+
+
+# -------------------------- topformflat ------------------------
+
+# Remove newlines from the input so each line contains one top-level
+# form (or, with increasing $level, smaller units of text per line).
+
+sub topformflat {
+  my ($level) = @_;
+
+  my $olddir = getcwd();
+
+  mychdir("$workdir/pp");
+
+  my @fnames = `ls *.i*`;
+  foreach my $fn (@fnames) {
+    chomp($fn);
+    run("mv $fn $fn.prev && $topformflat $level < $fn.prev > $fn && rm $fn.prev");
+  }
+
+  mychdir($olddir);
+}
+
+
+# ----------------------- minimizePPCode -----------------------
+
+# Run delta to minimize the current pp code.
+
+sub minimizePPCode {
+  my $script = testScriptName();
+
+  # use pp sources if they exist
+  if (! -d "$workdir/pp") {
+    die("directory does not exist: $workdir/pp\n");
+  }
+
+  # minimize the entire set of preprocessed files in pp
+  # simultaneously!
+  run("cd $workdir && " .
+      "NO_GCC_TEST=1 COMPILE_PP_SOURCES=1 " .
+        "$delta -in_place -test=$script pp/*.i*");
+}
+
+
 # -------------------------- subroutines ------------------------
 
 # return true if $checker/$function is found in $dir
@@ -527,6 +599,17 @@ sub makeUnique {
   }
   
   return "$fname.$i";
+}
+
+
+# current directory
+sub getcwd {
+  my $s = `pwd`;
+  if ($? != 0) {
+    die("pwd failed\n");
+  }
+  chomp($s);
+  return $s;
 }
 
 
