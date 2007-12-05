@@ -70,6 +70,8 @@ else {
 
 
 # ---------------------------- dispatch -------------------------
+
+# primitive tasks
 if ($task eq "init") {
   init();
 }
@@ -95,9 +97,39 @@ elsif ($task eq "strip-hashline") {
 elsif ($task eq "flat0") {
   topformflat(0);
 }
+elsif ($task eq "flat1") {
+  topformflat(1);
+}
+elsif ($task eq "flat2") {
+  topformflat(2);
+}
+elsif ($task eq "flat3") {
+  topformflat(3);
+}
+elsif ($task eq "flat4") {
+  topformflat(4);
+}
 elsif ($task eq "min-pp-code") {
   minimizePPCode();
 }
+elsif ($task eq "bak-pp") {
+  backupPPCode();
+}
+
+# combined procedures
+elsif ($task eq "init-tunits") {
+  initAndGetTunits();
+}
+elsif ($task eq "pp-and-strip") {
+  preprocessAndStrip();
+}
+elsif ($task eq "min-seq") {
+  minimizeSequence();
+}
+elsif ($task eq "end-to-end") {
+  endToEnd();
+}
+
 else {
   die("unknown task: $task\n");
 }
@@ -119,7 +151,7 @@ sub init {
   # get minimal set of files
   my @minimalFiles = $oldastFinds? getErrorFiles($dirOldast) :
                                    getErrorFiles($dirNewast);
-  diagnostic("minimal files: @minimalFiles");
+  #diagnostic("minimal files: @minimalFiles");
 
   # throw away path information
   @minimalFiles = map { $_ =~ s|.*/||; $_; } @minimalFiles;
@@ -465,7 +497,6 @@ sub topformflat {
   my ($level) = @_;
 
   my $olddir = getcwd();
-
   mychdir("$workdir/pp");
 
   my @fnames = `ls *.i*`;
@@ -495,6 +526,115 @@ sub minimizePPCode {
   run("cd $workdir && " .
       "NO_GCC_TEST=1 COMPILE_PP_SOURCES=1 " .
         "$delta -in_place -test=$script pp/*.i*");
+}
+
+
+# ------------------------- backupPPCode ------------------------
+# Copy the current pp code to pp-bak
+
+sub backupPPCode {
+  my $olddir = getcwd();
+  mychdir("$workdir");
+
+  run("rm -rf pp-bak");
+  run("cp -a pp pp-bak");
+
+  mychdir($olddir);
+}
+
+
+# ----------------------- initAndGetTuints ----------------------
+# Go from scratch to minimized translation unit set.
+
+sub initAndGetTunits {
+  init();
+  
+  if (!testDifference()) {
+    diagnostic("initial attempt with defect tunits fails");
+    
+    modelTunits();
+    
+    if (!testDifference()) {
+      diagnostic("attempt with model tunits fails");
+
+      die("TODO: expand tunits beyond those mentioned in models");
+      
+      # and minimize compile-commands.sh afterwards
+    }
+  }
+
+  # the above code has already minimized compile-commands.sh, so now
+  # do the same for required-commands.h
+  minimizeTunits("required-commands.sh");
+                                                                       
+  # print how many tunits are in each file
+  run("cd $workdir && wc -l required-commands.sh compile-commands.sh");
+}
+
+
+# ---------------------- preprocessAndStrip ---------------------
+# Preprocess, test, strip, test.
+
+sub preprocessAndStrip {
+  preprocess();
+  if (!testDifference()) {
+    die("preprocessing killed the result\n");
+  }
+  
+  stripHashline();
+  if (!testDifference()) {
+    die("striping killed the result\n");
+  }
+}
+
+
+# ----------------------- minimizeSequence ----------------------
+# minimize at various levels
+
+sub minimizeSequence {
+  flatThenMin(0);
+  flatThenMin(1);
+
+  flatThenMin(0);
+  flatThenMin(1);
+  flatThenMin(2);
+
+  flatThenMin(0);
+  flatThenMin(1);
+  flatThenMin(2);
+  flatThenMin(3);
+
+  flatThenMin(0);
+  flatThenMin(1);
+  flatThenMin(2);
+  flatThenMin(3);
+  flatThenMin(4);
+  
+  print("completed minimization at level 4");
+  
+  # print line counts
+  run("cd $workdir/pp && wc -l *.ii");
+}
+
+sub flatThenMin {
+  my ($level) = @_;
+
+  diagnostic("flatThenMin($level)");
+
+  topformflat($level);
+
+  # this will die if minimization fails
+  minimizePPCode();
+}
+
+
+# --------------------------- endToEnd --------------------------
+# Run whole procedure, start to finish.
+
+sub endToEnd {
+  initAndGetTunits();
+  preprocessAndStrip();
+  minimizeSequence();
 }
 
 
