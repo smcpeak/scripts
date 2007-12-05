@@ -1,0 +1,34 @@
+#!/bin/sh
+# run multidelta at various levels of topformflat
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 test-script file-to-minimize"
+  exit 2
+fi
+
+testScript="$1"
+file="$2"
+
+multidelta=$HOME/wrk/cplr/delta/bin/multidelta
+
+$multidelta -level=0 $testScript "$file" || exit
+$multidelta -level=1 $testScript "$file" || exit
+
+$multidelta -level=0 $testScript "$file" || exit
+$multidelta -level=1 $testScript "$file" || exit
+$multidelta -level=2 $testScript "$file" || exit
+
+$multidelta -level=0 $testScript "$file" || exit
+$multidelta -level=1 $testScript "$file" || exit
+$multidelta -level=2 $testScript "$file" || exit
+$multidelta -level=3 $testScript "$file" || exit
+
+$multidelta -level=0 $testScript "$file" || exit
+$multidelta -level=1 $testScript "$file" || exit
+$multidelta -level=2 $testScript "$file" || exit
+$multidelta -level=3 $testScript "$file" || exit
+$multidelta -level=4 $testScript "$file" || exit
+
+echo "finished at level 4"
+
+# EOF
