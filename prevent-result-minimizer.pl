@@ -5,16 +5,19 @@ use strict 'subs';
 
 sub usage {
   print(<<"EOF");
-usage: $0 <checker> <function-name-prefix> <task>
+usage: $0 <checker> <function-name-prefix> <task> [<task>...]
+
+Runs each task in sequence.
 
 <task> is one of:
   init           create the working directory
   test           test to see if difference of interest remains
   model-tunits   put set of tunits with events into required-commands.sh
+  (more to document)
 EOF
 }
 
-if (@ARGV != 3) {
+if (@ARGV < 3) {
   usage();
   exit(2);
 }
@@ -26,13 +29,11 @@ $deltadir = "$HOME/wrk/cplr/delta";
 $delta = "$deltadir/bin/delta";
 $topformflat = "$deltadir/bin/topformflat";
 
-$checker = $ARGV[0];
-$function = $ARGV[1];
-$task = $ARGV[2];
+$checker = shift @ARGV;
+$function = shift @ARGV;
 
 diagnostic("checker: $checker");
 diagnostic("function: $function");
-diagnostic("task: $task");
 
 # the Makefile is sensitive to these
 $ENV{"CHECKER"} = $checker;
@@ -63,83 +64,128 @@ if ($newastFinds == $oldastFinds) {
 
 if ($newastFinds) {
   diagnostic("new AST found it");
+  $dirWithDefect = $dirNewast;
 }
 else {
   diagnostic("old AST found it");
+  $dirWithDefect = $dirOldast;
 }
 
 
 # ---------------------------- dispatch -------------------------
+# main task dispatch loop
+while (@ARGV) {
+  $task = shift @ARGV;
+  diagnostic("task: $task");
 
-# primitive tasks
-if ($task eq "init") {
-  init();
-}
-elsif ($task eq "test") {
-  my $result = testDifference();
-  print("testDifference: $result\n");
-}
-elsif ($task eq "model-tunits") {
-  modelTunits();
-}
-elsif ($task eq "min-req-tunits") {
-  minimizeTunits("required-commands.sh");
-}
-elsif ($task eq "min-main-tunits") {
-  minimizeTunits("compile-commands.sh");
-}
-elsif ($task eq "preprocess") {
-  preprocess();
-}
-elsif ($task eq "strip-hashline") {
-  stripHashline();
-}
-elsif ($task eq "flat0") {
-  topformflat(0);
-}
-elsif ($task eq "flat1") {
-  topformflat(1);
-}
-elsif ($task eq "flat2") {
-  topformflat(2);
-}
-elsif ($task eq "flat3") {
-  topformflat(3);
-}
-elsif ($task eq "flat4") {
-  topformflat(4);
-}
-elsif ($task eq "min-pp-code") {
-  minimizePPCode();
-}
-elsif ($task eq "bak-pp") {
-  backupPPCode();
+  # primitive tasks
+  if ($task eq "clean") {
+    clean();
+  }
+  elsif ($task eq "init") {
+    init();
+  }
+  elsif ($task eq "test") {
+    my $result = testDifference(0);
+    print("testDifference: $result\n");
+  }
+  elsif ($task eq "test-all-chk") {
+    my $result = testDifference(1);
+    print("testDifference: $result\n");
+  }
+  elsif ($task eq "model-tunits") {
+    modelTunits();
+  }
+  elsif ($task eq "model-tunits-radius1") {
+    modelTunitsRadius(1);
+  }
+  elsif ($task eq "model-tunits-radius2") {
+    modelTunitsRadius(2);
+  }
+  elsif ($task eq "model-tunits-radius3") {
+    modelTunitsRadius(3);
+  }
+  elsif ($task eq "model-tunits-radius4") {
+    modelTunitsRadius(4);
+  }
+  elsif ($task eq "model-tunits-radius5") {
+    modelTunitsRadius(5);
+  }
+  elsif ($task eq "model-tunits-radius10") {
+    modelTunitsRadius(10);
+  }
+  elsif ($task eq "all-tunits") {
+    useAllTunits();
+  }
+  elsif ($task eq "min-req-tunits") {
+    minimizeTunits("required-commands.sh");
+  }
+  elsif ($task eq "min-main-tunits") {
+    minimizeTunits("compile-commands.sh");
+  }
+  elsif ($task eq "preprocess") {
+    preprocess();
+  }
+  elsif ($task eq "strip-hashline") {
+    stripHashline();
+  }
+  elsif ($task eq "flat0") {
+    topformflat(0);
+  }
+  elsif ($task eq "flat1") {
+    topformflat(1);
+  }
+  elsif ($task eq "flat2") {
+    topformflat(2);
+  }
+  elsif ($task eq "flat3") {
+    topformflat(3);
+  }
+  elsif ($task eq "flat4") {
+    topformflat(4);
+  }
+  elsif ($task eq "min-pp-code") {
+    minimizePPCode();
+  }
+  elsif ($task eq "bak-pp") {
+    backupPPCode();
+  }
+
+  # combined procedures
+  elsif ($task eq "expand-radius-inc") {
+    expandRadiusIncrementally();
+  }
+  elsif ($task eq "init-tunits") {
+    initAndGetTunits();
+  }
+  elsif ($task eq "pp-and-strip") {
+    preprocessAndStrip();
+  }
+  elsif ($task eq "min-seq") {
+    minimizeSequence();
+  }
+
+  # main end-to-end command
+  elsif ($task eq "end-to-end") {
+    endToEnd();
+  }
+
+  else {
+    die("unknown task: $task\n");
+  }
 }
 
-# combined procedures
-elsif ($task eq "init-tunits") {
-  initAndGetTunits();
-}
-elsif ($task eq "pp-and-strip") {
-  preprocessAndStrip();
-}
-elsif ($task eq "min-seq") {
-  minimizeSequence();
-}
-elsif ($task eq "end-to-end") {
-  endToEnd();
-}
+exit(0);
 
-else {
-  die("unknown task: $task\n");
+
+# ----------------------------- clean ---------------------------
+sub clean {
+  run("rm -rf $workdir");
 }
 
 
 # ------------------------------ init ---------------------------
 sub init {
-  # TEMPORARY
-  run("rm", "-rf", $workdir);
-
   if (-d $workdir) {
     die("directory already exists: $workdir\n");
   }
@@ -304,17 +350,24 @@ sub createFilteredTUnits {
 
 # return 1 if the current input passes the test, and 0 if not
 sub testDifference {
+  my ($allCheckers) = @_;
+
   my $script = testScriptName();
 
   # use pp sources if they exist
-  my $usepp = "";
+  my $settings = "";
   if (-d "$workdir/pp") {
     diagnostic("using pp");
-    $usepp = "COMPILE_PP_SOURCES=1";
+    $settings .= " COMPILE_PP_SOURCES=1";
+  }
+
+  # possibly turn on all checkers
+  if ($allCheckers) {
+    $settings .= " ALLCHECKERS=1";
   }
 
   diagnostic("test script: $script");
-  return 0==mysystem("cd $workdir && $usepp NO_GCC_TEST=1 $script -v");
+  return 0==mysystem("cd $workdir && $settings NO_GCC_TEST=1 $script -v");
 }
 
 # return the name of the script to use for testing purposes
@@ -362,7 +415,7 @@ sub getEventFiles {
 
   my $line;
   while (defined($line = <IN>)) {
-    my ($file) = ($line =~ m/^(.*):[0-9]+:/);
+    my ($file) = ($line =~ m/^([^:]*):[0-9]+:/);
     if (defined($file)) {
       $seenFiles{$file} = 1;
     }
@@ -371,6 +424,165 @@ sub getEventFiles {
   close(IN) or die("make: $!\n");
   
   return keys(%seenFiles);
+}
+
+
+# ----------------------- modelTunitsRadius ------------------------
+# Populate 'compile-commands.sh' with compile commands for all
+# transation units mentioned in the defect and model events, plus a
+# given radius distance in the callgraph.
+
+sub modelTunitsRadius {
+  my ($radius) = @_;
+  
+  my @funcs = getDefectFunctions();
+  
+  diagnostic("defect functions:");
+  foreach my $fn (@funcs) {
+    diagnostic("  $fn");
+  }
+
+  my @files = radiusExpandFuncsToFiles($radius, @funcs);
+
+  # throw away path information
+  @files = map { $_ =~ s|.*/||; $_; } @files;
+
+  diagnostic("expanded files at radius $radius:");
+  foreach my $file (@files) {
+    diagnostic("  $file");
+  }
+
+  # use those files to filter the set of translation units
+  createFilteredTUnits("$workdir/all-compile-commands.sh",    # input
+                       "$workdir/compile-commands.sh",        # output
+                       @files);                               # filter
+}
+
+sub getDefectFunctions {
+  # use cov-format-errors to get the functions
+  open(IN, "make -f minimize/template/Makefile " .
+           "emacs-format-error NEWAST=$newastFinds " .
+                              "CHECKER=$checker FUNCTION=$function |")
+    or die("cannot run make: $!\n");
+
+  # map of found function names to 1
+  my %seenFunctions = ();
+
+  my $line;
+  while (defined($line = <IN>)) {
+    my ($fn) = ($line =~ m/^function: (.*)/);
+    if (defined($fn)) {
+      $seenFunctions{$fn} = 1;
+    }
+  }
+
+  close(IN) or die("make: $!\n");
+
+  return keys(%seenFunctions);
+}
+
+# expand @funcs by $radius callchain link, then map them to their
+# containing file names
+sub radiusExpandFuncsToFiles {
+  my ($radius, @funcs) = @_;
+
+  # set of original functions
+  my %rootFuncs = ();
+  foreach my $fn (@funcs) {
+    $rootFuncs{$fn} = 1;
+  }
+
+  # get function number -> name map
+  my @funcNumberToName = ();
+  open(IN, "<$dirWithDefect/output/.cache/funcname.cache")
+    or die("cannot read $dirWithDefect/output/.cache/funcname.cache\n");
+  my $line;
+  while (defined($line = <IN>)) {
+    chomp($line);
+    push @funcNumberToName, ($line);
+  }
+  close(IN) or die;
+
+  while ($radius--) {
+    # root+called functions
+    my %expandedFuncs = %rootFuncs;
+
+    # process callgraph
+    open(IN, "<$dirWithDefect/output/.cache/callgraph.cache")
+      or die("cannot read $dirWithDefect/output/.cache/callgraph.cache");
+    while (defined($line = <IN>)) {
+      my ($caller, $callee) = ($line =~
+        m/^[0-9]+\|([0-9]+)\|[0-9]+\|([0-9]+)\|/);
+        # ^^^^^^^   ^^^^^^   ^^^^^^   ^^^^^^   ...
+        #  file     caller    line    callee   ...
+      if (defined($callee)) {
+        my $callerName = $funcNumberToName[$caller];
+        my $calleeName = $funcNumberToName[$callee];
+        if (defined($rootFuncs{$callerName})) {
+          #diagnostic("expansion edge: $callerName -> $calleeName");
+          $expandedFuncs{$calleeName} = 1;
+        }
+      }
+    }
+    close(IN) or die;
+
+    # pile expanded back into root
+    %rootFuncs = %expandedFuncs;
+  }
+
+  # read the filename cache
+  my @fileNames = ();
+  open(IN, "<$dirWithDefect/output/.cache/filename.cache")
+    or die("cannot read $dirWithDefect/output/.cache/filename.cache");
+  while (defined($line = <IN>)) {
+    chomp($line);
+    push @fileNames, ($line);
+  }
+  close(IN) or die;
+
+  # files containing %rootFuncs
+  my %rootFiles = ();
+
+  # process callgraph again to get files
+  open(IN, "<$dirWithDefect/output/.cache/callgraph.cache")
+    or die("cannot read $dirWithDefect/output/.cache/callgraph.cache");
+  while (defined($line = <IN>)) {
+    my ($file, $caller) = ($line =~
+      m/^([0-9]+)\|([0-9]+)\|/);
+      #   ^^^^^^   ^^^^^^     ...
+      #    file    caller     ...
+    if (defined($caller)) {
+      my $callerName = $funcNumberToName[$caller];
+      if (defined($rootFuncs{$callerName})) {
+        my $fname = $fileNames[$file];
+        #diagnostic("func file: $callerName -> $fname");
+        $rootFiles{$fname} = 1;
+      }
+    }
+  }
+  close(IN) or die;
+
+  return keys(%rootFiles);
+}
+
+
+# ------------------ expandRadiusIncrementally ------------------
+# Expand the tunits around the defect until we find it.
+
+sub expandRadiusIncrementally {
+  for (my $i = 1; $i <= 10; $i++) {
+    modelTunitsRadius($i);
+    if (testDifference(0)) {
+      print("got it at radius $i");
+      return 1;
+    }
+
+    if ($i == 5) {
+      $i = 9;    # so after increment it will be 10
+    }
+  }
+  
+  return 0;
 }
 
 
@@ -460,8 +672,11 @@ sub preprocessCmdFile {
 
     # append an appropriate command line to OUT (which is
     # in the pp/ directory, so the name does not have that)
+    #
+    # the "|| exit" is important; I need this script to fail
+    # when the preprocessed input is bad
     print OUT ("echo $ppName && " .
-               ($isCPP? "g++ -c" : "gcc -c") . " -o /dev/null $ppName\n");
+               ($isCPP? "g++ -c" : "gcc -c") . " -o /dev/null $ppName || exit\n");
   }
 
   close(IN) or die;
@@ -548,41 +763,54 @@ sub backupPPCode {
 
 sub initAndGetTunits {
   init();
-  
-  if (!testDifference()) {
+
+  if (!testDifference(0)) {
     diagnostic("initial attempt with defect tunits fails");
-    
+
     modelTunits();
-    
-    if (!testDifference()) {
+
+    if (!testDifference(0)) {
       diagnostic("attempt with model tunits fails");
 
-      die("TODO: expand tunits beyond those mentioned in models");
-      
-      # and minimize compile-commands.sh afterwards
+      if (!expandRadiusIncrementally()) {
+        diagnostic("failed to do radius expansion");
+
+        # will try with all the translation units
+        useAllTunits();
+      }
+
+      minimizeTunits("compile-commands.sh");
     }
   }
 
   # the above code has already minimized compile-commands.sh, so now
   # do the same for required-commands.h
   minimizeTunits("required-commands.sh");
-                                                                       
+
   # print how many tunits are in each file
   run("cd $workdir && wc -l required-commands.sh compile-commands.sh");
 }
 
 
-# ---------------------- preprocessAndStrip ---------------------
+# -------------------------- useAllTunits -----------------------
+# Put all translation units into compile-commands.sh
+
+sub useAllTunits {
+  run("cd $workdir && cp all-compile-commands.sh compile-commands.sh");
+}
+
+
+# ------------------------ preprocessAndStrip -------------------
 # Preprocess, test, strip, test.
 
 sub preprocessAndStrip {
   preprocess();
-  if (!testDifference()) {
+  if (!testDifference(0)) {
     die("preprocessing killed the result\n");
   }
   
   stripHashline();
-  if (!testDifference()) {
+  if (!testDifference(0)) {
     die("striping killed the result\n");
   }
 }
@@ -610,7 +838,7 @@ sub minimizeSequence {
   flatThenMin(3);
   flatThenMin(4);
   
-  print("completed minimization at level 4");
+  print("completed minimization at level 4\n");
   
   # print line counts
   run("cd $workdir/pp && wc -l *.ii");
