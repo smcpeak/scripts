@@ -3,8 +3,17 @@
 # which version of a repository I was using before a 'cvs update'
 # that broke everything..
 
-#realcvs=/usr/bin/cvs
 realcvs=$HOME/opt/cvs-1.11.18/bin/cvs
+if [ ! -x $realcvs ]; then
+  realcvs=/usr/bin/cvs
+  if [ ! -x $realcvs ]; then
+    realcvs=/usr/local/bin/cvs
+    if [ ! -x $realcvs ]; then
+      echo 'scripts/cvs: cannot find real cvs'
+      exit 4
+    fi
+  fi
+fi
 
 if [ "$1" = "-n" -o \
      "$1" = "log" ]; then

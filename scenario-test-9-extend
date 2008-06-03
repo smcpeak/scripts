@@ -20,6 +20,7 @@ Where <command> is one of:
   uninstall-prevent
   uninstall                 The above 2 commands in sequence
   all                       Run all above commands in sequence
+  shell                     Set up environment vars, then run \$SHELL
 Specifying multiple commands will run them all in sequence, stopping
 if any fails.
 EOF
@@ -42,6 +43,10 @@ fi
 # same as $VERSION, but we've been having issues lately
 EXTEND_COMP_VER="$VERSION"
 case "${EXTEND_COMP_VER}-${PLATFORM}" in
+  3.10.*)
+    EXTEND_COMP_VER=3.10.0
+    ;;
+
   3.[4567].*-linux64)
     EXTEND_COMP_VER=3.4.0
     ;;
@@ -261,6 +266,16 @@ while [ "$1" != "" ]; do
         uninstall-extend \
         uninstall-prevent
       ;;
+
+    # This exists to facilitate some kinds of interactive testing.
+    shell)
+      echo "Starting shell \"$SHELL\" with Extend envvars set"
+      
+      $SHELL
+
+      echo "Extend shell finished."
+      ;;
+      
 
     *)
       echo "Unknown command: $1"
