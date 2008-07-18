@@ -41,20 +41,22 @@ fi
 
 # version of the extend compiler; nominally should be the
 # same as $VERSION, but we've been having issues lately
-EXTEND_COMP_VER="$VERSION"
-case "${EXTEND_COMP_VER}-${PLATFORM}" in
-  3.10.*)
-    EXTEND_COMP_VER=3.10.0
-    ;;
+if [ "x$EXTEND_COMP_VER" = "" ]; then
+  EXTEND_COMP_VER="$VERSION"
+  case "${EXTEND_COMP_VER}-${PLATFORM}" in
+    3.10.*)
+      EXTEND_COMP_VER=3.10.0
+      ;;
 
-  3.[4567].*-linux64)
-    EXTEND_COMP_VER=3.4.0
-    ;;
+    3.[4567].*-linux64)
+      EXTEND_COMP_VER=3.4.0
+      ;;
 
-  3.[01234567].*-*)
-    EXTEND_COMP_VER=3.0.0
-    ;;
-esac
+    3.[01234567].*-*)
+      EXTEND_COMP_VER=3.0.0
+      ;;
+  esac
+fi
 
 # port number for GUI testing
 GUI_PORT=7788

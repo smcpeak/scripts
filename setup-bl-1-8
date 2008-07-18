@@ -1,0 +1,11 @@
+# setup-bl-1-8
+# set variables, etc. for bl-1-8
+# meant to be sourced
+
+HOME=/home/smcpeak
+LANG=C
+SHELL=/home/smcpeak/opt/bash-3.0-sm/bin/bash
+exec $SHELL
+
+# EOF
+
