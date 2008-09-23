@@ -33,23 +33,28 @@ while ($ARGV[0] =~ /^-/) {
   }
 }
 
+# directory for trash
+my $trashdir = $ENV{"HOME"};
+if (! -d $trashdir) {
+  die("\$HOME does not refer to a directory: $trashdir\n");
+}
+$trashdir .= "/trash";
+if (! -d $trashdir) {
+  # try to create it
+  if (!mkdir($trashdir)) {
+    die("mkdir $trashdir: $!\n");
+  }
+}
 
 # verify all arguments exist
-for (my $i = 0; $i < @ARGV; $i++) {
-  my $fname = $ARGV[$i];
+foreach my $fname (@ARGV) {
   if (! -e $fname) {
     die("$0: $fname does not exist (stopping before doing anything)\n");
   }
 }
 
-# get username
-my $user = `whoami`;
-chomp($user);
-if (! $user) {
-  die("$0: failed to retrieve username\n");
-}
-
-while (my $fname = shift(@ARGV)) {
+# process arguments to delete
+foreach my $fname (@ARGV) {
   # if $fname has trailing slashes, remove them
   $fname =~ s%/+$%%;
 
@@ -65,9 +70,11 @@ while (my $fname = shift(@ARGV)) {
       print("full path: $fname\n");
     }
 
-    # collapse any occurrances of "dir/../"
+    # collapse any occurrences of "dir/../"
     $fname =~ s%[^/]+/\.\./%%g;
   }
+  
+  # At this point, $fname is an absolute path (begins with '/').
 
   # make sure things still make sense
   if (! -e $fname) {
@@ -79,7 +86,7 @@ while (my $fname = shift(@ARGV)) {
   $path =~ s%/[^/]*$%%;
 
   # create the directory into which we will move this
-  my $destPath = "/trash/${user}${path}";
+  my $destPath = "${trashdir}$path";
   run("mkdir -p $destPath");
 
   # move the file to the trash
@@ -110,10 +117,4 @@ sub run {
 }
 
 
-# ---- trash -----
-  # figure out a suffix that will be considered the file's
-  # 'logical name'.  e.g. /home/scott/foo/bar is considered
-  # to be foo/bar
-  #$logical = $fname;
-  #$logical =~ s%^/home/scott%%;
-  #$logical =~ s%^/ex/scott%%;
+# EOF
