@@ -3,12 +3,38 @@
 # excution time; do this 5 times
 
 if [ "$1" == "" ]; then
-  echo "usage: $0 program [args...]"
+  echo "usage: $0 [options] program [args...]"
+  echo "options:"
+  echo "  -setup 'command': specify untimed command to run before program"
   exit 0
 fi
 
+# command to invoke before each timed test
+setup=""
+
+while true; do
+  case $1 in
+    -setup)
+      shift
+      setup="$1"
+      shift
+      ;;
+
+    -*)
+      echo "unknown option: $1"
+      exit 2
+      ;;
+
+    *)
+      break
+      ;;
+  esac
+done
+
 for n in 1 2 3 4 5; do
   #echo "running $n"
-  t=`(time "$@" >/dev/null) 2>&1 | grep real | sed 's/real	0m//'`
+  $setup
+  sync
+  t=`(time "$@" >/dev/null) 2>&1 | grep real | sed 's/real	//'`
   echo "    $t"
 done
