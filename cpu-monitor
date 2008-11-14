@@ -11,8 +11,9 @@ $showSys = 1;         # s: cpu time spent in kernel mode
 $showTemp = 0;        # cpu core temp in degrees celsius
 $showBatt = 0;        # battery charge percentage
 $showHda = 1;         # a: requests per second to /dev/hda
-$showHdb = 0;         # b: ..............................b
-$showHdc = 0;         # c: ..............................c
+$showHdb = 1;         # b: ..............................b
+$showHdc = 1;         # c: ..............................c
+$showHdd = 1;         # d: ..............................d
 $showEth = 1;         # e: packets sent/received over eth0
 $showPpp = 0;         # p: ...........................ppp0
 $showNews = 0;        # n: # of unread news articles
@@ -83,7 +84,7 @@ while (1) {
 
   # compute differences
   @ticks = elementwiseSubtract($#next + 1, @next, @prev);
-  ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, 
+  ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, $disk4,
    $sendCt, $recvCt, $pppSendCt, $pppRecvCt) = @ticks;
   die if !defined($user);
   die if !defined($nice);
@@ -128,6 +129,9 @@ while (1) {
   }
   if ($showHdc) {
     $output .= "c$disk3 ";
+  }
+  if ($showHdd) {
+    $output .= "d$disk4 ";
   }
   if ($showEth) {
     $output .= "e$sendCt/$recvCt ";
@@ -179,7 +183,7 @@ sub getTickCounters {
     split(' ', <IN>);
   pretendUsed($label);
 
-  my ($disk1, $disk2, $disk3, $kbd, $mouse) = (0,0,0,0,0);
+  my ($disk1, $disk2, $disk3, $disk4, $kbd, $mouse) = (0,0,0,0,0,0);
 
   if ($kernel22) {
     # 2.2: extract disks field from second line
@@ -256,6 +260,9 @@ sub getTickCounters {
       if ($line =~ m/ sdc /) {
         $disk3 = readDiskStatsLine($line);
       }
+      if ($line =~ m/ sdd /) {
+        $disk4 = readDiskStatsLine($line);
+      }
 
       # see linux-2.6.9/drivers/block/genhd.c, diskstats_show()
       sub readDiskStatsLine {
@@ -293,7 +300,7 @@ sub getTickCounters {
   close(IN) or die;
 
   # return relevant fields
-  my @ret = ($user, $nice, $system, $idle, $disk1, $disk2, $disk3,
+  my @ret = ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, $disk4,
              $sendCt, $recvCt, $pppSendCt, $pppRecvCt, $kbd, $mouse);
 
   # check that all are defined

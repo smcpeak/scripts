@@ -20,9 +20,14 @@ emit();
 
 # print count
 sub emit {
+  if (!defined($prevLine)) {
+    return;
+  }
+
   my $prev = $prevLine;
   chomp($prev);
   if ($count) {
-    print("$prev: ", "*" x $count, "\n");
+    #print("$prev: ", "*" x $count, "\n");
+    printf("%04d\t$prev\n", $count);
   }
 }

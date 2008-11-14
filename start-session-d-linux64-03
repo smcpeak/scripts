@@ -1,0 +1,61 @@
+#!/bin/sh
+# all the things I do when I start an X session (for kde)
+
+# this finds the window id of the given window title
+grab_id() {
+  # clever way to sleep for less than a second
+  perl -e 'select(undef, undef, undef, 0.25);'
+
+  id=`xwininfo -name "$1" | grep "Window id" | awk '{ print $4 }'`
+  id=$id
+  if [ "$id" = "" ]; then
+    echo "Couldn't find the right window id"
+    exit 2
+  fi
+}
+
+# assume I'm running this from my first xterm
+stitle wrk
+
+# custom fonts
+xset +fp $HOME/fonts
+xset fp rehash
+sleep 1
+
+# turn off annoying beep
+xset b off
+
+# clock
+#xclock -digital -update 1 -geometry 200x28+0-0 &
+#xclock -face courier -update 1 -digital -twelve -geometry 200x25+0--2 &
+xclock -face courier -update 1 -digital -geometry 200x25+0--2 &
+
+# cpu-monitor
+start-cpu-monitor &
+grab_id xload
+if xwininfo -root 2>/dev/null | grep '1280x1024' >/dev/null 2>&1; then
+  # 1280x1024
+  movewin $id -move 0 992 >/dev/null
+else
+  if xwininfo -root 2>/dev/null | grep '3200x1200' >/dev/null 2>&1; then
+    # big desktop
+    movewin $id -move 1280 1168 >/dev/null
+  else
+    # assume 1600x1200
+    movewin $id -move 0 1164 >/dev/null
+  fi
+fi
+
+grab_id xclock
+movewin $id -lower >/dev/null
+
+# log window
+xterm -geometry 150x24-0--2 -title logs -e logwin &
+
+xmodmap-make.caps.another.ctrl
+
+# start the xbindkeys daemon, which activates the keybindings
+# in $HOME/.xbindkeysrc
+#xbindkeys
+
+# EOF
