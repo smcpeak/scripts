@@ -1,32 +1,7 @@
 #!/usr/bin/perl -w
 # front-end for running coverity tools
 
-use strict 'subs';
-
-sub usage {
-  print(<<"EOF");
-usage: $0 [options] command [args]
-
-Options:
-  -prev <prevdir>  directory where Prevent is installed [$prevent]
-  -c <config>      config [$config]
-  -e <emit>        emit [$emit]
-  -o <output>      output [$output]
-  --dir <dir>      intermediate data [$dir]
-  -d <data>        GUI data [$data]
-  --user <user>    user for commits [$user]
-  --help           print this message
-
-Commands:
-  build <build_command>
-  analyze
-  install-gui
-  commit
-  start-gui
-  stop-gui
-
-EOF
-}
+use strict;
 
 
 sub usageError {
@@ -36,18 +11,47 @@ sub usageError {
 }
 
 
+my $platform = getPlatform();
+
+my $newEmit = 0;
+
 # root of prevent install or development directory
-$prevent = getenv("PREVENT");
+my $HOME = getenv("HOME");
+my $prevent = "$HOME/dev/objs/$platform/root";
+
+my $preventOldEmit = $prevent;
+my $preventNewEmit = "$HOME/prevent-new-emit/objs/$platform/root";
 
 # data directories
-$config = "";
-$emit = "emit";
-$output = "output";
-$dir = "dir";
-$data = "data";
+my $config = "";
+my $dir = "dir-oldemit";
+my $data = "data";
+
+setPrevent($prevent);
 
 # user for commits
-$user = "admin";
+my $user = "admin";
+
+my $product = "Default";
+my $port = "";
+
+
+sub usage {
+  print(<<"EOF");
+usage: $0 [options] cov-command [args]
+
+Options:
+  -newemit         use new emit
+  -oldemit         use old emit [default]
+  -prev <prevdir>  installdir [$prevent]
+  -c <config>      config [$config]
+  --dir <dir>      intermediate data [$dir]
+  -d <data>        GUI data [$data]
+  --user <user>    user for commits [$user]
+  --help           print this message
+
+EOF
+}
 
 
 # process command-line options
@@ -55,17 +59,21 @@ while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
   my $arg = $ARGV[0];
   shift @ARGV;
 
-  if ($arg eq "-prev") {
-    $prevent = nextArg();
+  if ($arg eq "-newemit") {
+    $newEmit = 1;
+    $dir = "dir-newemit";
+    setPrevent($preventNewEmit);
+  }
+  elsif ($arg eq "-oldemit") {
+    $newEmit = 0;
+    $dir = "dir-oldemit";
+    setPrevent($preventOldEmit);
+  }
+  elsif ($arg eq "-prev") {
+    setPrevent(nextArg());
   }
   elsif ($arg eq "-c") {
     $config = nextArg();
-  }
-  elsif ($arg eq "-e") {
-    $emit = nextArg();
-  }
-  elsif ($arg eq "-o") {
-    $output = nextArg();
   }
   elsif ($arg eq "--dir") {
     $dir = nextArg();
@@ -87,43 +95,13 @@ while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
 
 
 # validate $prevent
-if (!$prevent) {
-  die("Must specify the location of the Prevent install, either by\n" .
-      "supplying the -prev command line argument or via the \$PREVENT\n" .
-      "environment variable.\n");
-}
-
 if (! -d $prevent) {
   die("Not a directory: $prevent\n");
 }
 
-$bin = "$prevent/bin";
+my $bin = "$prevent/bin";
 if (! -d "$bin") {
   die("Not a directory: $bin\n");
-}
-
-if (-e "$bin/license.dat") {
-  $majVer = 3;
-  $licenseFile = "$bin/license.dat";
-}
-elsif (-e "$bin/.security") {
-  $majVer = 2;
-  $licenseFile = "$bin/.security";
-}
-else {
-  die("Did not find license file (.security or license.dat) in $bin.");
-}
-
-if (-d "$prevent/SCCS") {
-  $isReleaseImage = 0;
-  $guibin = "$prevent/gui/bin";
-}
-elsif (-f "$prevent/VERSION") {
-  $isReleaseImage = 1;
-  $guibin = "$prevent/bin";
-}
-else {
-  die("Neither SCCS nor VERSION found in $prevent.\n");
 }
 
 
@@ -132,72 +110,59 @@ if (@ARGV == 0) {
   usageError("no command specified");
 }
 
+# pull off the primary command
 my $command = $ARGV[0];
 shift @ARGV;
 
-if ($command eq "build") {
+# start building the cov-* arguments
+my @covArgs = ("--dir", $dir);
+
+if ($command =~ m/gui/) {
+  push @covArgs, ("-d", $data);
+}
+
+
+if ($command eq "cov-build") {
   if (@ARGV == 0) {
     usageError("no build command specified");
   }
-
-  execEcho("$bin/cov-build",
-           "-e", $emit,
-           "-o", $output);
-}
-
-elsif ($command eq "start-gui") {
-  execEcho("$guibin/cov-start-gui",
-           "-d", $data);
-}
-
-elsif ($command eq "stop-gui") {
-  execEcho("$guibin/cov-stop-gui",
-           "-d", $data);
-}
-
-elsif ($command eq "install-gui") {
-  my @cmd = ("$guibin/cov-install-gui",
-             "-d", $data,
-             "--password", "admin");
-  if ($majVer >= 3) {
-    push @cmd, ("--product", "Default");
+  
+  if ($config) {
+    push @covArgs, ("-c", $config);
   }
-  execEcho(@cmd);
 }
 
-elsif ($command eq "commit") {
-  execEcho($majVer==2? "$guibin/cov-commit-errors" :
-                       "$guibin/cov-commit-defects",
-           "-d", $data,
-           "-e", $emit,
-           "-o", $output,
-           "-sf", $licenseFile,
-           "--user", $user);
+elsif ($command eq "cov-start-gui") {
+  if ($port) {
+    push @covArgs, ("--port", $port);
+  }
 }
 
-elsif ($command eq "analyze") {
-  execEcho("$bin/cov-analyze",
-           "-e", $emit,
-           "-o", $output);
+elsif ($command eq "cov-install-gui") {
+  push @covArgs, ("--password", "admin",
+                 "--product", $product);
+}
+
+elsif ($command eq "cov-commit-defects") {
+  push @covArgs, ("--user", $user);
+}
+
+elsif ($command eq "cov-analyze") {
+  # nothing special at the moment
 }
 
 elsif ($command eq "find-function") {
-  execEcho("$bin/cov-find-function",
-           "-e", $emit);
-}
-
-else {
-  usageError("unknown command: $command");
+  # nothing special at the moment
 }
 
 
-sub execEcho {
-  my @cmd = (@_, @ARGV);
-  
-  print(join(' ', @cmd) . "\n");
-  exec(@cmd);
-  die("exec failed\n");
-}
+# build a single command line
+my @cmd = ("$prevent/bin/$command", @covArgs, @ARGV);
+
+# print and run it
+print(join(' ', @cmd) . "\n");
+exec(@cmd);
+die("exec failed\n");
 
 
 sub getenv {
@@ -217,6 +182,77 @@ sub nextArg {
   my $ret = $ARGV[0];
   shift @ARGV;
   return $ret;
+}
+
+
+sub setPrevent {
+  my ($newPrev) = @_;
+  
+  $prevent = $newPrev;
+  
+  # look for a config
+  if ($config) {
+    # already set
+  }
+  elsif (-d "$prevent/gcc-config") {
+    $config = "$prevent/gcc-config/coverity_config.xml";
+  }
+}
+
+  
+# get the current platform identifier as used in Prevent tarball names
+sub getPlatform {
+  my $proc = getProcessor();
+  my $os = getOS();
+
+  if ($os eq "linux") {
+    if ($proc eq "x86_64") {
+      return "linux64";
+    }
+    elsif ($proc eq "x86") {
+      return "linux";
+    }
+  }
+
+  if ($os eq "windows") {
+    if ($proc eq "x86") {
+      return "mingw";
+    }
+  }
+
+  die("unknown combination: proc=$proc os=$os\n");
+}
+
+
+sub getProcessor {
+  my $proc = `uname -m`;
+  chomp($proc);
+
+  if ($proc eq "x86_64") {
+    return "x86_64";
+  }
+  elsif ($proc =~ m/^i[3456]86$/) {
+    return "x86";
+  }
+  else {
+    die("unknown processor: $proc\n");
+  }
+}
+
+
+sub getOS {
+  my $os = `uname -o`;
+  chomp($os);
+
+  if ($os =~ m/linux/i) {
+    return "linux";
+  }
+  elsif ($os =~ m/cygwin/i) {
+    return "windows";
+  }
+  else {
+    die("unknown OS: $os\n");
+  }
 }
 
 
