@@ -1,0 +1,6 @@
+#!/bin/sh
+# use 'find' to recursively find files and sum their sizes
+
+find . -name "$1" -print | xargs wc -c | grep 'total$' | awk '{ print $1 }' | sumlines
+
+# EOF
