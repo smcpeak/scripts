@@ -41,7 +41,7 @@ fi
 
 # version of the extend compiler; nominally should be the
 # same as $VERSION, but we've been having issues lately
-if [ "x$EXTEND_COMP_VER" = "" ]; then
+if [ "x$EXTEND_COMP_VER" = "x" ]; then
   EXTEND_COMP_VER="$VERSION"
   case "${EXTEND_COMP_VER}-${PLATFORM}" in
     3.10.*)
