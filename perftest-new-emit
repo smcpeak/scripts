@@ -6,7 +6,7 @@ use Time::HiRes qw( gettimeofday );
 
 my $HOME = $ENV{'HOME'};
 
-my $OLDPREV = "$HOME/prevent-4.3/objs/linux64/root";
+my $OLDPREV = "$HOME/prevent-4.3-unmod/objs/linux64/root";
 my $NEWPREV = "$HOME/prevent-new-emit/objs/linux64/root";
 
 # extra arguments to pass to 'make'
@@ -16,6 +16,16 @@ my $makeArgs = "";
 my $oldConfig = "-c $OLDPREV/gcc-config/coverity_config.xml";
 my $newConfig = "-c $NEWPREV/gcc-config/coverity_config.xml";
 
+# build command
+my $make = "make";
+my $makeClean = "make clean";
+
+if (-f "compile-commands.sh") {
+  $make = "sh compile-commands.sh";
+  $makeClean = "true";    # no need to clean for non-incremental builds
+}
+
+my $covBuildArgs = "";
 
 # local customizations?
 if (-f "perftest.local.pl") {
@@ -29,18 +39,18 @@ if (-f "perftest.local.pl") {
 
 # ----------------------------- native build ----------------------------
 print("native build\n");
-run("make clean");
-my $nativeBuildTime = timeRun("make $makeArgs");
+run("$makeClean");
+my $nativeBuildTime = timeRun("$make");
 my $nativeBuildSize = `find-sum-sizes '*.o'`;         # bytes
 $nativeBuildSize = int($nativeBuildSize / 1000000);   # MB
 
 # ------------------------------- new emit ------------------------------
 print("new emit build\n");
 my $newEmitVer = getVersion("$NEWPREV/bin/cov-analyze");
-run("make clean");
+run("$makeClean");
 run("rm -rf dir-newemit");
 my $newEmitBuildTime = timeRun("$NEWPREV/bin/cov-build $newConfig " .
-  "--dir dir-newemit make $makeArgs");
+  "--dir dir-newemit $covBuildArgs $make");
 my $newEmitSize = getDirSize("dir-newemit/c/emit");
 my $newEmitTUs = getTUs("dir-newemit");
 
@@ -51,10 +61,10 @@ my @newEmitStats = getAnalysisStats("dir-newemit");
 # ------------------------------- old emit ------------------------------
 print("old emit build\n");
 my $oldEmitVer = getVersion("$OLDPREV/bin/cov-analyze");
-run("make clean");
+run("$makeClean");
 run("rm -rf dir-oldemit");
 my $oldEmitBuildTime = timeRun("$OLDPREV/bin/cov-build $oldConfig " .
-  "--dir dir-oldemit make $makeArgs");
+  "--dir dir-oldemit $covBuildArgs $make");
 my $oldEmitSize = getDirSize("dir-oldemit/c/emit");
 my $oldEmitTUs = getTUs("dir-oldemit");
 
@@ -87,7 +97,7 @@ EOF
 close(OUT) or die;
 
 sub printStats {
-  my ($loc, $files, $funcs, $paths, $defects, $memouts, $pathouts) = @_;
+  my ($loc, $files, $funcs, $paths, $defects, $memouts, $pathouts, $crashes) = @_;
 
   my ($ret) = (<<"EOF");
 "                      LOC     ", $loc
@@ -97,6 +107,7 @@ sub printStats {
 "                      Defects ", $defects
 "                      Memouts ", $memouts
 "                      Pathouts", $pathouts
+"                      Crashes ", $crashes
 EOF
 
   return $ret;
@@ -170,6 +181,7 @@ sub getAnalysisStats {
   my $defects = "unk";
   my $memouts = "unk";
   my $pathouts = "unk";
+  my $crashes = 0;
 
   open(IN, "zcat $dir/c/output/analysis-log.txt.gz |") or die("cannot open analysis log\n");
   my $line;
@@ -210,10 +222,19 @@ sub getAnalysisStats {
     if (defined($n)) {
       $pathouts = $n;
     }
+    
+    if ($line =~ m/The analysis was restarted once/) {
+      $crashes = 1;
+    }
+    
+    ($n) = ($line =~ m/The analysis was restarted (\d+) times/);
+    if (defined($n)) {
+      $crashes = $n;
+    }
   }
   close(IN) or die("zcat failed to read analysis log\n");
 
-  return ($loc, $files, $funcs, $paths, $defects, $memouts, $pathouts);
+  return ($loc, $files, $funcs, $paths, $defects, $memouts, $pathouts, $crashes);
 }
 
 
