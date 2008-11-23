@@ -1,4 +1,4 @@
-#! /bin/csh -f
+#! /bin/sh
 # script for setting title
 
 echo -n "]0;$1"
