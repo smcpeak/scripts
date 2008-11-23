@@ -1,0 +1,56 @@
+#!/bin/sh
+# return the Coverity platform identifier
+
+# processor
+raw_proc=`uname -m`
+case "$raw_proc" in
+  x86_64)
+    proc="x86_64"
+    ;;
+
+  i[3456]86)
+    proc="x86"
+    ;;
+
+  *)
+    echo "unknown processor: $raw_proc"
+    exit 4
+esac
+
+# os
+raw_os=`uname -o`
+case "$raw_os" in
+  [lL]inux)
+    os="linux"
+    ;;
+
+  [cC]ygwin)
+    os="windows"
+    ;;
+
+  *)
+    echo "unknown os: $raw_os"
+    exit 4;
+esac
+
+# examine processor+os combination
+case "$os-$proc" in
+  linux-x86_64)
+    echo "linux64"
+    ;;
+
+  linux-x86)
+    echo "linux"
+    ;;
+    
+  windows-x86)
+    echo "mingw"
+    ;;
+    
+  *)
+    echo "unknown combination: os=$os proc=$proc"
+    exit 4;
+esac
+
+
+# EOF

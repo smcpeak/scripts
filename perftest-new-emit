@@ -4,17 +4,21 @@
 use strict;
 use Time::HiRes qw( gettimeofday );
 
+my $platform = `get-cov-platform`;
+die if ($?);
+chomp($platform);
+
 my $HOME = $ENV{'HOME'};
 
-my $OLDPREV = "$HOME/prevent-4.3-unmod/objs/linux64/root";
-my $NEWPREV = "$HOME/prevent-new-emit/objs/linux64/root";
+my $OLDPREV = "$HOME/prevent-4.3-unmod/objs/$platform/root";
+my $NEWPREV = "$HOME/prevent-new-emit/objs/$platform/root";
 
 # extra arguments to pass to 'make'
 my $makeArgs = "";
 
 # config
-my $oldConfig = "-c $OLDPREV/gcc-config/coverity_config.xml";
-my $newConfig = "-c $NEWPREV/gcc-config/coverity_config.xml";
+my $oldConfig = "$OLDPREV/gcc-config/coverity_config.xml";
+my $newConfig = "$NEWPREV/gcc-config/coverity_config.xml";
 
 # build command
 my $make = "make";
@@ -30,6 +34,7 @@ my $covBuildArgs = "";
 # local customizations?
 if (-f "perftest.local.pl") {
   my $cust = `cat perftest.local.pl`;
+  die if ($?);
   eval($cust);
   if ($@) {
     die($@);
@@ -37,11 +42,16 @@ if (-f "perftest.local.pl") {
 }
 
 
+my $oldConfigArg = makeConfigArg($oldConfig);
+my $newConfigArg = makeConfigArg($newConfig);
+
+
 # ----------------------------- native build ----------------------------
 print("native build\n");
 run("$makeClean");
 my $nativeBuildTime = timeRun("$make");
 my $nativeBuildSize = `find-sum-sizes '*.o'`;         # bytes
+die if ($?);
 $nativeBuildSize = int($nativeBuildSize / 1000000);   # MB
 
 # ------------------------------- new emit ------------------------------
@@ -49,7 +59,7 @@ print("new emit build\n");
 my $newEmitVer = getVersion("$NEWPREV/bin/cov-analyze");
 run("$makeClean");
 run("rm -rf dir-newemit");
-my $newEmitBuildTime = timeRun("$NEWPREV/bin/cov-build $newConfig " .
+my $newEmitBuildTime = timeRun("$NEWPREV/bin/cov-build $newConfigArg " .
   "--dir dir-newemit $covBuildArgs $make");
 my $newEmitSize = getDirSize("dir-newemit/c/emit");
 my $newEmitTUs = getTUs("dir-newemit");
@@ -63,7 +73,7 @@ print("old emit build\n");
 my $oldEmitVer = getVersion("$OLDPREV/bin/cov-analyze");
 run("$makeClean");
 run("rm -rf dir-oldemit");
-my $oldEmitBuildTime = timeRun("$OLDPREV/bin/cov-build $oldConfig " .
+my $oldEmitBuildTime = timeRun("$OLDPREV/bin/cov-build $oldConfigArg " .
   "--dir dir-oldemit $covBuildArgs $make");
 my $oldEmitSize = getDirSize("dir-oldemit/c/emit");
 my $oldEmitTUs = getTUs("dir-oldemit");
@@ -152,6 +162,7 @@ sub getVersion {
   my ($cmd) = @_;
   
   my $ver = `$cmd --ident`;
+  die if ($?);
   my ($n) = ($ver =~ m/build (\d+)/);
   if (!defined($n)) {
     die("malformed version: $ver\n");
@@ -165,6 +176,7 @@ sub getDirSize {
   my ($dir) = @_;
 
   my $tmp = `du $dir | awk '{ print \$1 }' | tail -1`;
+  die if ($?);
   chomp($tmp);
   return int($tmp / 1000);
 }
@@ -248,6 +260,37 @@ sub getTUs {
   }
   return $n;
 }
+
+
+sub isWindows {
+  return $platform eq "mingw";
+}
+
+
+# given the name of a config file or "", return "-c <config>" or the
+# empty string in the latter case
+sub makeConfigArg {
+  my ($config) = @_;
+  
+  if ($config eq "") {
+    return "";
+  }
+  
+  # catch any old-style config vars
+  if ($config =~ m/^-c/) {
+    die("config \"$config\" begins with \"-c\" but should not\n");
+  }
+  
+  # on Windows we need to convert from a cygwin path
+  if (isWindows()) {
+    $config = `cygpath -m $config`;
+    die if ($?);
+    chomp($config);
+  }
+
+  return "-c $config";
+}
+
 
 
 # EOF

@@ -1,6 +1,9 @@
 #!/bin/sh
 # use 'find' to recursively find files and sum their sizes
 
-find . -name "$1" -print | xargs wc -c | grep 'total$' | awk '{ print $1 }' | sumlines
+# the /dev/nulls are to make sure there are at least two arguments
+# to 'wc', so that it will always print the 'total' line
+find . -name "$1" -print | xargs wc -c /dev/null /dev/null | \
+  grep 'total$' | awk '{ print $1 }' | sumlines
 
 # EOF
