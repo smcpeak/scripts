@@ -1,0 +1,61 @@
+#!/usr/bin/perl -w
+# convert CSV input into mediawiki table markup output
+
+use strict;
+
+# example output:
+#
+#   {| border="1"
+#   | a || b || c
+#   |-
+#   | d || e || f
+#   |-
+#   | g || h || i
+#   |}
+
+print("{| border=\"1\"\n");
+
+
+my $line = <STDIN>;
+my @fields = splitCSV($line);
+
+print("| " . join(" || ", @fields) . "\n");
+
+
+while (defined($line = <STDIN>)) {
+  print("|-\n");
+
+  @fields = splitCSV($line);
+  print("| " . join(" || ", @fields) . "\n");
+}
+
+print("|}\n");
+
+
+# Split a line of CSV into fields.  The interface assumes that
+# newlines do not appear in fields.  The implementation assumes that
+# commas do not either.
+sub splitCSV {
+  my ($line) = @_;
+  chomp($line);
+
+  my @entries = split(/,/, $line);
+
+  # remove surrounding double-quotes
+  my @ret = ();
+  foreach my $e (@entries) {
+    my $val;
+    ($val) = ($e =~ m/^\"(.*)\"$/);
+    if (defined($val)) {
+      push @ret, ($val);
+    }
+    else {
+      push @ret, ($e);
+    }
+  }
+
+  return @ret;
+}
+
+
+# EOF
