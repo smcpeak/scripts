@@ -68,6 +68,9 @@ print("new emit analysis\n");
 my $newEmitAnalysisTime = timeRun("$NEWPREV/bin/cov-analyze --dir dir-newemit");
 my @newEmitStats = getAnalysisStats("dir-newemit");
 
+print("new emit commit\n");
+my @newEmitCommit = getCommitStats($NEWPREV, "dir-newemit");
+
 # ------------------------------- old emit ------------------------------
 print("old emit build\n");
 my $oldEmitVer = getVersion("$OLDPREV/bin/cov-analyze");
@@ -82,9 +85,15 @@ print("old emit analysis\n");
 my $oldEmitAnalysisTime = timeRun("$OLDPREV/bin/cov-analyze --dir dir-oldemit");
 my @oldEmitStats = getAnalysisStats("dir-oldemit");
 
+print("old emit commit\n");
+my @oldEmitCommit = getCommitStats($OLDPREV, "dir-oldemit");
+
 # ------------------------------- summary -------------------------------
 my $newStatsString = printStats(@newEmitStats);
 my $oldStatsString = printStats(@oldEmitStats);
+
+my $newCommitStatsString = printCommitStats(@newEmitCommit);
+my $oldCommitStatsString = printCommitStats(@oldEmitCommit);
 
 open(OUT, ">perftest.csv") or die("cannot open perftest.csv: $!\n");
 print OUT (<<"EOF");
@@ -97,12 +106,16 @@ print OUT (<<"EOF");
 "New emit translation units:   ", $newEmitTUs
 "New emit analysis time (s):   ", $newEmitAnalysisTime
 $newStatsString
+$newCommitStatsString
+
 "Old emit version:             ", $oldEmitVer
 "Old emit build time (s):      ", $oldEmitBuildTime
 "Old emit build size (MB):     ", $oldEmitSize
 "Old emit translation units:   ", $oldEmitTUs
 "Old emit analysis time (s):   ", $oldEmitAnalysisTime
 $oldStatsString
+$oldCommitStatsString
+
 EOF
 close(OUT) or die;
 
@@ -119,6 +132,24 @@ sub printStats {
 "                      Pathouts", $pathouts
 "                      Crashes ", $crashes
 EOF
+
+  # remove final newline
+  chomp($ret);
+
+  return $ret;
+}
+
+sub printCommitStats {
+  my ($first, $second, $size) = @_;
+
+  my ($ret) = (<<"EOF");
+"     First commit (s)         ", $first
+"     Second commit (s)        ", $second
+"     GUI DB size (MB)         ", $size
+EOF
+
+  # remove final newline
+  chomp($ret);
 
   return $ret;
 }
@@ -291,6 +322,29 @@ sub makeConfigArg {
   return "-c $config";
 }
 
+
+sub getCommitStats {
+  my ($prev, $dir) = @_;
+
+  run("rm -rf tmpdata");
+
+  # install DB
+  run("$prev/bin/cov-install-gui -d tmpdata --use-service no " .
+        "--password admin --product default --language 'C/C++'");
+
+  # first commit
+  my $cmd = "$prev/bin/cov-commit-defects -d tmpdata --dir $dir --user admin";
+  my $first = timeRun($cmd);
+
+  # second commit
+  my $second = timeRun($cmd);
+
+  my $size = getDirSize("tmpdata");
+
+  run("rm -rf tmpdata");
+
+  return ($first, $second, $size);
+}
 
 
 # EOF
