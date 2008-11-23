@@ -20,7 +20,7 @@ esac
 # os
 raw_os=`uname -o`
 case "$raw_os" in
-  [lL]inux)
+  *[lL]inux)
     os="linux"
     ;;
 
