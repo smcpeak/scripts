@@ -115,9 +115,14 @@ my $command = $ARGV[0];
 shift @ARGV;
 
 # start building the cov-* arguments
-my @covArgs = ("--dir", $dir);
+my @covArgs = ();
 
-if ($command =~ m/gui/) {
+if ($command !~ m/gui/) {
+  push @covArgs, ("--dir", $dir);
+}
+
+if ($command =~ m/gui/ ||
+    $command =~ m/cov-commit-defects/) {
   push @covArgs, ("-d", $data);
 }
 
