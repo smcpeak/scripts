@@ -285,7 +285,7 @@ sub getTUs {
   my ($dir) = @_;
   
   my $line = `grep 'are ready for analysis' $dir/build-log.txt`;
-  my ($n) = ($line =~ m/^(\d+) compilation units/);
+  my ($n) = ($line =~ m/(\d+) compilation units/);
   if (!defined($n)) {
     die("could not find # of TUs; line=$line\n");
   }
