@@ -31,6 +31,9 @@ if (-f "compile-commands.sh") {
 
 my $covBuildArgs = "";
 
+# true to run the old emit
+my $runOldEmit = 1;
+
 # local customizations?
 if (-f "perftest.local.pl") {
   my $cust = `cat perftest.local.pl`;
@@ -38,6 +41,17 @@ if (-f "perftest.local.pl") {
   eval($cust);
   if ($@) {
     die($@);
+  }
+}
+
+# command line arguments
+while (@ARGV) {
+  my $opt = shift @ARGV;
+  if ($opt eq "-no-old") {
+    $runOldEmit = 0;
+  }
+  else {
+    die("unknown option: $opt\n");
   }
 }
 
@@ -71,29 +85,39 @@ my @newEmitStats = getAnalysisStats("dir-newemit");
 print("new emit commit\n");
 my @newEmitCommit = getCommitStats($NEWPREV, "dir-newemit");
 
+my $newStatsString = printStats(@newEmitStats);
+my $newCommitStatsString = printCommitStats(@newEmitCommit);
+
 # ------------------------------- old emit ------------------------------
-print("old emit build\n");
-my $oldEmitVer = getVersion("$OLDPREV/bin/cov-analyze");
-run("$makeClean");
-run("rm -rf dir-oldemit");
-my $oldEmitBuildTime = timeRun("$OLDPREV/bin/cov-build $oldConfigArg " .
-  "--dir dir-oldemit $covBuildArgs $make");
-my $oldEmitSize = getDirSize("dir-oldemit/c/emit");
-my $oldEmitTUs = getTUs("dir-oldemit");
+my $oldEmitVer = "";
+my $oldEmitBuildTime = "";
+my $oldEmitSize = "";
+my $oldEmitTUs = "";
+my $oldEmitAnalysisTime = "";
+my $oldStatsString = "";
+my $oldCommitStatsString = "";
 
-print("old emit analysis\n");
-my $oldEmitAnalysisTime = timeRun("$OLDPREV/bin/cov-analyze --dir dir-oldemit");
-my @oldEmitStats = getAnalysisStats("dir-oldemit");
+if ($runOldEmit) {
+  print("old emit build\n");
+  $oldEmitVer = getVersion("$OLDPREV/bin/cov-analyze");
+  run("$makeClean");
+  run("rm -rf dir-oldemit");
+  $oldEmitBuildTime = timeRun("$OLDPREV/bin/cov-build $oldConfigArg " .
+    "--dir dir-oldemit $covBuildArgs $make");
+  $oldEmitSize = getDirSize("dir-oldemit/c/emit");
+  $oldEmitTUs = getTUs("dir-oldemit");
 
-print("old emit commit\n");
-my @oldEmitCommit = getCommitStats($OLDPREV, "dir-oldemit");
+  print("old emit analysis\n");
+  $oldEmitAnalysisTime = timeRun("$OLDPREV/bin/cov-analyze --dir dir-oldemit");
+  my @oldEmitStats = getAnalysisStats("dir-oldemit");
+  $oldStatsString = printStats(@oldEmitStats);
+
+  print("old emit commit\n");
+  my @oldEmitCommit = getCommitStats($OLDPREV, "dir-oldemit");
+  $oldCommitStatsString = printCommitStats(@oldEmitCommit);
+}
 
 # ------------------------------- summary -------------------------------
-my $newStatsString = printStats(@newEmitStats);
-my $oldStatsString = printStats(@oldEmitStats);
-
-my $newCommitStatsString = printCommitStats(@newEmitCommit);
-my $oldCommitStatsString = printCommitStats(@oldEmitCommit);
 
 open(OUT, ">perftest.csv") or die("cannot open perftest.csv: $!\n");
 print OUT (<<"EOF");
@@ -108,6 +132,10 @@ print OUT (<<"EOF");
 $newStatsString
 $newCommitStatsString
 
+EOF
+
+if ($runOldEmit) {
+  print OUT (<<"EOF");
 "Old emit version:             ", $oldEmitVer
 "Old emit build time (s):      ", $oldEmitBuildTime
 "Old emit build size (MB):     ", $oldEmitSize
@@ -117,6 +145,8 @@ $oldStatsString
 $oldCommitStatsString
 
 EOF
+}
+
 close(OUT) or die;
 
 sub printStats {
