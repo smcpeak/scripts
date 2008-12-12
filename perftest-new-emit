@@ -31,6 +31,9 @@ if (-f "compile-commands.sh") {
 
 my $covBuildArgs = "";
 
+# true to run the native build
+my $runNativeBuild = 1;
+
 # true to run the old emit
 my $runOldEmit = 1;
 
@@ -50,6 +53,9 @@ while (@ARGV) {
   if ($opt eq "-no-old") {
     $runOldEmit = 0;
   }
+  elsif ($opt eq "-no-native") {
+    $runNativeBuild = 0;
+  }
   else {
     die("unknown option: $opt\n");
   }
@@ -61,12 +67,17 @@ my $newConfigArg = makeConfigArg($newConfig);
 
 
 # ----------------------------- native build ----------------------------
-print("native build\n");
-run("$makeClean");
-my $nativeBuildTime = timeRun("$make");
-my $nativeBuildSize = `find-sum-sizes '*.o'`;         # bytes
-die if ($?);
-$nativeBuildSize = int($nativeBuildSize / 1000000);   # MB
+my $nativeBuildTime = "";
+my $nativeBuildSize = "";
+
+if ($runNativeBuild) {
+  print("native build\n");
+  run("$makeClean");
+  $nativeBuildTime = timeRun("$make");
+  $nativeBuildSize = `find-sum-sizes '*.o'`;         # bytes
+  die if ($?);
+  $nativeBuildSize = int($nativeBuildSize / 1000000);   # MB
+}
 
 # ------------------------------- new emit ------------------------------
 print("new emit build\n");
@@ -120,10 +131,16 @@ if ($runOldEmit) {
 # ------------------------------- summary -------------------------------
 
 open(OUT, ">perftest.csv") or die("cannot open perftest.csv: $!\n");
-print OUT (<<"EOF");
+
+if ($runNativeBuild) {
+  print OUT (<<"EOF");
 "Native build time (s):        ", $nativeBuildTime
 "Native build size (MB):       ", $nativeBuildSize
 
+EOF
+}
+
+print OUT (<<"EOF");
 "New emit version:             ", $newEmitVer
 "New emit build time (s):      ", $newEmitBuildTime
 "New emit build size (MB):     ", $newEmitSize
