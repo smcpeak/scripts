@@ -32,6 +32,7 @@ setPrevent($prevent);
 # user for commits
 my $user = "admin";
 
+my $language = "C/C++";
 my $product = "Default";
 my $port = "";
 
@@ -41,14 +42,15 @@ sub usage {
 usage: $0 [options] cov-command [args]
 
 Options:
-  -newemit         use new emit
-  -oldemit         use old emit [default]
-  -prev <prevdir>  installdir [$prevent]
-  -c <config>      config [$config]
-  --dir <dir>      intermediate data [$dir]
-  -d <data>        GUI data [$data]
-  --user <user>    user for commits [$user]
-  --help           print this message
+  -newemit           use new emit
+  -oldemit           use old emit [default]
+  -prev <prevdir>    installdir [$prevent]
+  -c <config>        config [$config]
+  --dir <dir>        intermediate data [$dir]
+  -d <data>          GUI data [$data]
+  --user <user>      user for commits [$user]
+  --language <lang>  language for GUI product [$language]
+  --help             print this message
 
 EOF
 }
@@ -115,9 +117,14 @@ my $command = $ARGV[0];
 shift @ARGV;
 
 # start building the cov-* arguments
-my @covArgs = ("--dir", $dir);
+my @covArgs = ();
 
-if ($command =~ m/gui/) {
+if ($command !~ m/gui/) {
+  push @covArgs, ("--dir", $dir);
+}
+
+if ($command =~ m/gui/ ||
+    $command =~ m/cov-commit-defects/) {
   push @covArgs, ("-d", $data);
 }
 
@@ -140,7 +147,8 @@ elsif ($command eq "cov-start-gui") {
 
 elsif ($command eq "cov-install-gui") {
   push @covArgs, ("--password", "admin",
-                 "--product", $product);
+                 "--product", $product,
+                 "--language", $language);
 }
 
 elsif ($command eq "cov-commit-defects") {

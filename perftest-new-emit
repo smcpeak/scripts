@@ -31,6 +31,12 @@ if (-f "compile-commands.sh") {
 
 my $covBuildArgs = "";
 
+# true to run the native build
+my $runNativeBuild = 1;
+
+# true to run the old emit
+my $runOldEmit = 1;
+
 # local customizations?
 if (-f "perftest.local.pl") {
   my $cust = `cat perftest.local.pl`;
@@ -38,6 +44,20 @@ if (-f "perftest.local.pl") {
   eval($cust);
   if ($@) {
     die($@);
+  }
+}
+
+# command line arguments
+while (@ARGV) {
+  my $opt = shift @ARGV;
+  if ($opt eq "-no-old") {
+    $runOldEmit = 0;
+  }
+  elsif ($opt eq "-no-native") {
+    $runNativeBuild = 0;
+  }
+  else {
+    die("unknown option: $opt\n");
   }
 }
 
@@ -50,12 +70,17 @@ my $newEmitVer = getVersion("$NEWPREV/bin/cov-analyze");
 my $oldEmitVer = getVersion("$OLDPREV/bin/cov-analyze");
 
 # ----------------------------- native build ----------------------------
-print("native build\n");
-run("$makeClean");
-my $nativeBuildTime = timeRun("$make");
-my $nativeBuildSize = `find-sum-sizes '*.o'`;         # bytes
-die if ($?);
-$nativeBuildSize = int($nativeBuildSize / 1000000);   # MB
+my $nativeBuildTime = "";
+my $nativeBuildSize = "";
+
+if ($runNativeBuild) {
+  print("native build\n");
+  run("$makeClean");
+  $nativeBuildTime = timeRun("$make");
+  $nativeBuildSize = `find-sum-sizes '*.o'`;         # bytes
+  die if ($?);
+  $nativeBuildSize = int($nativeBuildSize / 1000000);   # MB
+}
 
 # ------------------------------- new emit ------------------------------
 print("new emit build\n");
@@ -73,34 +98,49 @@ my @newEmitStats = getAnalysisStats("dir-newemit");
 print("new emit commit\n");
 my @newEmitCommit = getCommitStats($NEWPREV, "dir-newemit");
 
+my $newStatsString = printStats(@newEmitStats);
+my $newCommitStatsString = printCommitStats(@newEmitCommit);
+
 # ------------------------------- old emit ------------------------------
-print("old emit build\n");
-run("$makeClean");
-run("rm -rf dir-oldemit");
-my $oldEmitBuildTime = timeRun("$OLDPREV/bin/cov-build $oldConfigArg " .
-  "--dir dir-oldemit $covBuildArgs $make");
-my $oldEmitSize = getDirSize("dir-oldemit/c/emit");
-my $oldEmitTUs = getTUs("dir-oldemit");
+my $oldEmitBuildTime = "";
+my $oldEmitSize = "";
+my $oldEmitTUs = "";
+my $oldEmitAnalysisTime = "";
+my $oldStatsString = "";
+my $oldCommitStatsString = "";
 
-print("old emit analysis\n");
-my $oldEmitAnalysisTime = timeRun("$OLDPREV/bin/cov-analyze --dir dir-oldemit");
-my @oldEmitStats = getAnalysisStats("dir-oldemit");
+if ($runOldEmit) {
+  print("old emit build\n");
+  run("$makeClean");
+  run("rm -rf dir-oldemit");
+  $oldEmitBuildTime = timeRun("$OLDPREV/bin/cov-build $oldConfigArg " .
+    "--dir dir-oldemit $covBuildArgs $make");
+  $oldEmitSize = getDirSize("dir-oldemit/c/emit");
+  $oldEmitTUs = getTUs("dir-oldemit");
 
-print("old emit commit\n");
-my @oldEmitCommit = getCommitStats($OLDPREV, "dir-oldemit");
+  print("old emit analysis\n");
+  $oldEmitAnalysisTime = timeRun("$OLDPREV/bin/cov-analyze --dir dir-oldemit");
+  my @oldEmitStats = getAnalysisStats("dir-oldemit");
+  $oldStatsString = printStats(@oldEmitStats);
+
+  print("old emit commit\n");
+  my @oldEmitCommit = getCommitStats($OLDPREV, "dir-oldemit");
+  $oldCommitStatsString = printCommitStats(@oldEmitCommit);
+}
 
 # ------------------------------- summary -------------------------------
-my $newStatsString = printStats(@newEmitStats);
-my $oldStatsString = printStats(@oldEmitStats);
-
-my $newCommitStatsString = printCommitStats(@newEmitCommit);
-my $oldCommitStatsString = printCommitStats(@oldEmitCommit);
 
 open(OUT, ">perftest.csv") or die("cannot open perftest.csv: $!\n");
-print OUT (<<"EOF");
+
+if ($runNativeBuild) {
+  print OUT (<<"EOF");
 "Native build time (s):        ", $nativeBuildTime
 "Native build size (MB):       ", $nativeBuildSize
 
+EOF
+}
+
+print OUT (<<"EOF");
 "New emit version:             ", $newEmitVer
 "New emit build time (s):      ", $newEmitBuildTime
 "New emit build size (MB):     ", $newEmitSize
@@ -109,6 +149,10 @@ print OUT (<<"EOF");
 $newStatsString
 $newCommitStatsString
 
+EOF
+
+if ($runOldEmit) {
+  print OUT (<<"EOF");
 "Old emit version:             ", $oldEmitVer
 "Old emit build time (s):      ", $oldEmitBuildTime
 "Old emit build size (MB):     ", $oldEmitSize
@@ -118,6 +162,8 @@ $oldStatsString
 $oldCommitStatsString
 
 EOF
+}
+
 close(OUT) or die;
 
 sub printStats {
@@ -286,7 +332,7 @@ sub getTUs {
   my ($dir) = @_;
   
   my $line = `grep 'are ready for analysis' $dir/build-log.txt`;
-  my ($n) = ($line =~ m/^(\d+) compilation units/);
+  my ($n) = ($line =~ m/(\d+) compilation units/);
   if (!defined($n)) {
     die("could not find # of TUs; line=$line\n");
   }

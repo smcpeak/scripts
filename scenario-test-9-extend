@@ -12,6 +12,7 @@ Where <command> is one of:
   install-extend
   install-extend-compiler
   install                   The above 3 commands in sequence
+  patch <file>              Apply named patch file with -p0
   extend-tests              Makefile-based tests
   extend-gui-start          Start a GUI with Extend results
   pause                     Wait for keyboard press
@@ -172,6 +173,23 @@ while [ "$1" != "" ]; do
       fi
       ;;
 
+    patch)
+      shift
+      patchFile="$1"
+      if [ "x$patchFile" = "x" ]; then
+        echo "The 'patch' command requires a file name"
+        exit 2
+      fi
+      echo "Applying patch $patchFile"
+
+      echo "cd $EXTEND_TOP"
+      cd "$EXTEND_TOP" || exit
+
+      echo "patch -p0 < $patchFile"
+      patch -p0 < "$patchFile" || exit
+
+      ;;
+
     uninstall-extend)
       echo "Uninstalling Extend from $EXTEND_TOP"
 
@@ -188,6 +206,13 @@ while [ "$1" != "" ]; do
       cd "$EXTEND_ROOT/samples" || exit
       runecho make || exit
       runecho make testsuite || exit
+       
+      # No!  Cannot do this, because we do not ship the solutions.
+      # See bug 15931.
+      #
+      #cd "$EXTEND_ROOT/solutions" || exit
+      #runecho make || exit
+      #runecho make testsuite || exit
 
       ;;
 
@@ -211,7 +236,8 @@ while [ "$1" != "" ]; do
         -c "$PREVENT_ROOT/config/coverity_config.xml" -e ./emit -o ./output || exit
 
       # install/start the gui
-      runecho "$PREVENT_ROOT/bin/cov-install-gui" -d data --password pass --product ExtendTests || exit
+      runecho "$PREVENT_ROOT/bin/cov-install-gui" -d data --password pass \
+        --product ExtendTests --language C/C++ || exit
       runecho "$PREVENT_ROOT/bin/cov-start-gui" -d data --port $GUI_PORT || exit
 
       # commit the errors to it
@@ -272,7 +298,8 @@ while [ "$1" != "" ]; do
     # This exists to facilitate some kinds of interactive testing.
     shell)
       echo "Starting shell \"$SHELL\" with Extend envvars set"
-      
+      cd "$EXTEND_ROOT" || exit
+
       $SHELL
 
       echo "Extend shell finished."
