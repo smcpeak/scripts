@@ -92,7 +92,7 @@ my $newEmitSize = getDirSize("dir-newemit/c/emit");
 my $newEmitTUs = getTUs("dir-newemit");
 
 print("new emit analysis\n");
-my $newEmitAnalysisTime = timeRun("$NEWPREV/bin/cov-analyze --dir dir-newemit");
+my $newEmitAnalysisTime = timeRun("$NEWPREV/bin/cov-analyze --dir dir-newemit --force");
 my @newEmitStats = getAnalysisStats("dir-newemit");
 
 print("new emit commit\n");
@@ -119,7 +119,7 @@ if ($runOldEmit) {
   $oldEmitTUs = getTUs("dir-oldemit");
 
   print("old emit analysis\n");
-  $oldEmitAnalysisTime = timeRun("$OLDPREV/bin/cov-analyze --dir dir-oldemit");
+  $oldEmitAnalysisTime = timeRun("$OLDPREV/bin/cov-analyze --dir dir-oldemit --force");
   my @oldEmitStats = getAnalysisStats("dir-oldemit");
   $oldStatsString = printStats(@oldEmitStats);
 
