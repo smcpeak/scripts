@@ -189,6 +189,10 @@ while [ "$1" != "" ]; do
       runecho make || exit
       runecho make testsuite || exit
 
+      cd "$EXTEND_ROOT/solutions" || exit
+      runecho make || exit
+      runecho make testsuite || exit
+
       ;;
 
     extend-gui-start)
