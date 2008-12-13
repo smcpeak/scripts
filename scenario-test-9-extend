@@ -215,7 +215,8 @@ while [ "$1" != "" ]; do
         -c "$PREVENT_ROOT/config/coverity_config.xml" -e ./emit -o ./output || exit
 
       # install/start the gui
-      runecho "$PREVENT_ROOT/bin/cov-install-gui" -d data --password pass --product ExtendTests || exit
+      runecho "$PREVENT_ROOT/bin/cov-install-gui" -d data --password pass \
+        --product ExtendTests --language C/C++ || exit
       runecho "$PREVENT_ROOT/bin/cov-start-gui" -d data --port $GUI_PORT || exit
 
       # commit the errors to it
@@ -276,7 +277,8 @@ while [ "$1" != "" ]; do
     # This exists to facilitate some kinds of interactive testing.
     shell)
       echo "Starting shell \"$SHELL\" with Extend envvars set"
-      
+      cd "$EXTEND_ROOT" || exit
+
       $SHELL
 
       echo "Extend shell finished."
