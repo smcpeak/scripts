@@ -1,0 +1,5 @@
+#!/bin/sh
+
+nohup java -jar $HOME/hudson/hudson.war --httpPort=3333 > $HOME/log/hudson.log 2>&1 &
+
+# EOF
