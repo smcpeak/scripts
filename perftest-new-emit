@@ -29,7 +29,11 @@ if (-f "compile-commands.sh") {
   $makeClean = "true";    # no need to clean for non-incremental builds
 }
 
+# arguments to pass to both cov-build invocations
 my $covBuildArgs = "";
+
+# arguments to pass only to the new-emit cov-build
+my $newEmitCovBuildArgs = "";
 
 # true to run the native build
 my $runNativeBuild = 1;
@@ -55,6 +59,9 @@ while (@ARGV) {
   }
   elsif ($opt eq "-no-native") {
     $runNativeBuild = 0;
+  }
+  elsif ($opt eq "-no-caa") {
+    $newEmitCovBuildArgs .= " --no-caa-info";
   }
   else {
     die("unknown option: $opt\n");
@@ -87,7 +94,7 @@ print("new emit build\n");
 run("$makeClean");
 run("rm -rf dir-newemit");
 my $newEmitBuildTime = timeRun("$NEWPREV/bin/cov-build $newConfigArg " .
-  "--dir dir-newemit $covBuildArgs $make");
+  "--dir dir-newemit $covBuildArgs $newEmitCovBuildArgs $make");
 my $newEmitSize = getDirSize("dir-newemit/c/emit");
 my $newEmitTUs = getTUs("dir-newemit");
 
