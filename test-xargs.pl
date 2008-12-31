@@ -10,18 +10,20 @@ if (@ARGV > 0 && $ARGV[0] eq "-test") {
   exit(0);
 }
 
-if (@ARGV != 2) {
-  die("usage: $0 argstring nargs\n");
+if (@ARGV != 3) {
+  die("usage: $0 firstarg argstring nargs\n");
 }
 
-my $argstring = $ARGV[0];
-my $nargs = $ARGV[1];
+my $firstarg = $ARGV[0];
+my $argstring = $ARGV[1];
+my $nargs = $ARGV[2];
 
 # file for recording number of process invocations
 my $tmpfile = "/tmp/test-xargs.$$.tmp";
 
 open(OUT, "| xargs $0 -test > $tmpfile") or die;
 
+print OUT ("$firstarg\n");
 for (my $i=0; $i < $nargs; $i++) {
   print OUT ("$argstring\n");
 }
