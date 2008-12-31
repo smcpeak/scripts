@@ -10,7 +10,7 @@ chomp($platform);
 
 my $HOME = $ENV{'HOME'};
 
-my $OLDPREV = "$HOME/prevent-4.3-unmod/objs/$platform/root";
+my $OLDPREV = "$HOME/prevent-old-emit/objs/$platform/root";
 my $NEWPREV = "$HOME/prevent-new-emit/objs/$platform/root";
 
 # extra arguments to pass to 'make'
@@ -62,6 +62,9 @@ while (@ARGV) {
   }
   elsif ($opt eq "-no-caa") {
     $newEmitCovBuildArgs .= " --no-caa-info";
+  }
+  elsif ($opt eq "-timing") {
+    $ENV{"COV_EMIT_TIMING"} = 1;
   }
   else {
     die("unknown option: $opt\n");
