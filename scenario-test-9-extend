@@ -62,6 +62,14 @@ fi
 # port number for GUI testing
 GUI_PORT=7788
 
+# name of directory in $HOME under which we will install Extend
+PROGRAM_FILES="program files"
+
+if [ "x$PLATFORM" = "xnetbsd" ]; then
+  # bug 10445: cannot use spaces on Netbsd
+  PROGRAM_FILES="program-files"
+fi
+
 # variables needed by the Extend build scripts
 #
 # I install Prevent into ~/opt but Extend into ~/program files because
@@ -69,8 +77,8 @@ GUI_PORT=7788
 # 3987), while the latter is supposed to (DR 3979) so we need to test
 # it.
 PREVENT_ROOT="$HOME/opt/prevent-$PLATFORM-$VERSION"
-EXTEND_ROOT="$HOME/program files/extend-$PLATFORM-$VERSION/extend"
-EXTEND_COMP_DIR="$HOME/program files/extend-$PLATFORM-$VERSION/extend-compiler"
+EXTEND_ROOT="$HOME/$PROGRAM_FILES/extend-$PLATFORM-$VERSION/extend"
+EXTEND_COMP_DIR="$HOME/$PROGRAM_FILES/extend-$PLATFORM-$VERSION/extend-compiler"
 
 # export separately to avoid problems with traditional Bourne shell
 export PREVENT_ROOT
@@ -78,7 +86,7 @@ export EXTEND_ROOT
 export EXTEND_COMP_DIR
 
 # actual Extend toplevel
-EXTEND_TOP="$HOME/program files/extend-$PLATFORM-$VERSION"
+EXTEND_TOP="$HOME/$PROGRAM_FILES/extend-$PLATFORM-$VERSION"
 
 # where to get the releases; can be overridden from the command line
 #
@@ -139,8 +147,8 @@ while [ "$1" != "" ]; do
       echo "Installing Extend into $EXTEND_TOP"
 
       # unpack the tarball
-      mkdir -p "$HOME/program files" || exit
-      cd "$HOME/program files" || exit
+      mkdir -p "$HOME/$PROGRAM_FILES" || exit
+      cd "$HOME/$PROGRAM_FILES" || exit
       if [ -d "$EXTEND_TOP" ]; then
         echo "$EXTEND_TOP already exists"
         exit 4
