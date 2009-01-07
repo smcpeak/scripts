@@ -2,6 +2,7 @@
 # do a build test on the new emit
 
 use strict;
+
 use Time::HiRes qw( gettimeofday );
 
 my $platform = `get-cov-platform`;
@@ -41,6 +42,9 @@ my $runNativeBuild = 1;
 # true to run the old emit
 my $runOldEmit = 1;
 
+# true to run the new emit
+my $runNewEmit = 1;
+
 # local customizations?
 if (-f "perftest.local.pl") {
   my $cust = `cat perftest.local.pl`;
@@ -56,6 +60,9 @@ while (@ARGV) {
   my $opt = shift @ARGV;
   if ($opt eq "-no-old") {
     $runOldEmit = 0;
+  }
+  elsif ($opt eq "-no-new") {
+    $runNewEmit = 0;
   }
   elsif ($opt eq "-no-native") {
     $runNativeBuild = 0;
@@ -93,23 +100,32 @@ if ($runNativeBuild) {
 }
 
 # ------------------------------- new emit ------------------------------
-print("new emit build\n");
-run("$makeClean");
-run("rm -rf dir-newemit");
-my $newEmitBuildTime = timeRun("$NEWPREV/bin/cov-build $newConfigArg " .
-  "--dir dir-newemit $covBuildArgs $newEmitCovBuildArgs $make");
-my $newEmitSize = getDirSize("dir-newemit/c/emit");
-my $newEmitTUs = getTUs("dir-newemit");
+my $newEmitBuildTime = "";
+my $newEmitSize = "";
+my $newEmitTUs = "";
+my $newEmitAnalysisTime = "";
+my $newStatsString = "";
+my $newCommitStatsString = "";
 
-print("new emit analysis\n");
-my $newEmitAnalysisTime = timeRun("$NEWPREV/bin/cov-analyze --dir dir-newemit --force");
-my @newEmitStats = getAnalysisStats("dir-newemit");
+if ($runNewEmit) {
+  print("new emit build\n");
+  run("$makeClean");
+  run("rm -rf dir-newemit");
+  $newEmitBuildTime = timeRun("$NEWPREV/bin/cov-build $newConfigArg " .
+    "--dir dir-newemit $covBuildArgs $newEmitCovBuildArgs $make");
+  $newEmitSize = getDirSize("dir-newemit/c/emit");
+  $newEmitTUs = getTUs("dir-newemit");
 
-print("new emit commit\n");
-my @newEmitCommit = getCommitStats($NEWPREV, "dir-newemit");
+  print("new emit analysis\n");
+  $newEmitAnalysisTime = timeRun("$NEWPREV/bin/cov-analyze --dir dir-newemit --force");
+  my @newEmitStats = getAnalysisStats("dir-newemit");
 
-my $newStatsString = printStats(@newEmitStats);
-my $newCommitStatsString = printCommitStats(@newEmitCommit);
+  print("new emit commit\n");
+  my @newEmitCommit = getCommitStats($NEWPREV, "dir-newemit");
+
+  $newStatsString = printStats(@newEmitStats);
+  $newCommitStatsString = printCommitStats(@newEmitCommit);
+}
 
 # ------------------------------- old emit ------------------------------
 my $oldEmitBuildTime = "";
@@ -150,7 +166,8 @@ if ($runNativeBuild) {
 EOF
 }
 
-print OUT (<<"EOF");
+if ($runNewEmit) {
+  print OUT (<<"EOF");
 "New emit version:             ", $newEmitVer
 "New emit build time (s):      ", $newEmitBuildTime
 "New emit build size (MB):     ", $newEmitSize
@@ -160,6 +177,7 @@ $newStatsString
 $newCommitStatsString
 
 EOF
+}
 
 if ($runOldEmit) {
   print OUT (<<"EOF");
@@ -390,7 +408,7 @@ sub getCommitStats {
         "--password admin --product default --language 'C/C++'");
 
   # first commit
-  my $cmd = "$prev/bin/cov-commit-defects -d tmpdata --dir $dir --user admin";
+  my $cmd = "$prev/bin/cov-commit-defects -d tmpdata --dir $dir --user admin --product default";
   my $first = timeRun($cmd);
 
   # second commit
