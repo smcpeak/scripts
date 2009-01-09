@@ -18,14 +18,18 @@ case "$raw_proc" in
 esac
 
 # os
-raw_os=`uname -o`
+raw_os=`uname -s`
 case "$raw_os" in
   *[lL]inux)
     os="linux"
     ;;
 
-  [cC]ygwin)
+  [cC][yY][gG][wW][iI][nN]*)
     os="windows"
+    ;;
+
+  NetBSD)
+    os="netbsd"
     ;;
 
   *)
@@ -45,6 +49,10 @@ case "$os-$proc" in
     
   windows-x86)
     echo "mingw"
+    ;;
+    
+  netbsd-x86)
+    echo "netbsd"
     ;;
     
   *)
