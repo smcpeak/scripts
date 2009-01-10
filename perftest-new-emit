@@ -30,6 +30,10 @@ if (-f "compile-commands.sh") {
   $makeClean = "true";    # no need to clean for non-incremental builds
 }
 
+# intermediate directories
+my $dirNewEmit = "dir-newemit";
+my $dirOldEmit = "dir-oldemit";
+
 # arguments to pass to both cov-build invocations
 my $covBuildArgs = "";
 
@@ -110,18 +114,18 @@ my $newCommitStatsString = "";
 if ($runNewEmit) {
   print("new emit build\n");
   run("$makeClean");
-  run("rm -rf dir-newemit");
+  run("rm -rf $dirNewEmit");
   $newEmitBuildTime = timeRun("$NEWPREV/bin/cov-build $newConfigArg " .
-    "--dir dir-newemit $covBuildArgs $newEmitCovBuildArgs $make");
-  $newEmitSize = getDirSize("dir-newemit/c/emit");
-  $newEmitTUs = getTUs("dir-newemit");
+    "--dir $dirNewEmit $covBuildArgs $newEmitCovBuildArgs $make");
+  $newEmitSize = getDirSize("$dirNewEmit/c/emit");
+  $newEmitTUs = getTUs("$dirNewEmit");
 
   print("new emit analysis\n");
-  $newEmitAnalysisTime = timeRun("$NEWPREV/bin/cov-analyze --dir dir-newemit --force");
-  my @newEmitStats = getAnalysisStats("dir-newemit");
+  $newEmitAnalysisTime = timeRun("$NEWPREV/bin/cov-analyze --dir $dirNewEmit --force");
+  my @newEmitStats = getAnalysisStats("$dirNewEmit");
 
   print("new emit commit\n");
-  my @newEmitCommit = getCommitStats($NEWPREV, "dir-newemit");
+  my @newEmitCommit = getCommitStats($NEWPREV, "$dirNewEmit");
 
   $newStatsString = printStats(@newEmitStats);
   $newCommitStatsString = printCommitStats(@newEmitCommit);
@@ -138,19 +142,19 @@ my $oldCommitStatsString = "";
 if ($runOldEmit) {
   print("old emit build\n");
   run("$makeClean");
-  run("rm -rf dir-oldemit");
+  run("rm -rf $dirOldEmit");
   $oldEmitBuildTime = timeRun("$OLDPREV/bin/cov-build $oldConfigArg " .
-    "--dir dir-oldemit $covBuildArgs $make");
-  $oldEmitSize = getDirSize("dir-oldemit/c/emit");
-  $oldEmitTUs = getTUs("dir-oldemit");
+    "--dir $dirOldEmit $covBuildArgs $make");
+  $oldEmitSize = getDirSize("$dirOldEmit/c/emit");
+  $oldEmitTUs = getTUs("$dirOldEmit");
 
   print("old emit analysis\n");
-  $oldEmitAnalysisTime = timeRun("$OLDPREV/bin/cov-analyze --dir dir-oldemit --force");
-  my @oldEmitStats = getAnalysisStats("dir-oldemit");
+  $oldEmitAnalysisTime = timeRun("$OLDPREV/bin/cov-analyze --dir $dirOldEmit --force");
+  my @oldEmitStats = getAnalysisStats("$dirOldEmit");
   $oldStatsString = printStats(@oldEmitStats);
 
   print("old emit commit\n");
-  my @oldEmitCommit = getCommitStats($OLDPREV, "dir-oldemit");
+  my @oldEmitCommit = getCommitStats($OLDPREV, "$dirOldEmit");
   $oldCommitStatsString = printCommitStats(@oldEmitCommit);
 }
 
