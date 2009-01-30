@@ -1,0 +1,273 @@
+#!/usr/bin/perl -w
+# manage a queue of jobs to be run in parallel
+
+use strict;
+
+# Basic plan:
+#
+# There will be a directory whose purpose is communication among
+# three entities:
+#
+#   requestor: adds jobs to the queue
+#   director: removes jobs from queue, assigns to workers
+#   worker: runs individual jobs
+#
+# A job is simply a shell command line, to be run in the directory
+# where the worker is started (all should be started in the same
+# directory).
+#
+# Whenever a worker finishes, the director assigns it a new job,
+# until the queue is empty.
+#
+# There are no dependencies among jobs; all are assumed ready to run.
+# The queue is not actually ordered; jobs may be run in any oreder.
+
+# The communication directory is structured as follows:
+#
+# For each worker $w (in [1,n]), there is a directory called
+# "worker$w".  This directory either contains a file called cmd.sh,
+# which is a job for the worker to run, or is empty, meaning the
+# worker is idle.
+#
+# There is a subdirectory called "incoming".  Every file in this
+# directory is a set of jobs to run, one per line.  Requestors can
+# atomically move files into that directory, but once a request is in,
+# it cannot be safely removed.
+#
+# There is a file called "readyqueue".  This file is only ever read
+# or written by the director.  It contains, one per line, the jobs
+# that are ready to run, by virtue of having been pulled from the
+# "incoming" directory, but not yet assigned to any worker.
+
+# The user interface consists of three ways of running this script.
+#
+# Requestor:
+#
+#   parallel-job-director <comdir> requestor <jobs-file>
+#
+#     Adds a new set of jobs to the queue.
+#
+#     <comdir> is the communication directory.
+#
+#     <jobs-file> contains, one per line, jobs to run.  The file
+#     is atomically moved from its current location into "incoming".
+#
+# Director:
+#
+#   parallel-job-director <comdir> director <n>
+#
+#     Hands jobs out to workers.  Runs until killed with ^C.
+#
+#     <n> is the number of worker processes.
+#
+# Worker:
+#
+#   parallel-job-director <comdir> worker <n>
+#
+#     Runs jobs.  Runs until killed with ^C.
+#
+#     <n> is the worker number, which should be between 1 and
+#     the <n> passed to the director, inclusive.
+
+sub usage {
+  print(<<"EOF");
+usage: $0 <comdir> requestor <jobs-file>
+       $0 <comdir> director <n>
+       $0 <comdir> worker <n>
+EOF
+}
+
+if (@ARGV != 3) {
+  usage();
+  exit(2);
+}
+
+my $comdir = $ARGV[0];
+my $command = $ARGV[1];
+my $arg = $ARGV[2];
+               
+# time to sleep; normally 10
+my $delay = 1;
+
+if (! -d $comdir) {
+  die("$comdir is not a directory.  Please make it first.\n");
+}
+
+my $incoming = "$comdir/incoming";
+my $readyqueue = "$comdir/readyqueue";
+my $tmpcmd = "$comdir/cmd.sh";
+
+if ($command eq "requestor") {
+  run("mkdir", "-p", $incoming);
+                
+  my $t = time();
+  my $jobfile = "job.$t.$$";
+
+  run("cp", $arg, $jobfile);
+  
+  # atomically submit to director
+  run("mv", $jobfile, $incoming);
+
+  exit(0);
+}
+
+elsif ($command eq "director") {
+  my $numWorkers = $arg;
+
+  # create directories for all workers
+  for (my $i=1; $i <= $numWorkers; $i++) {
+    run("mkdir", "-p", "$comdir/worker$i");
+  }
+
+  diagnostic("starting director with $numWorkers workers");
+
+  while (1) {
+    retrieveIncomingJobs();
+
+    giveJobsToWorkers($numWorkers);
+
+    sleep($delay);
+  }
+}
+
+elsif ($command eq "worker") {
+  my $jobDir = "$comdir/worker$arg";
+  if (! -d $jobDir) {
+    die("$jobDir: not a directory\n");
+  }
+
+  my $jobFile = "$jobDir/cmd.sh";
+
+  while (1) {
+    if (-f $jobFile) {
+      diagnostic("worker $arg starting job");
+
+      eval {
+        run("sh", $jobFile);
+      };
+      if ($@) {
+        diagnostic($@);
+        if ($@ =~ m/failed with signal/) {
+          exit(4);    # ^C will be reflected as death by signal
+        }
+      }
+
+      run("rm", $jobFile);
+      diagnostic("worker $arg finished job");
+    }
+
+    sleep($delay);
+  }
+}
+
+else {
+  die("unknown command: $command\n");
+}
+
+
+# ----------------------- subroutines -----------------------------
+sub diagnostic {
+  print(time() . ": @_\n");
+}
+
+
+sub run {
+  my @cmd = @_;
+
+  #diagnostic(@cmd);
+
+  my $res = system(@cmd);
+  if ($res != 0) {
+    my $sig = $res & 0xff;
+    my $code = $res >> 8;
+    die("command \"@cmd\" failed with " .
+	($sig? "signal $sig" : "exit code $code") .
+	" (aborting)\n");
+  }
+}
+
+
+sub retrieveIncomingJobs {
+  my @files = glob("$incoming/*");
+
+  foreach my $file (@files) {
+    run("cat '$file' >> '$readyqueue'");
+    run("rm", $file);
+    diagnostic("added $file to $readyqueue");
+               
+    my $n = `wc -l $readyqueue`;
+    chomp($n);
+    $n =~ s/ .*//;
+    diagnostic("$n jobs ready");
+  }
+}
+
+
+sub giveJobsToWorkers {
+  my ($numWorkers) = @_;
+      
+  # any jobs?
+  if (! -f $readyqueue) {
+    return;   # no
+  }
+
+  # see if any worker is ready
+  for (my $i=1; $i <= $numWorkers; $i++) {
+    my $workerFile = "$comdir/worker$i/cmd.sh";
+    if (! -f $workerFile) {
+      # worker is ready; extract a job from the ready queue
+      my ($job, $remain) = getNextJob();    # $job contains a newline
+
+      # prepare to give it to the worker
+      open(OUT, ">$tmpcmd") or die("cannot write $tmpcmd: $!\n");
+      print OUT ($job);
+      close(OUT) or die;
+
+      # atomically give it to the worker
+      run("mv", $tmpcmd, $workerFile);
+
+      chomp($job);
+      diagnostic("gave job to worker $i: $job");
+      diagnostic("$remain jobs remain");
+      if ($remain == 0) {
+        last;
+      }
+    }
+  }
+}
+
+
+sub getNextJob {
+  open(IN, $readyqueue) or die("cannot open $readyqueue: $!\n");
+  my @jobs = <IN>;
+  close(IN) or die;
+
+  if (@jobs == 0) {
+    die("$readyqueue is empty\n");
+  }
+
+  my $ret = shift(@jobs);
+
+  my $remain = scalar(@jobs);
+
+  if ($remain == 0) {
+    run("rm", $readyqueue);
+  }
+  else {
+    open(OUT, ">$readyqueue") or die("cannot write $readyqueue: $!\n");
+    print OUT (@jobs);
+    close(OUT) or die;
+  }
+
+  return ($ret, $remain);
+}
+
+
+sub getDate {
+  my $ret = `date`;
+  chomp($ret);
+  return $ret;
+}
+
+
+# EOF

@@ -1,0 +1,11 @@
+#!/usr/bin/perl
+# remove ^J (newlines) from stdin
+
+use strict;
+
+while (my $line = <STDIN>) {
+  chomp($line);
+  print($line);
+}
+
+# EOF
