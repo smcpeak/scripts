@@ -87,7 +87,7 @@ my $command = $ARGV[1];
 my $arg = $ARGV[2];
                
 # time to sleep; normally 10
-my $delay = 1;
+my $delay = 10;
 
 if (! -d $comdir) {
   die("$comdir is not a directory.  Please make it first.\n");
