@@ -1,0 +1,180 @@
+#!/usr/bin/perl -w
+# compare two strings as version numbers
+
+use strict;
+
+if (@ARGV == 1 && $ARGV[0] eq "--unit-tests") {
+  unitTests();
+  exit(0);
+}
+
+if (@ARGV != 3) {
+  print(<<"EOF");
+usage: $0 ver1 op ver2
+
+Returns true (0) if the test succeeds.  ver1 and ver2 are version
+numbers, interpreted as sequences of decimal integers separated by
+sequences of non-numeric characters.  The integers are compared
+lexicographically.  However, unlike typical lexicographic orders,
+prefixes are considered *greater* than the strings they are prefixes
+of, since a suffix is most commonly used to denote a pre-release of
+the suffixed version (e.g., 4.0 versus 4.0-rc5).
+
+The set of operatiors is lt, gt, le, ge, eq, ne.  (The normal
+relational operators are avoided to avoid conflict with shell
+redirection syntax.)
+
+EOF
+  die("incorrect number of arguments\n");
+}
+
+my ($ver1, $op, $ver2) = @ARGV;
+
+if (compareVersions($ver1, $op, $ver2)) {
+  exit(0);
+}
+else {
+  exit(1);
+}
+
+
+sub compareVersions {
+  my ($ver1, $op, $ver2) = @_;
+
+  my @seq1 = parseVersion($ver1);
+  my @seq2 = parseVersion($ver2);
+
+  my $cmp = 0;
+
+  for (my $i=0; $i < @seq1 && $i < @seq2; $i++) {
+    $cmp = compareInts($seq1[$i], $seq2[$i]);
+    if ($cmp) {
+      last;
+    }
+  }
+
+  # final comparison given by relative lengths
+  if (!$cmp) {
+    $cmp = -compareInts(scalar(@seq1), scalar(@seq2));
+  }
+
+  # how does the comparison result compare to the requested operator?
+  if ($op eq "lt") {
+    return boolToInt($cmp < 0);
+  }
+
+  if ($op eq "gt") {
+    return boolToInt($cmp > 0);
+  }
+
+  if ($op eq "le") {
+    return boolToInt($cmp <= 0);
+  }
+
+  if ($op eq "ge") {
+    return boolToInt($cmp >= 0);
+  }
+
+  if ($op eq "eq") {
+    return boolToInt($cmp == 0);
+  }
+
+  if ($op eq "ne") {
+    return boolToInt($cmp != 0);
+  }
+
+  die("invalid operator: \"$op\"\n");
+}
+
+
+sub boolToInt {
+  my ($b) = @_;
+
+  if ($b) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+sub compareInts {
+  my ($a, $b) = @_;
+
+  if ($a < $b) {
+    return -1;
+  }
+  elsif ($a > $b) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+sub parseVersion {
+  my ($v) = @_;
+        
+  # split at sequences of non-digits
+  return split(/\D+/, $v);
+}
+
+
+# ---------------------------- test code -----------------------------
+sub testCase {
+  my ($a, $b) = @_;
+  
+  expect(1, $a, "lt", $b);
+  expect(1, $a, "le", $b);
+  expect(0, $a, "gt", $b);
+  expect(0, $a, "ge", $b);
+  expect(0, $a, "eq", $b);
+  expect(1, $a, "ne", $b);
+
+  expect(0, $b, "lt", $a);
+  expect(0, $b, "le", $a);
+  expect(1, $b, "gt", $a);
+  expect(1, $b, "ge", $a);
+  expect(0, $b, "eq", $a);
+  expect(1, $b, "ne", $a);
+
+  expect(0, $a, "lt", $a);
+  expect(1, $a, "le", $a);
+  expect(0, $a, "gt", $a);
+  expect(1, $a, "ge", $a);
+  expect(1, $a, "eq", $a);
+  expect(0, $a, "ne", $a);
+
+  expect(0, $b, "lt", $b);
+  expect(1, $b, "le", $b);
+  expect(0, $b, "gt", $b);
+  expect(1, $b, "ge", $b);
+  expect(1, $b, "eq", $b);
+  expect(0, $b, "ne", $b);
+}
+
+
+sub expect {
+  my ($result, $ver1, $op, $ver2) = @_;
+
+  my $actual = compareVersions($ver1, $op, $ver2);
+
+  if ($result != $actual) {
+    die("expected compareVersions($ver1, $op, $ver2) to yield $result, but yielded $actual\n");
+  }
+}
+
+
+sub unitTests {
+  testCase("1.1", "1.2");
+  testCase("1.1-pre4", "1.1");
+  testCase("1.1-pre4", "1.1-pre5");
+  testCase("1.1.0", "1.1.1");
+  testCase("1.0.0", "1.9.9");
+  testCase("1.9.9", "2.0.0");
+}
+
+
+# EOF
