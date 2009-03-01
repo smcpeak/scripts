@@ -118,7 +118,17 @@ sub parseVersion {
   my ($v) = @_;
         
   # split at sequences of non-digits
-  return split(/\D+/, $v);
+  my @nums = split(/\D+/, $v);
+  
+  # return only non-empty strings
+  my @ret = ();
+  foreach my $n (@nums) {
+    if ($n ne "") {
+      push @ret, ($n);
+    }
+  }
+  
+  return @ret;
 }
 
 
