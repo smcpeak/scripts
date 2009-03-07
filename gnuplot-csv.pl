@@ -4,13 +4,32 @@
 use strict 'subs';
 
 sub usage {      
-  print("$0 < file.csv | gnuplot -persist\n");
+  print(<<"EOF");
+$0 [options] < file.csv | gnuplot -persist
+
+options:
+  -points     Print points instead of lines
+  -log        Use logscale for X and Y axes
+EOF
 }
 
-#  if (@ARGV == 0) {
-#    usage();
-#    exit(2);
-#  }
+my $style = "lines";
+
+# process command line arguments
+while (@ARGV != 0) {
+  my $opt = shift(@ARGV);
+
+  if ($opt eq "-points") {
+    $style = "points lt rgb \"black\"";
+  }
+  elsif ($opt eq "-log") {
+    print("set logscale xy\n");
+  }
+  else {
+    usage();
+    die("unknown option: $opt\n");
+  }
+}
 
 # read the header line
 $line = <STDIN>;
@@ -30,7 +49,7 @@ for ($col=1; $col < @labels; $col++) {
   if ($col > 1) {
     print(",");
   }
-  print(" '-' with lines title '$labels[$col]'");
+  print(" '-' with $style title '$labels[$col]'");
 }
 print("\n");
 
