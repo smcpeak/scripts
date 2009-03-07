@@ -140,7 +140,11 @@ elsif ($command eq "worker") {
 
   while (1) {
     if (-f $jobFile) {
-      diagnostic("worker $arg starting job");
+      # these are always one-line jobs; read its command
+      my $commandLine = `head -1 $jobFile`;
+      chomp($commandLine);
+
+      diagnostic("worker $arg starting job: $commandLine");
 
       eval {
         run("sh", $jobFile);
