@@ -1,0 +1,33 @@
+#!/usr/bin/perl -w
+# grab a single push as a diff
+
+use strict;
+
+if (@ARGV != 1) {
+  print(<<"EOF");
+usage: $0 push-tag
+
+Saves the diff for push-tag as a file called "push-tag.diff".
+EOF
+  die("incorrect number of arguments\n");
+}
+
+my $pushTag = $ARGV[0];
+
+# separate out the last numeric component
+my ($prefix, $finalNum) = ($pushTag =~ m/^(.*\D)(\d+)$/);
+if (!defined($finalNum)) {
+  die("failed to parse push tag's final number: $pushTag\n");
+}
+
+if ($finalNum <= 1) {
+  die("sorry, cannot handle final number $finalNum\n");
+}
+
+my $prevTag = $prefix . ($finalNum - 1);
+
+my $cmd = "bk export -tpatch -r$prevTag..$pushTag > $pushTag.diff";
+print($cmd . "\n");
+exec($cmd);
+
+# EOF
