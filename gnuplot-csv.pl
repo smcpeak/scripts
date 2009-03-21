@@ -10,6 +10,7 @@ $0 [options] < file.csv | gnuplot -persist
 options:
   -points     Print points instead of lines
   -log        Use logscale for X and Y axes
+  -no-legend  Turn off legend
 EOF
 }
 
@@ -24,6 +25,9 @@ while (@ARGV != 0) {
   }
   elsif ($opt eq "-log") {
     print("set logscale xy\n");
+  }
+  elsif ($opt eq "-no-legend") {
+    print("set key off\n");
   }
   else {
     usage();
