@@ -1,0 +1,94 @@
+#!/usr/bin/perl -w
+# watch a child process's memory usage
+
+use strict;
+use POSIX ":sys_wait_h";      # WNOHANG
+
+if (@ARGV == 0) {
+  print(<<"EOF");
+usage: $0 command [args...]
+
+Runs command, and at the end prints to stderr the peak mem usage
+of the direct child, sampled every second.
+EOF
+  die("must supply a command to run\n");
+}
+
+
+#$SIG{CHLD} = \&sigChldHandler;
+
+
+my $childPid = fork();
+if (!defined($childPid)) {
+  die("fork: $!\n");
+}
+
+if ($childPid == 0) {
+  # in child
+  exec(@ARGV);
+  die("exec: $!\n");
+}
+
+
+# peak usage observed so far
+my $peak = -1;
+
+
+# does not work; stats after death aren't complete
+sub sigChldHandler {
+  print("in sigChildHandler\n");
+  sampleMemUsage();
+}
+
+
+# sample memory usage
+sub sampleMemUsage {
+  if (!open(IN, "</proc/$childPid/status")) {
+    die("cannot read /proc/$childPid/status: $!\n");
+  }
+  my $line;
+  my $foundPeak = 0;
+  while (defined($line = <IN>)) {
+    my ($newPeak) = ($line =~ m/^VmPeak:\s*(\d+) kB$/);
+    if (defined($newPeak)) {
+      $peak = $newPeak;     # assume kernel is doing high water mark for me
+      $foundPeak = 1;
+    }
+  }
+  close(IN) or die;
+  
+  # happens if we happen to sample it in the zombie state
+  #if (!$foundPeak) {
+  #  system("cat", "/proc/$childPid/status");
+  #  die("did not find VmPeak line\n");
+  #}
+}
+
+
+# in parent
+while (1) {
+  my $rv = waitpid($childPid, WNOHANG);
+  if ($rv > 0) {
+    last;
+  }
+
+  sampleMemUsage();
+
+  sleep(1);
+}
+
+# interpret $? (child exit status)
+my $sig = $? & 0xff;
+my $code = $? >> 8;
+
+print STDERR ("VmPeak: $peak kB\n");
+
+if ($sig) {
+  print STDERR ("child died with signal $sig\n");
+  exit(8);
+}
+else {
+  exit($code);
+}
+
+# EOF
