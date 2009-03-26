@@ -1,0 +1,48 @@
+#!/bin/sh
+# grab a tarball from 'latest'
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 version"
+  exit 2
+fi
+
+set -e
+set -x
+
+ver="$1"
+platform=`get-cov-platform`
+
+tmpdir="latest.$$"
+
+mkdir "$tmpdir"
+cd "$tmpdir"
+
+fullname="prevent-$platform-$ver"
+
+# unpack
+tar xvfz "/nfs/qabuild/prevent-releases/latest/$fullname.tar.gz"
+
+# get symbols
+cd "$fullname"
+mkdir symbols
+cp /nfs/qabuild/prevent-releases/latest/symbols/${platform}-$ver/* symbols/
+cd ..
+
+# get push number
+pushnum=`grep "^Build number:" "$fullname/VERSION" | sed 's/.*push-/push-/'`
+if [ "x$pushnum" = "x" ]; then
+  echo "failed to obtain push number from VERSION"
+  exit 2
+fi
+
+# rename directory according to push number
+mv "$fullname" "${fullname}-$pushnum"
+
+# move one level up
+mv "${fullname}-$pushnum" ../
+
+# clean up
+cd ..
+rmdir "$tmpdir"
+
+# EOF
