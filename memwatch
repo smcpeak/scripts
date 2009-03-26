@@ -51,7 +51,12 @@ sub sampleMemUsage {
   while (defined($line = <IN>)) {
     my ($newPeak) = ($line =~ m/^VmPeak:\s*(\d+) kB$/);
     if (defined($newPeak)) {
-      $peak = $newPeak;     # assume kernel is doing high water mark for me
+      # $newPeak can actually be less if our first sample was of
+      # the perl interpreter right after forking but before exec'ing;
+      # I'm simply going to take it at face value and trust that the
+      # kernel is doing the proper high water mark calculation (within
+      # the confines of each exec'd program)
+      $peak = $newPeak;
       $foundPeak = 1;
     }
   }
@@ -65,6 +70,9 @@ sub sampleMemUsage {
 }
 
 
+# number of iterations of the main wait loop
+my $iters = 0;
+
 # in parent
 while (1) {
   my $rv = waitpid($childPid, WNOHANG);
@@ -74,7 +82,14 @@ while (1) {
 
   sampleMemUsage();
 
-  sleep(1);
+  # for the first second, sample every 0.10s
+  if ($iters < 10) {
+    select(undef, undef, undef, 0.10);
+  }
+  else {
+    sleep(1);
+  }
+  $iters++;
 }
 
 # interpret $? (child exit status)
