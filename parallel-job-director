@@ -2,6 +2,7 @@
 # manage a queue of jobs to be run in parallel
 
 use strict;
+use POSIX;
 
 # Basic plan:
 #
@@ -74,10 +75,11 @@ sub usage {
 usage: $0 <comdir> requestor <jobs-file>
        $0 <comdir> director <n>
        $0 <comdir> worker <n>
+       $0 <comdir> status
 EOF
 }
 
-if (@ARGV != 3) {
+unless (@ARGV == 3 || @ARGV == 2 && $ARGV[1] eq "status") {
   usage();
   exit(2);
 }
@@ -96,6 +98,7 @@ if (! -d $comdir) {
 my $incoming = "$comdir/incoming";
 my $readyqueue = "$comdir/readyqueue";
 my $tmpcmd = "$comdir/cmd.sh";
+my $complete = "$comdir/complete";
 
 if ($command eq "requestor") {
   run("mkdir", "-p", $incoming);
@@ -136,6 +139,9 @@ elsif ($command eq "worker") {
     die("$jobDir: not a directory\n");
   }
 
+  my $pid = getpid();
+  run("echo $pid > $jobDir/pid.txt");
+
   my $jobFile = "$jobDir/cmd.sh";
 
   while (1) {
@@ -149,15 +155,61 @@ elsif ($command eq "worker") {
       eval {
         run("sh", $jobFile);
       };
-      if ($@) {
-        diagnostic($@);
-        if ($@ =~ m/failed with signal/) {
+      my $result = $@;
+      chomp $result;
+
+      my $COMPLETE;
+      open COMPLETE, ">>$complete";
+      print COMPLETE "$commandLine   ($result)\n";
+      close COMPLETE;
+
+      if ($result) {
+        diagnostic($result);
+        if ($result =~ m/failed with signal/) {
           exit(4);    # ^C will be reflected as death by signal
         }
       }
 
       run("rm", $jobFile);
       diagnostic("worker $arg finished job");
+    }
+
+    sleep($delay);
+  }
+}
+
+elsif ($command eq "status") {
+  while (1) {
+    run("clear");
+    # print readyqueue in reverse order (next jobs at bottom)
+    if (-f $readyqueue) {
+      open REV, "<$readyqueue";
+      print reverse <REV>;
+      close REV;
+    }
+    # print what each worker is working on
+    foreach my $workerDir (`cd $comdir; ls -d worker*`) {
+      chomp $workerDir;
+      print "=== $workerDir: ";
+      if (-f "$comdir/$workerDir/cmd.sh") {
+        run("cat $comdir/$workerDir/cmd.sh");
+        # get the worker's process tree
+        my $pstree = `cat $comdir/$workerDir/pid.txt|xargs pstree -l -A -p`;
+        # get the pid of the third process down, the 1st one
+        # not associated with the parallel job worker.
+        $pstree =~ m/^(?:.*?\(){3}(\d+)/;
+        # print process tree starting at that process.
+        run("pstree -l -A -p $1");
+      }
+      else {
+        print "\n";
+      }
+    }
+    # print complete list in rev order (most recently done first)
+    if (-f $complete) {
+      open REV, "<$complete";
+      print reverse <REV>;
+      close REV;
     }
 
     sleep($delay);
