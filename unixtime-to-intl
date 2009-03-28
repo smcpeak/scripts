@@ -1,0 +1,20 @@
+#!/usr/bin/perl
+# convert a unixtime command line argument to international date/time format
+
+use strict;
+
+if (@ARGV != 1) {
+  print("usage: $0 <unixtime>\n");
+  exit(2);
+}
+
+my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
+  localtime($ARGV[0]);
+  
+$year += 1900;
+$mon++;
+
+printf("%d-%02d-%02d %02d:%02d:%02d\n",
+       $year, $mon, $mday, $hour, $min, $sec);
+
+# EOF
