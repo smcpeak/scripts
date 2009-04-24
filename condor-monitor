@@ -1,0 +1,28 @@
+#!/bin/sh
+# continuously print condor info
+
+if which status-monitor >/dev/null 2>&1; then
+  # status-monitor exists, use it
+  status-monitor 5 'condor_status 2>&1'
+  exit
+fi
+
+clear
+
+while true; do
+  # go to top/left of window
+  echo -n "[f"
+
+  condor_status
+  
+  # doesn't work very well w/o full clear
+  #condor_q
+
+  echo "                                                             "
+  echo "                                                             "
+  echo "                                                             "
+
+  sleep 5
+done
+
+# EOF
