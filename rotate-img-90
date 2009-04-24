@@ -17,8 +17,14 @@ if [ "$1" = "" ]; then
   exit 0
 fi
 
-tmp="rotated.$$.$1"
+while [ "$1" != "" ]; do
+  tmp="rotated.$$.$1"
 
-convert -rotate $angle "$1" "$tmp" || exit
+  convert -rotate $angle "$1" "$tmp" || exit
 
-mv -f "$tmp" "$1"
+  mv -f "$tmp" "$1"
+
+  shift
+done
+
+# EOF
