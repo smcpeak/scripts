@@ -1,0 +1,69 @@
+#!/usr/bin/perl -w
+# read in a hosts file and write it out again after looking up
+# all the hosts using 'host'
+#
+# stdout is the new hosts file
+# stderr chats about progress
+
+use strict;
+
+$| = 1;                                # autoflush
+
+my $success = 0;
+my $total = 0;
+
+my $line;
+while (defined($line = <STDIN>)) {
+  chomp($line);
+
+  if ($line =~ m/^\s*$/ ||             # blank
+      $line =~ m/^\s*\#/) {            # comment
+    print("$line\n");
+    next;
+  }
+
+  my ($addr, $ws, $name, $rest) =
+    ($line =~ m/^([0-9.]+)(\s+)(\S+)(.*)$/);
+  if (!defined($name)) {
+    die("malformed line: $line\n");
+  }
+
+  print STDERR ("$name ... ");
+  $total++;
+
+  my @output = `host $name 2>&1`;
+  if ($? != 0) {
+    print STDERR ("error\n");
+    print("$line\n");
+    next;
+  }
+
+  my $found = 0;
+  my $newAddr;
+
+  foreach my $outputLine (@output) {
+    chomp($outputLine);
+    ($newAddr) = ($outputLine =~ m/has address ([0-9.]+)/);
+    if (defined($newAddr)) {
+      $found = 1;
+      last;
+    }
+  }
+  
+  if (!$found) {
+    print STDERR ("did not find \"has address\" line\n");
+    print("$line\n");
+    next;
+  }
+
+  print STDERR ("$newAddr\n");
+  print($newAddr . $ws . $name . $rest . "\n");
+  $success++;
+}
+
+print STDERR ("successfully resolved $success out of $total addresses\n");
+
+exit(0);
+
+
+# EOF
