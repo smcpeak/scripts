@@ -7,6 +7,6 @@ if [ "$1" = "" ]; then
   exit 2
 fi
 
-runecho git checkout HEAD^ "$@"
+runecho git checkout HEAD "$@"
 
 # EOF
