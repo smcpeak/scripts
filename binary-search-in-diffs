@@ -1,6 +1,8 @@
 #!/usr/bin/perl -w
 # given a sequence of diffs, find the one that makes something fail
 
+use strict;
+
 # When the program is invoked, it is expected that the current
 # state is that test-program fails.  This is confirmed initially.
 
@@ -20,7 +22,21 @@
 # expected to be something that 'patch' understands as input.  Options
 # to 'patch', often "-p1 -g1" are supplied in patch-options.
 
-use strict;
+# The test program's exit status is interpreted as follows:
+#
+#   code 0: test passed
+#   code 1: test failed
+#   anything else, including death by signal: inconclusive
+#
+# The "inconclusive" result is for when the test does not pass, but it
+# does not fail in the way we're looking for.  For example, if I am
+# looking for a change that causes a unit test to fail at run time,
+# but a particular configuration does not even compile, then I will
+# call the non-compiling version "inconclusive".  This script will
+# essentially discard configurations that result in inconclusive
+# results, so that what is ultimately reported will in general be a
+# pair of configs such that the first passes, the second fails, and
+# all in between have inconclusive results.
 
 sub usage {
   print(<<"EOF");
