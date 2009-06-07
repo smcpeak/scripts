@@ -1,0 +1,334 @@
+#!/usr/bin/perl -w
+# given a sequence of diffs, find the one that makes something fail
+
+# When the program is invoked, it is expected that the current
+# state is that test-program fails.  This is confirmed initially.
+
+# The list-of-diffs are forward diffs from some point in the past that
+# lead to the current state.  It is expected that applying all of them
+# in reverse leads to a passing test; this is also confirmed at the
+# start.
+
+# Then, the script applies some patches to get to the midpoint and
+# runs the test there.  If it fails, we move backward, otherwise
+# forward, until a single diff is isolated that causes a
+# success-to-failure transition.  This is then reported as the failing
+# diff, and the code is left in the "fail" state (i.e., just after
+# the application of the failing diff).
+
+# The diffs are listed one per line in an input file.  Each diff is
+# expected to be something that 'patch' understands as input.  Options
+# to 'patch', often "-p1 -g1" are supplied in patch-options.
+
+use strict;
+
+sub usage {
+  print(<<"EOF");
+usage: list-of-diffs patch-options test-program
+
+list-of-diffs: File containing names of diff files, one per line,
+               in forward chronological order.
+patch-options: Options to 'patch', often "-p1 -g1".
+test-program: Program to test for success or failure.
+
+Output is the name of a single diff that transitions the test program
+from success to failure.  The code is left in the resulting failure
+state.
+
+EOF
+}
+
+if (@ARGV == 1 && $ARGV[0] eq "--unit-test") {
+  unitTests();
+  exit(0);
+}
+
+if (@ARGV != 3) {
+  usage();
+  die("incorrect number of arguments\n");
+}
+
+my $diffsFile = $ARGV[0];
+my $patchOptions = $ARGV[1];
+my $testProgram = $ARGV[2];
+
+my $logFile = "binsearch.log";
+unlink($logFile);
+
+# codes indicating test disposition
+my $DISP_PASSES = 0;
+my $DISP_FAILS = 1;
+my $DISP_INCONCLUSIVE = 2;     # did not fail the way I wanted it to
+my $DISP_NOTRUN = 3;           # tests that have not been run
+
+# read the diff list
+open(IN, "<$diffsFile") or die("cannot read $diffsFile: $!\n");
+my @diffs = <IN>;
+close(IN) or die;
+
+# current state as the index in @diffs of the first unapplied
+# patch, or the length of @diffs if all are applied
+my $currentState = scalar(@diffs);
+
+# cache of test results
+my @testResults = ();
+for (my $i=0; $i <= $currentState; $i++) {
+  $testResults[$i] = $DISP_NOTRUN;
+}
+
+# confirm failure in current state
+if (testDisposition() != $DISP_FAILS) {
+  die("test is expected to conclusively fail in initial state\n");
+}
+
+# earliest state known to be a failure
+my $earliestFailure = $currentState;
+
+# roll all the way back
+changeToState(0);
+
+# confirm failure in that state
+if (testDisposition() != $DISP_PASSES) {
+  die("test is expected to pass in earliest state\n");
+}
+
+# latest known success
+my $latestSuccess = $currentState;
+
+while ($latestSuccess + 1 < $earliestFailure) {
+  # pick midpoint
+  my $mid = int(($latestSuccess + $earliestFailure) / 2);
+
+  changeToState($mid);
+
+  my $disp = testDisposition();
+
+  # move left upon inconclusive
+  while ($disp == $DISP_INCONCLUSIVE && $mid-1 > $latestSuccess) {
+    $mid--;
+    changeToState($mid);
+    $disp = testDisposition();
+  }
+
+  # failing that, move right upon inconclusive
+  if ($disp == $DISP_INCONCLUSIVE) {
+    $mid = int(($latestSuccess + $earliestFailure) / 2);
+    while ($disp == $DISP_INCONCLUSIVE && $mid+1 < $earliestFailure) {
+      $mid++;
+      changeToState($mid);
+      $disp = testDisposition();
+    }
+  }
+  
+  if ($disp == $DISP_INCONCLUSIVE) {
+    # entire range between $latestSuccess and $earliestFailure
+    # is inconclusive
+    my $lo = $latestSuccess+1;
+    my $hi = $earliestFailure-1;
+    print("entire range [$lo,$hi] is inconclusive\n");
+    last;
+  }
+
+  if ($disp == $DISP_PASSES) {
+    $latestSuccess = $mid;
+    diagnostic("latestSuccess is now $latestSuccess");
+  }
+  else {
+    $earliestFailure = $mid;
+    diagnostic("earliestFailure is now $earliestFailure");
+  }
+}
+
+changeToState($earliestFailure);
+
+print("latest success: " . describeState($latestSuccess) . "\n");
+print("earliest failure: " . describeState($earliestFailure) . "\n");
+exit(0);
+
+
+sub describeState {
+  my ($state) = @_;
+  
+  if ($state > 0) {
+    return ("$state: after applying " . getDiff($state-1));
+  }
+  else {
+    return ("$state: before applying " . getDiff($state));
+  }
+}
+
+
+sub changeToState {
+  my ($desired) = @_;
+  
+  while ($desired < $currentState) {
+    runPatch(getDiff($currentState-1), "-R");
+    $currentState--;
+  }
+
+  while ($desired > $currentState) {
+    runPatch(getDiff($currentState), "");
+    $currentState++;
+  }
+}
+
+sub getDiff {
+  my ($index) = @_;
+
+  if (0 <= $index && $index < scalar(@diffs)) {
+    my $ret = $diffs[$index];
+    chomp($ret);
+    return $ret;
+  }
+  else {
+    die("diff index out of bounds: $index");
+  }
+}
+
+
+sub runPatch {
+  my ($patchFname, $moreOpts) = @_;
+  
+  runEcho("patch $patchOptions $moreOpts < $patchFname");
+}
+
+
+sub testDisposition {
+  my $ret = $testResults[$currentState];
+  if ($ret != $DISP_NOTRUN) {
+    print("using cached result of $ret for config $currentState\n");
+    return $ret;
+  }
+
+  $ret = internalTestDisposition();
+  $testResults[$currentState] = $ret;
+  return $ret;
+}
+
+sub internalTestDisposition {
+  printAndLog("running test in config " . describeState($currentState) . "\n");
+
+  my $res = mysystem("$testProgram >> $logFile 2>&1");
+  my $sig = $res & 0xff;
+  my $code = $res >> 8;
+
+  if ($sig) {
+    print("died by signal $sig; inconclusive\n");
+    return $DISP_INCONCLUSIVE;
+  }
+  elsif ($code == 0) {
+    print("passed\n");
+    return $DISP_PASSES;
+  }
+  elsif ($code == 1) {
+    print("failed with code $code\n");
+    return $DISP_FAILS;
+  }
+  else {
+    print("failed with code $code; inconclusive\n");
+    return $DISP_INCONCLUSIVE;
+  }
+}
+
+
+sub printAndLog {
+  print(@_);
+  
+  open(OUT, ">>$logFile") or die("cannot append to $logFile: $!\n");
+  print OUT (@_);
+  close(OUT) or die;
+}
+
+
+sub runEcho {
+  printAndLog("@_\n");
+  run(@_);
+}
+
+sub run {
+  my @cmd = @_;
+
+  #diagnostic(@cmd);
+
+  my $res = mysystem(@cmd);
+  if ($res != 0) {
+    my $sig = $res & 0xff;
+    my $code = $res >> 8;
+    die("command \"@cmd\" failed with " .
+	($sig? "signal $sig" : "exit code $code") .
+        "\n");
+  }
+}
+
+
+# like system(), but bail on ctrl-C
+sub mysystem {
+  my $res = system(@_);
+  if ($res == 2) {
+    # ctrl-C
+    kill(2, $$);
+    die("should have died...");
+  }
+  return $res;
+}
+
+
+sub diagnostic {
+  #print("@_\n");
+}
+
+
+# -------------------- test code ----------------------
+sub unitTests {
+  # clean up
+  unlink("diffs.txt");
+
+  # make a set of diffs for a file containing a single
+  # decimal integer from 0 to 20
+  for (my $i=0; $i <= 20; $i++) {
+    if ($i > 0) {
+      run("mv -f file.txt prevfile.txt");
+    }
+
+    run("echo $i > file.txt");
+
+    if ($i > 0) {
+      my $code = mysystem("diff -u prevfile.txt file.txt > diff$i.diff");
+      if ($code != 0 && $code != 256) {
+        die("failed: diff -u prevfile.txt file.txt > diff$i.diff\n");
+      }
+      run("echo diff$i.diff >> diffs.txt");
+    }
+  }
+  
+  # make a test program that accepts up to 7; the final
+  # answer we're looking for then is "8"
+  open(OUT, ">test.sh") or die("cannot write test.sh: $!\n");
+  print OUT (<<'EOF');
+#!/bin/sh
+n=`cat file.txt`
+if expr $n % 2; then
+  # regard odd numbers as "inconclusive"
+  exit 2
+fi
+if [ $n -eq 6 ]; then
+  exit 2
+fi
+test $n -le 7
+EOF
+  close(OUT) or die;
+  run("chmod a+x test.sh");
+  
+  # run this script
+  run("$0 diffs.txt -p0 test.sh");
+  
+  # we should have ended with 8
+  my $result = `cat file.txt`;
+  chomp($result);
+  if ($result ne "8") {
+    die("ended with result $result, but expected 8\n");
+  }
+}
+
+
+# EOF
