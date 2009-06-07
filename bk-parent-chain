@@ -1,0 +1,31 @@
+#!/bin/sh
+# get the chain of parents from a starting rev up to some number
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 start-rev num-parents"
+  exit 2
+fi
+
+start="$1"
+num="$2"
+
+tmp=/tmp/bk-parent-chain.$$
+rev=$start
+
+while [ $num -gt 0 ]; do
+  echo "$rev"
+
+  if bk prs -r$rev -d':PARENT:\n' ChangeSet > $tmp; then
+    true
+  else
+    echo "command failed: bk prs -r$rev ChangeSet"
+    exit 2
+  fi
+
+  rev=`cat $tmp | tail -1`
+  num=`expr $num - 1`
+done
+
+rm $tmp
+
+# EOF
