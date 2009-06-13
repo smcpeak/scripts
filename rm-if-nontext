@@ -1,0 +1,16 @@
+#!/bin/sh
+# remove the argument if 'find' does not identify it as text
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 filename"
+  exit 2
+fi
+
+if file "$1" | grep text >/dev/null; then
+  # ignore
+  true
+else
+  rm -f -- "$1"
+fi
+
+# EOF

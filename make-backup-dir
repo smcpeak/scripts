@@ -16,28 +16,55 @@ echo "hardlinking lots of stuff..."
 
 mkdir ~/backup
 cd ~
-cp -al `listall | egrep -vw '\.loki|News|backup|bak|bin|bld|dist|dist2|dl|distleetch|emu|ex|lib|madrone|mp3|nsmail|share|tmp|vmware|wrk|old.*|wine|opt|mail'` ~/backup
+cp -al `listall | egrep -vw '\.loki|News|backup|bak|bin|bld|dist|dist2|dl|distleetch|emu|ex|lib|madrone|mp3|nsmail|share|tmp|vmware|wrk|old.*|.*old|wine|opt|mail|\.ccache|p2p|ex2|\.gphoto|dosboxdrive|tmp2|trash|program files'` ~/backup
 
 # remove some settings dirs which take more space than I want
+echo "removing large settings dirs"
 cd ~/backup
 rm -rf .mozilla/default/Cache .mozilla/*/*/Cache \
        .netscape/cache .opera/cache* .vslick .gftp/cache .kde
 
 # directories in doc of stuff I can retrieve again
+echo "removing large doc dirs"
 cd ~/backup/doc
 rm -rf hardware man software movies papers pix rfc
 
 # directories already backed up on previous CDs
+echo "removing old doc/sch"
 cd ~/backup/doc/sch
 rm -rf fa00 fa98 fa99 sp00 sp01 sp99
 
+echo "linking wrk"
 mkdir ~/backup/wrk
 cd ~/wrk
-cp -al `listall | egrep -vw 'cs164|cplr|harmonia|safec|sftpd|gmp-3.1|learn|gta3|inactive|wedding'` ~/backup/wrk
+cp -al `listall | egrep -vw 'cs164|cplr|harmonia|safec|sftpd|gmp-3.1|learn|gta3|inactive|wedding|coverity|extend'` ~/backup/wrk
 
+echo "linking wrk/cplr"
 mkdir ~/backup/wrk/cplr
 cd ~/wrk/cplr
-cp -al `listall | egrep -vw 'parsgen|harmonia|ast|smbase|elkhound|elsa|cc_qual|cqual|papers|verifier'` ~/backup/wrk/cplr
+cp -al `listall | egrep -vw 'parsgen|harmonia|cc_qual|cqual|papers|verifier|dist|oink_all|oink-stack|perftest|new_oink'` ~/backup/wrk/cplr
+
+echo "linking wrk/coverity"
+mkdir ~/backup/wrk/coverity
+cd ~/wrk/coverity
+cp -al `listall | egrep -vw 'bld|dist|boinc|.*packages.*|bstr|.*testsuite.*|upgrade'` ~/backup/wrk/coverity
+
+# remove some large-ish directories
+cd ~/backup/wrk/coverity
+rm -rf bug/4660 bug/6125 bug/6198 support/lucent
+
+cd ~/backup/wrk
+rm -rf mingw/nodes
+
+cd ~/backup/wrk/mantis
+rm -rf ipower-site public_html/PowerDrills public_html/CAHSEE
+
+echo "trimming wrk"
+cd ~/backup/wrk
+find . \( -name '*.o' -o \
+          -name '*.d' \) -type f -print0 | xargs -0 rm
+
+find . -perm +u+x -type f -exec rm-if-nontext '{}' ';'
 
 # copy 'mail', compressed
 echo "compressing mail..."
@@ -45,3 +72,5 @@ cd ~/backup
 cp -a ~/mail .
 cd mail
 gzip *
+
+# EOF
