@@ -6,4 +6,7 @@ if [ "$1" = "" ]; then
   exit
 fi
 
+# I always forget this and get terminal garbage in the file
+export LANG=C
+
 man $2 $1 | rmctlh > ~/doc/man/$1.man
