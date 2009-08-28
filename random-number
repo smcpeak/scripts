@@ -1,0 +1,14 @@
+#!/usr/bin/perl -w
+# return a random number in [0,n-1]
+
+use strict;
+
+if (@ARGV != 1) {
+  die("usage: $0 num\n");
+}
+
+my $num = $ARGV[0];
+
+print(int(rand($num)) . "\n");
+
+# EOF
