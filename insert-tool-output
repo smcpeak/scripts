@@ -1,0 +1,91 @@
+#!/usr/bin/perl -w
+# insert output of tools into files with special comments
+
+=pod
+
+Given an document with a certain stylized "begin" and "end" comments,
+this script will replace the sections between those comments with the
+output of a command line given in the comments.
+
+To use this script, first add the lines (possibly comment lines) to
+your document where you want the tool output to go:
+
+  BEGIN TOOL OUTPUT: <command line> ENDCMD
+  END TOOL OUTPUT
+
+The reason for the ENDCMD marker is that some comment syntaxes will
+force extra characters to appear at the end of line but should not be
+treated as part of the command.
+
+When you run:
+
+  $ insert-tool-output input.txt
+
+this script will run the <command line> and insert its output in
+between the BEGIN and END comments, replacing whatever was there.
+
+=cut
+
+use strict;
+
+if (@ARGV == 0) {
+  print(<<"EOF");
+usage: $0 input.txt
+
+This script will modify input.txt in-place, adding tool output
+in between specific comments.
+EOF
+  exit(0);
+}
+
+my $fname = $ARGV[0];
+
+# output lines
+my @outLines = ();
+
+# read the file; use binary mode because our files use newlines only
+# (even on windows), and we want to preserve that
+open(IN, "<$fname") or die("cannot read $fname: $!\n");
+binmode IN;
+
+my $line;
+while (defined($line = <IN>)) {
+  push @outLines, ($line);
+
+  # "begin" comment?
+  my ($cmd) = ($line =~ m/BEGIN TOOL OUTPUT: (.*) ENDCMD/);
+  if (defined($cmd)) {
+    my @output = `$cmd`;
+    push @outLines, (@output);
+    
+    # discard input lines until we find the end
+    while (defined($line = <IN>)) {
+      if ($line =~ m/END TOOL OUTPUT/) {
+        push @outLines, ($line);
+        last;
+      }
+    }
+  }
+}
+
+close(IN) or die;
+
+
+# paranoia...
+if (system("cp", "$fname", "$fname.bak") != 0) {
+  die("failed to make backup copy $fname.bak\n");
+}
+
+# write the final file; again use binary mode so we
+# just use newlines to terminate lines
+open(OUT, ">$fname") or die("cannot write $fname: $!\n");
+binmode OUT;
+
+foreach my $o (@outLines) {
+  print OUT ($o);
+}
+
+close(OUT) or die;
+
+
+# EOF
