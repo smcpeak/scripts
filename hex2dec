@@ -1,0 +1,13 @@
+#!/usr/bin/perl -w
+# translate input hex numbers to decimal
+
+use strict;
+
+my $line;
+while (defined($line = <STDIN>)) {
+  # get first hexdigit sequence
+  my ($n) = ($line =~ m/([0-9a-fA-F]+)/);
+  print(hex($n) . "\n");
+}
+
+# EOF
