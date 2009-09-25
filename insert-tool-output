@@ -56,6 +56,9 @@ while (defined($line = <IN>)) {
   my ($cmd) = ($line =~ m/BEGIN TOOL OUTPUT: (.*) ENDCMD/);
   if (defined($cmd)) {
     my @output = `$cmd`;
+    if ($? != 0) {
+      die("tool command failed\n");
+    }
     push @outLines, (@output);
     
     # discard input lines until we find the end
@@ -69,6 +72,13 @@ while (defined($line = <IN>)) {
 }
 
 close(IN) or die;
+
+
+# the file should be writable; if not, then this copy will make
+# a non-writable backup, which is annoying
+if (! -w $fname) {
+  die("$fname:1: file is not writable\n");
+}
 
 
 # paranoia...
