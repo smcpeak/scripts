@@ -1,0 +1,13 @@
+#!/bin/sh
+# run htmltidy and report errors only
+                                                      
+if [ "$1" = "" ]; then
+  echo "usage: $0 filename"
+  exit 2
+fi
+
+filename="$1"
+
+exec $HOME/prevent-5.1/objs/linux64/root/test-bin/htmltidy -e --gnu-emacs true "$1" 2>&1
+
+# EOF
