@@ -1,0 +1,25 @@
+#!/bin/sh
+# get a file from the VM I'm using
+
+if [ "x$1" = "x" ]; then
+  echo "usage: VMX=<file>.vmx $0 <fname>"
+  echo "copies <fname> out of c:/tmp/itest/out on the VM into current directory"
+  exit 2
+fi
+
+fname="$1"
+
+if [ "x$VMX" = "x" ]; then
+  echo "the VMX environment variable must be set to point at the .vmx file"
+  exit 2
+fi
+
+# Note that this command requires backslashes to be used in the
+# destination directory when the guest is Windows.
+exec runecho vmrun \
+  -T ws -gu admin -gp coverity \
+  copyFileFromGuestToHost \
+  "$VMX" \
+  "c:\\tmp\\itest\\out\\$fname" "$fname"
+
+# EOF
