@@ -1,0 +1,59 @@
+#!/usr/bin/perl -w
+# read an HTML file, write one with headers (re)numbered
+
+use strict;
+
+if (-t STDIN) {
+  print("usage: $0 < input.html > output.html\n");
+  exit(2);
+}
+
+# number sequence applied to the previous heading
+my @nums = (0);
+
+my $line;
+my $lineNumber = 0;
+
+while (defined($line = <STDIN>)) {
+  $lineNumber++;
+
+  eval {
+    my $level;      # heading level
+    my $label;      # heading label
+    ($level, $label) = ($line =~ m,^<h(\d)>(?:[0-9.]+ )?(.+)</h\1>$,);
+    if (defined($label)) {
+      if (!( 1 <= $level && $level <= 6 )) {
+        die("invalid heading level: $level\n");
+      }
+
+      # discard rightmost elements of @nums until it has just
+      # enough for $level
+      while (scalar(@nums) > $level) {
+        pop @nums;
+      }
+
+      # add zeroes if necessary
+      while (scalar(@nums) < $level) {
+        push @nums, (0);
+      }
+
+      # increment the last element
+      $nums[scalar(@nums)-1]++;
+      
+      # form the dotted section number
+      my $secNum = join('.', @nums);
+
+      # emit the heading with its new number
+      print("<h$level>$secNum. $label</h$level>\n");
+    }
+    
+    else {
+      print($line);
+    }
+  };
+  if ($@) {
+    die("line $lineNumber: $@");
+  }
+}
+
+# EOF
