@@ -5,39 +5,18 @@
 #echo "in .bashrc"
 
 if [ "$PS1" != "" ]; then
-  # bash prompt metacharacters
-  #   \n - newline
-  #   \u - username
-  #   \h - hostname
-  #   \w - current working directory
-  #   \$ - prompt char ($ for normal user, # for root)
-
-  # xterm control sequences:
-  #   http://enterprise.aacc.cc.md.us/~rhs/ansi.html
-  #   http://www.kitebird.com/csh-tcsh-book/ctlseqs.pdf
-
-  # include an @host if I'm remotely connected
+  # set prompt:
+  #  \n - newline
+  #  \u - username
+  #  \h - hostname
+  #  \w - current working directory
+  #  \$ - prompt char ($ for normal user, # for root)
   if echo "$DISPLAY" | grep '^:' >/dev/null; then
-    host=""
+    # omit host name since it's local
+    PS1="\n$PS1PREFIX"'\u:\w\$ '
   else
-    host="@\\h"
+    PS1="\n$PS1PREFIX"'\u@\h:\w\$ '
   fi
-
-  # experimenting with making the prompt a different color
-  #if [ "$TERM" = "xterm" ]; then
-  #  magenta="[35m"
-  #  cyan="[36m"
-  #  white="[37m"
-  #  normal="[0m"
-  #  bold="[1m"
-  #  underline="[4m"
-  #fi
-  
-  # this works, but messes up bash's notion of how long the prompt string
-  # is, thus causing it to mess up on long command lines
-  #PS1="\\n${cyan}${PS1PREFIX}\\u${host}:\\w\\\$${white} "
-
-  PS1="\\n${PS1PREFIX}\\u${host}:\\w\\\$ "
 
   # setup some sane terminal options
   #  erase: backspace
@@ -51,24 +30,21 @@ fi
 # environment variables
 export EDITOR=pico
 export CVSROOT=~/cvsroot
+
+# messes up Coverity build
 #export CXX=g++
 #export CXXFLAGS="-g -Wall"
+
 export PAGER=more
 export XAPPLRESDIR=~/.xapplresdir
 export LD_LIBRARY_PATH=~/lib
 export CVS_RSH=ssh
-export PERLLIB=$HOME/.cpan:$HOME/.cpan/i386-linux
-#export ELKHOUND_DEBUG=true
-export SETTINGS_DIR=$HOME/settings
-export COVERITY_NO_SLEEP_ON_RELEASE=1
-
-# don't exit on ctrl-d
-export IGNOREEOF=100
+#export CCUREDHOME=/home/scott/wrk/safec/cil
 
 # path.. with /sbin after scripts, so I can have scripts with the
 # same name as /sbin scripts, but which use sudo to call the /sbin
 # version
-export PATH=~/bin:~/scripts:$PATH:/sbin:/usr/sbin:/usr/local/sbin
+export PATH=~/bin:~/scripts:/usr/local/bin:$PATH:/sbin:/usr/sbin:/usr/local/sbin
 export PATH=$PATH:/usr/local/jdk/bin
 
 # default file permissions:
@@ -77,30 +53,14 @@ export PATH=$PATH:/usr/local/jdk/bin
 # others - r x   ~5 = 2
 umask 022
 
-# no core files (-S: soft limit only!)
-ulimit -S -c 0
-
-# set xterm title (this used to be a separate script, but making
-# it a shell function means .bashrc is self-contained)
-stitle() {
-  echo -n "]0;$*"
-}
+# no core files
+#ulimit -c 0
 
 # e.g.: smcpeak@cork
 location="`whoami`@`hostname | sed 's/\..*//'`"
 
-# set title to name@host
-ut() {
-  if [ "$1" = "" ]; then
-    stitle "$location"
-  else
-    stitle "${location}: $1"
-  fi
-}
-
-# automatically set title
 if [ "$DONT_STITLE" != 1 -a "$TERM" = "xterm" ]; then
-  ut
+  stitle $location
   export DONT_STITLE=1
 fi
 
@@ -113,12 +73,6 @@ alias   pico="pico -w"
 alias   grep=grep-noerr
 alias   hexdump=~/scripts/hexdump
 alias   rehash="hash -r"
-alias   m="./makeit"
-
-# where does the "v=vdir" alias come from??  I don't even know
-# why sometimes it's not defined, thus provoking an error message;
-# I'll suppress that..
-unalias v >/dev/null 2>&1
 
 locate() {
   find . -name \*"$1"\* -print 2>&1 | egrep -v 'cannot open'\|'cannot search'
@@ -132,23 +86,35 @@ locatebin() {
 alias emacs="~/bin/emacs -i -geometry 100x37-0+25"
 alias xemacs="xemacs -geometry 80x40+77+25"
 
-# automate "make distclean; ./configure <args>; make"
-# don't say '&&' after distclean, so if the Makefile is already
-# gone it will be ok
-reconfigure() {
-  make distclean; ./configure "$@" && make
-}
-
 # print exit value for commands that exit unsuccessfully
 # (I added this feature to bash's sources myself)
-set -X 2>/dev/null
+#set -X 2>/dev/null
+
+# actually, this can be done with PROMPT_COMMAND, an idea
+# I got from:
+#
+#   http://blog.gnist.org/article.php?story=BashPromptWithExitStatus
+
+# This function will be run before every prompt.  Since it is
+# encapsulated in a function, upon returning, $? is restored.
+# However, during the function, we have to save it since otherwise the
+# '[' ('test') will overwrite it.
+function exitstatus {
+  EXITSTATUS="$?"
+  if [ "$EXITSTATUS" -ne 0 ]; then
+    echo "Exit $EXITSTATUS"
+  fi
+}
+
+# establish it as the prompt command
+PROMPT_COMMAND=exitstatus
+
 
 # disable shell mail checking
 unset MAILCHECK
 
 # working directories
 cil=~/wrk/safec/cil
-edg=~/wrk/safec/edg-3.0
 small2=$cil/test/small2
 li=~/wrk/safec/cil/test/spec95/130.li/src
 go=~/wrk/safec/cil/test/spec95/099.go/src
@@ -159,19 +125,8 @@ gcc=~/wrk/safec/cil/test/spec95/126.gcc/src
 
 parsgen=~/wrk/cplr/parsgen
 ast=~/wrk/cplr/ast
-smbase=~/wrk/cplr/smbase
-verifier=~/wrk/cplr/verifier
-elkhound=~/wrk/cplr/elkhound
-elsa=~/wrk/cplr/elsa
-Kettle=~/wrk/cplr/Kettle
-
+smbase=~/wrk/lib/smbase
 thesis=~/wrk/cplr/thesis
-structs=~/wrk/safec/cure_cpp/structs
-decode=$edg/util/edg_decode
-ace=~/wrk/safec/ace.edg/ace
-stl=~/wrk/safec/cure_cpp/STLport/src
-cce=~/wrk/safec/cure_cpp/cc_examples
-cure=~/wrk/safec/cure_cpp
 
 specs=/usr/local/escjava/lib/specs
 #ftpd=~/wrk/thmprv/ftpd
@@ -181,18 +136,10 @@ ftpd2=~/wrk/thmprv/ftpd/kmy/net/ftpd
 # for ocaml stack size stuff
 export OCAMLRUNPARAM='l=256M'
 
-# don't let any single process consume >500M
-#ulimit -v 500000
-# unfortunately, this limit doesn't appear to be resettable, even
-# though my intent is to change only the soft limit
-
-# This was added by autopackage.  I moved it into .bashrc-site, but
-# am leaving it here commented-out in the hope that if autopackage
-# checks again, it will think the line is present.
-#[[ -f "/home/scott/.config/autopackage/paths-bash" ]] && . "/home/scott/.config/autopackage/paths-bash"
+# ignore interactive ctrl-D (EOF)
+export IGNOREEOF=10
 
 # site-specific (should be last thing in this file)
 if [ -f ~/.bashrc-site ]; then
   . ~/.bashrc-site
 fi
-[[ -f "/home/scott/.config/autopackage/paths-bash" ]] && . "/home/scott/.config/autopackage/paths-bash"
