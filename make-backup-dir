@@ -37,7 +37,7 @@ rm -rf fa00 fa98 fa99 sp00 sp01 sp99
 echo "linking wrk"
 mkdir ~/backup/wrk
 cd ~/wrk
-cp -al `listall | egrep -vw 'cs164|cplr|harmonia|safec|sftpd|gmp-3.1|learn|gta3|inactive|wedding|coverity|extend'` ~/backup/wrk
+cp -al `listall | egrep -vw 'cs164|cplr|harmonia|safec|sftpd|gmp-3.1|gta3|inactive|wedding|coverity|extend'` ~/backup/wrk
 
 echo "linking wrk/cplr"
 mkdir ~/backup/wrk/cplr
