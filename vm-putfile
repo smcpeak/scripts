@@ -1,0 +1,30 @@
+#!/bin/sh
+# put a file on the VM I'm using
+
+if [ "x$1" = "x" ]; then
+  echo "usage: VMX=<file>.vmx $0 <srcfile> [<srcfile> [...]]"
+  echo "drops srcfile into c:/tmp/itest/in on the VM"
+  exit 2
+fi
+
+if [ "x$VMX" = "x" ]; then
+  echo "the VMX environment variable must be set to point at the .vmx file"
+  exit 2
+fi
+
+while [ "x$1" != "x" ]; do
+  fname="$1"
+  bname=`basename "$fname"`
+
+  # Note that this command requires backslashes to be used in the
+  # destination directory when the guest is Windows.
+  runecho vmrun \
+    -T ws -gu admin -gp coverity \
+    copyFileFromHostToGuest \
+    "$VMX" \
+    "$fname" "c:\\tmp\\itest\\in\\$bname" || exit
+    
+  shift
+done
+
+# EOF
