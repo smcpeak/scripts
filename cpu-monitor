@@ -8,12 +8,12 @@ use IO::Handle;
 # which displays to show
 $showCpu = 1;         # c: total cpu utilization
 $showSys = 1;         # s: cpu time spent in kernel mode
-$showTemp = 0;        # cpu core temp in degrees celsius
+$showTemp = 1;        # cpu core temp in degrees celsius
 $showBatt = 0;        # battery charge percentage
 $showHda = 1;         # a: requests per second to /dev/hda
 $showHdb = 1;         # b: ..............................b
-$showHdc = 1;         # c: ..............................c
-$showHdd = 1;         # d: ..............................d
+$showHdc = 0;         # c: ..............................c
+$showHdd = 0;         # d: ..............................d
 $showEth = 1;         # e: packets sent/received over eth0
 $showPpp = 0;         # p: ...........................ppp0
 $showNews = 0;        # n: # of unread news articles
@@ -327,7 +327,7 @@ sub readCpuTemp {
         my $line = `cat /proc/acpi/thermal_zone/$THRM/temperature`;
         ($ret) = ($line =~ /^temperature:\D*(\d+)/);
         if ($ret) {
-          $ret .= "°";     # nonportable but pretty!
+          $ret .= "Â°";     # UTF-8 encoded degree symbol
         }
         else {
           $ret = "${THRM}?";
