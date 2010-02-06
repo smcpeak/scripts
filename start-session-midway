@@ -21,6 +21,12 @@ cd $HOME
 
 xset b off
 
+# turn off that damned screen blanking!
+xset s off
+
+# off!  off!
+xset -dpms
+
 # .xinitrc is taking care of this?
 #xmodmap-make.caps.another.ctrl
 
