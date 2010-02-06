@@ -1,0 +1,6 @@
+#!/bin/sh
+# write a timestamp to a log file; intended as part of performance measurement
+
+date '+%s.%N' >> $HOME/log/timestamps.log
+
+# EOF

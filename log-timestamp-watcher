@@ -1,0 +1,57 @@
+#!/usr/bin/perl -w
+# watch the log-timestamp file and print differences
+
+use strict;
+
+my $HOME = $ENV{"HOME"};
+my $fname = "$HOME/log/timestamps.log";
+
+open(IN, "<$fname") or die("cannot open $fname: $!\n");
+
+# start by reading the whole file to get to the end
+my $line;
+my $prev;
+while (defined($line = <IN>)) {
+  $prev = $line;
+}
+
+# now drop into a loop where we poll for new lines
+while (1) {
+  $line = <IN>;
+  if (defined($line)) {
+    # parse the two lines
+    my ($prevSecs, $prevNS) = parseLine($prev);
+    my ($lineSecs, $lineNS) = parseLine($line);
+
+    # subtract them, putting the difference in $line{Secs,NS}
+    if ($lineNS >= $prevNS) {
+      $lineNS -= $prevNS;
+    }
+    else {
+      $lineNS = 1000000000 + $lineNS - $prevNS;
+      $lineSecs--;
+    }
+    $lineSecs -= $prevSecs;
+
+    # print the difference
+    printf("%d.%09d\n", $lineSecs, $lineNS);
+
+    $prev = $line;
+  }
+  else {
+    sleep(1);
+  }
+}
+
+sub parseLine {
+  my ($line) = @_;
+  
+  my ($secs, $ns) = ($line =~ m/^(\d+).(\d+)$/);
+  if (!defined($ns)) {
+    die("malformed line: $line\n");
+  }
+  
+  return ($secs, $ns);
+}
+
+# EOF
