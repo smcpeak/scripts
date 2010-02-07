@@ -1,0 +1,99 @@
+#!/usr/bin/perl
+# take a tcpdump output stream as input and output burst timing info
+
+use strict;
+
+# For what I'm trying to do, I want to analyze the timing information
+# in some HTTP protocol exchanges.  But tcpdump's output is too
+# voluminous.  So I need some data reduction.  The basic plan is to
+# condense the timestamps down to a sequence of reports like this:
+#
+#   after 5216 ms, burst of 3456 ms
+#
+# where a "burst" is a sequence of packets separated in time by less
+# than one second.
+
+# In this script, times are recorded as milliseconds since midnight.
+
+# time of end of last burst
+my $lastBurstEnd = 0;
+
+# time of beginning of current burst
+my $burstStart = 0;
+
+# time of last packet
+my $lastPacket = 0;
+
+# are we in the middle of a burst?
+my $inBurst = 0;
+
+while (1) {
+  # wait until I can read a line
+  my $line = <STDIN>;
+  if (!defined($line)) {
+    sleep(1);
+      
+    if ($inBurst) {
+      $line = <STDIN>;
+      if (!defined($line)) {
+        # done with the burst (interactive)
+        endBurst();
+        next;
+      }
+      else {
+        # continue the burst with $line
+      }
+    }
+    else {
+      next;
+    }
+  }
+
+  # parse the timestamp
+  my ($hours, $mins, $secs, $micros) =
+    ($line =~ m/^(\d\d):(\d\d):(\d\d)\.(\d+) /);
+  if (!defined($micros)) {
+    print("unrecognized line format: $line");  # $line has a newline
+    next;
+  }
+
+  # debugging: print the line
+  #print($line);
+
+  # turn it into milliseconds
+  my $millis = (($hours * 60 + $mins) * 60 + $secs) * 1000 +
+               int($micros / 1000);
+  #print("millis: $millis\n");
+
+  if ($inBurst) {
+    if ($lastPacket + 1000 < $millis) {
+      # done with burst (batch processing)
+      endBurst();
+      
+      # start a new burst
+      $burstStart = $millis;
+      $inBurst = 1;
+    }
+    else {
+      # continue the burst
+    }
+  }
+  else {
+    # start a new burst
+    $burstStart = $millis;
+    $inBurst = 1;
+  }
+
+  $lastPacket = $millis;
+}
+
+sub endBurst {
+  printf("%d ms burst after %d ms of inactivity\n",
+         $lastPacket - $burstStart,
+         $burstStart - $lastBurstEnd);
+
+  $lastBurstEnd = $lastPacket;
+  $inBurst = 0;
+}
+
+# EOF
