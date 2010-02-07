@@ -33,8 +33,11 @@ while (1) {
     }
     $lineSecs -= $prevSecs;
 
+    # combine to get deciseconds, rounded to an integer
+    my $deciSeconds = $lineSecs * 10 + int(($lineNS / 100000000) + 0.5);
+
     # print the difference
-    printf("%d.%09d\n", $lineSecs, $lineNS);
+    printf("%d.%01d\n", $deciSeconds / 10, $deciSeconds % 10);
 
     $prev = $line;
   }
