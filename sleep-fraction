@@ -1,0 +1,14 @@
+#!/usr/bin/perl -w
+# sleep for a fraction of a second
+
+use strict;
+
+if (@ARGV != 1) {
+  die("usage: $0 fractional-seconds\n");
+}
+
+my $frac = $ARGV[0];
+select(undef, undef, undef, $frac);
+exit(0);
+
+# EOF

@@ -1,0 +1,14 @@
+#!/usr/bin/perl -w
+# print a running timestamp
+
+use strict;
+use Time::HiRes qw( gettimeofday usleep );
+
+$| = 1;
+while (1) {
+  my ($s, $us) = gettimeofday();
+  printf("%d.%d\r", $s, ($us / 100000));
+  usleep(100000);
+}
+
+# EOF
