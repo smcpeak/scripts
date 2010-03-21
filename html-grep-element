@@ -1,0 +1,142 @@
+#!/usr/bin/perl -w
+# grep out all instances of a chosen HTML element
+
+use strict;
+
+if (@ARGV != 1) {
+  die("usage: $0 <element-name>\n");
+}
+my $elt = $ARGV[0];
+
+# current section headers: (h1, h2, h3, ...)
+my @curSection = ();
+
+# location in an $elt:
+#   0: not in one
+#   1: in the attributes
+#   2: in the body
+my $inElt = 0;
+
+# accumulated attributes, if $inElt
+my $curAttrs = "";
+
+# accumulated text of element, if $inElt
+my $curText = "";
+
+# current line number
+my $lineNumber = 0;
+
+my $line;
+while (defined($line = <STDIN>)) {
+  chomp($line);
+  $lineNumber++;
+  parseFragment($line);
+}
+
+sub parseFragment {
+  my ($line) = @_;
+  diagnostic2("parseFragment: $line");
+
+  # continuation of an $elt?
+  if ($inElt == 2) {
+    # end?
+    my ($text, $rest) = ($line =~ m/^(.*)<\/$elt>(.*)$/);
+    if (defined($rest)) {
+      diagnostic("found end of elt");
+      $curText .= process($text);
+      emitElt();
+      parseFragment($rest);
+    }
+    else {
+      $curText .= process($line);
+    }
+    return;
+  }
+
+  # continuation of attrs of an $elt?
+  if ($inElt == 1) {
+    my ($attrs, $rest) = ($line =~ m/^([^>]*)>(.*)$/);
+    if (defined($rest)) {
+      diagnostic("found body of elt");
+      $curAttrs .= process($attrs);
+      $inElt = 2;
+      parseFragment($rest);
+    }
+    else {
+      $curAttrs .= process($line);
+    }
+    return;
+  }
+
+  # beginning of an $elt?
+  my ($rest) = ($line =~ m/<$elt(.*)$/);
+  if (defined($rest)) {
+    diagnostic("found start of elt");
+    $inElt = 1;
+    
+    $rest =~ s/^\s+//;
+    parseFragment($rest);
+    return;
+  }
+
+  # header?
+  my ($hnum, $htext);
+  ($hnum, $htext, $rest) = ($line =~ m/<h(\d)>(.*)<\/h\1>(.*)$/);
+  if (defined($htext)) {
+    diagnostic("found h$hnum: $htext");
+
+    # throw away elements of @curSection beyond $hnum
+    while (scalar(@curSection) >= $hnum) {
+      pop @curSection;
+    }
+
+    # add dummy elements as necessary
+    while (scalar(@curSection) < $hnum - 2) {
+      push @curSection, ("");
+    }
+
+    # add $htext
+    push @curSection, ($htext);
+
+    diagnostic("curSection is now: @curSection");
+    
+    parseFragment($rest);
+  }
+}
+
+
+sub emitElt {
+  # print @curSection, $curAttrs and $curText;
+  foreach my $s (@curSection) {
+    print("$s: ");
+  }
+  if ($curAttrs ne "") {
+    print("$curAttrs: ");
+  }
+  print($curText, "\n");
+
+  # reset
+  $inElt = 0;
+  $curAttrs = "";
+  $curText = "";
+}
+
+
+# flatten whitespace
+sub process {
+  my ($str) = @_;
+  $str =~ s/\s+/ /g;
+  return $str;
+}
+
+
+sub diagnostic {
+  #print("diagnostic: line $lineNumber: ", @_, "\n");
+}
+
+sub diagnostic2 {
+  #print("diagnostic2: line $lineNumber: ", @_, "\n");
+}
+
+
+# EOF
