@@ -3,4 +3,13 @@
 
 echo ""
 echo "Press C-x # when done..."
+
+# on midway, I don't have any emacsclient binary in /usr/bin,
+# so use the one in my actual emacs build
+if [ -x $HOME/bld/emacs-20.7/lib-src/emacsclient ]; then
+  exec $HOME/bld/emacs-20.7/lib-src/emacsclient "$@"
+fi
+
 exec /usr/bin/emacsclient "$@"
+
+# EOF
