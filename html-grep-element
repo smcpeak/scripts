@@ -29,6 +29,11 @@ my $lineNumber = 0;
 my $line;
 while (defined($line = <STDIN>)) {
   chomp($line);
+  
+  # regard every line as ending with a space instead,
+  # so that we do not lose whitespace at line ends
+  $line =~ s/$/ /;
+
   $lineNumber++;
   parseFragment($line);
 }
