@@ -139,6 +139,9 @@ export OCAMLRUNPARAM='l=256M'
 # ignore interactive ctrl-D (EOF)
 export IGNOREEOF=10
 
+# personal perl modules
+export PERL5LIB=$HOME/lib/perl
+
 # site-specific (should be last thing in this file)
 if [ -f ~/.bashrc-site ]; then
   . ~/.bashrc-site
