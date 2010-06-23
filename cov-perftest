@@ -252,7 +252,7 @@ sub getVersion {
   
   my $ver = `$cmd --ident`;
   die if ($?);
-  my ($external, $internal) = ($ver =~ m/^(.*) \(build (\d+)\)$/);
+  my ($external, $internal) = ($ver =~ m/^(.*) \(build (\d+)\)\s*$/);
   if (!defined($internal)) {
     die("malformed version: $ver\n");
   }
