@@ -1,0 +1,427 @@
+#!/usr/bin/perl -w
+# do a coverity build/analysis/commit test
+
+use strict;
+
+use Time::HiRes qw( gettimeofday );
+
+my $platform = `get-cov-platform`;
+die if ($?);
+chomp($platform);
+
+my $HOME = $ENV{'HOME'};
+    
+my $PREV = $ENV{'PREV'};
+if (!defined($PREV)) {
+  $PREV = "$HOME/dev/objs/$platform/root";
+}
+
+# extra arguments to pass to 'make'
+my $makeArgs = "";
+
+# config
+my $config = "$PREV/gcc-config/coverity_config.xml";
+if (! -f $config) {
+  $config = "$PREV/config/coverity_config.xml";
+}
+
+# build command
+my $make = "make";
+my $makeClean = "make clean";
+
+if (-f "compile-commands.sh") {
+  $make = "sh compile-commands.sh";
+  $makeClean = "true";    # no need to clean for non-incremental builds
+}
+
+# intermediate directory
+my $dir = "dir";
+
+# arguments to pass to cov-build
+my $covBuildArgs = "";
+
+# arguments to pass to cov-analyze
+my $covAnalyzeArgs = "";
+
+# true to run the native build
+my $runNativeBuild = 1;
+
+# true to run the emit, analysis and commit
+my $runCoverity = 1;
+
+# true to run the second commit
+my $runSecondCommit = 0;
+
+
+# local customizations?
+if (-f "perftest.local.pl") {
+  my $cust = `cat perftest.local.pl`;
+  die if ($?);
+  eval($cust);
+  if ($@) {
+    die($@);
+  }
+}
+
+# command line arguments
+while (@ARGV) {
+  my $opt = shift @ARGV;
+  if ($opt eq "-no-cov") {
+    $runCoverity = 0;
+  }
+  elsif ($opt eq "-no-native") {
+    $runNativeBuild = 0;
+  }
+  elsif ($opt eq "-timing") {
+    $ENV{"COV_EMIT_TIMING"} = 1;
+  }
+  elsif ($opt eq "--all") {
+    $covAnalyzeArgs .= " --all";
+  }
+  else {
+    die("unknown option: $opt\n");
+  }
+}
+
+
+my $configArg = makeConfigArg($config);
+
+# do this first to make sure $PREV is set up right
+my ($covExtVer, $covIntVer) = getVersion("$PREV/bin/cov-analyze");
+
+my $is4x = system("version-compare", $covExtVer, "lt", "5.0.0");
+if ($is4x == 0 || $is4x == 256) {
+  # the test program exists and returned a sensible result
+}
+else {
+  die("version-compare exit value $is4x indicates failure\n");
+}
+
+# the actual truth sense is inverted in shell and perl
+$is4x = !$is4x;
+
+
+# ----------------------------- native build ----------------------------
+my $nativeBuildTime = "";
+my $nativeBuildSize = "";
+
+if ($runNativeBuild) {
+  print("native build\n");
+  run("$makeClean");
+  $nativeBuildTime = timeRun("$make");
+  $nativeBuildSize = `find-sum-sizes '*.o'`;         # bytes
+  die if ($?);
+  $nativeBuildSize = int($nativeBuildSize / 1000000);   # MB
+}
+
+
+# ------------------------------- coverity ------------------------------
+my $covBuildTime = "";
+my $covSize = "";
+my $covTUs = "";
+my $covAnalysisTime = "";
+my $statsString = "";
+my $commitStatsString = "";
+
+if ($runCoverity) {
+  print("coverity build\n");
+  run("$makeClean");
+  run("rm -rf $dir");
+  $covBuildTime = timeRun("$PREV/bin/cov-build $configArg " .
+    "--dir $dir $covBuildArgs $make");
+  $covSize = getDirSize("$dir/c/emit");
+  $covTUs = getTUs("$dir");
+
+  print("analysis\n");
+  run("rm -rf $dir/c/output");
+  $covAnalysisTime = timeRun("$PREV/bin/cov-analyze --dir $dir $covAnalyzeArgs");
+  my @covStats = getAnalysisStats("$dir");
+
+  print("commit\n");
+  my @covCommit = getCommitStats($PREV, "$dir");
+
+  $statsString = printStats(@covStats);
+  $commitStatsString = printCommitStats(@covCommit);
+}
+
+
+# ------------------------------- summary -------------------------------
+
+open(OUT, ">perftest.csv") or die("cannot open perftest.csv: $!\n");
+
+if ($runNativeBuild) {
+  print OUT (<<"EOF");
+"Native build time (s):        ", $nativeBuildTime
+"Native build size (MB):       ", $nativeBuildSize
+
+EOF
+}
+
+
+# the reason for the "v" prefix on $covExtVer is that OpenOffice.org
+# is stupid during CSV import and thinks any x.y.z is a date!
+
+if ($runCoverity) {
+  print OUT (<<"EOF");
+"cov external version:    ", v$covExtVer
+"cov internal version:    ", $covIntVer
+"cov build time (s):      ", $covBuildTime
+"cov build size (MB):     ", $covSize
+"cov translation units:   ", $covTUs
+"cov analysis time (s):   ", $covAnalysisTime
+$statsString
+$commitStatsString
+
+EOF
+}
+
+close(OUT) or die;
+
+sub printStats {
+  my ($loc, $files, $funcs, $paths, $defects, $memouts, $pathouts, $crashes) = @_;
+
+  my ($ret) = (<<"EOF");
+"                      LOC     ", $loc
+"                      Files   ", $files
+"                      Funcs   ", $funcs
+"                      Paths   ", $paths
+"                      Defects ", $defects
+"                      Memouts ", $memouts
+"                      Pathouts", $pathouts
+"                      Crashes ", $crashes
+EOF
+
+  # remove final newline
+  chomp($ret);
+
+  return $ret;
+}
+
+sub printCommitStats {
+  my ($first, $second, $size) = @_;
+
+  my ($ret) = (<<"EOF");
+"     First commit (s)         ", $first
+"     Second commit (s)        ", $second
+"     GUI DB size (MB)         ", $size
+EOF
+
+  # remove final newline
+  chomp($ret);
+
+  return $ret;
+}
+
+run("cat perftest.csv");
+
+exit(0);
+
+
+sub run {
+  print("@_\n");
+  my $code = system(@_);
+  if ($code != 0) {
+    if (($code & 0xFF) == 0) {
+      $code = $code >> 8;
+      die("$_[0] exited with code $code\n");
+    }
+    else {
+      die("$_[0] exited with signal $code\n");
+    }
+  }
+}
+
+
+# run it, and return elapsed seconds
+sub timeRun {
+  run("sync");
+
+  my @before = gettimeofday();
+
+  run(@_);
+
+  my @after = gettimeofday();
+
+  return $after[0] - $before[0];
+}
+
+
+# pass --ident and extract the version
+sub getVersion {
+  my ($cmd) = @_;
+  
+  my $ver = `$cmd --ident`;
+  die if ($?);
+  my ($external, $internal) = ($ver =~ m/^(.*) \(build (\d+)\)$/);
+  if (!defined($internal)) {
+    die("malformed version: $ver\n");
+  }
+  return ($external, $internal);
+}
+
+
+# return directory size in MB
+sub getDirSize {
+  my ($dir) = @_;
+
+  my $tmp = `du $dir | awk '{ print \$1 }' | tail -1`;
+  die if ($?);
+  chomp($tmp);
+  return int($tmp / 1000);
+}
+
+
+# return analysis stats from analysis log
+sub getAnalysisStats {
+  my ($dir) = @_;
+
+  my $loc = "unk";
+  my $files = "unk";
+  my $funcs = "unk";
+  my $paths = "unk";
+  my $defects = "unk";
+  my $memouts = "unk";
+  my $pathouts = "unk";
+  my $crashes = 0;
+
+  open(IN, "zcat $dir/c/output/analysis-log.txt.gz |") or die("cannot open analysis log\n");
+  my $line;
+  while (defined($line = <IN>)) {
+    my $n;
+
+    ($n) = ($line =~ m/LoC input to cov-analyze\s*: (\d+)/);
+    if (defined($n)) {
+      $loc = $n;
+    }
+
+    ($n) = ($line =~ m/status: Files analyzed\s*: (\d+)/);
+    if (defined($n)) {
+      $files = $n;
+    }
+
+    ($n) = ($line =~ m/status: Functions analyzed\s*: (\d+)/);
+    if (defined($n)) {
+      $funcs = $n;
+    }
+
+    ($n) = ($line =~ m/status: Paths analyzed\s*: (\d+)/);
+    if (defined($n)) {
+      $paths = $n;
+    }
+
+    ($n) = ($line =~ m/defects found\s*: (\d+)/);
+    if (defined($n)) {
+      $defects = $n;
+    }
+
+    ($n) = ($line =~ m/out_of_memory count: (\d+)/);
+    if (defined($n)) {
+      $memouts = $n;
+    }
+
+    ($n) = ($line =~ m/paths_exceeded count: (\d+)/);
+    if (defined($n)) {
+      $pathouts = $n;
+    }
+    
+    if ($line =~ m/The analysis was restarted once/) {
+      $crashes = 1;
+    }
+    
+    ($n) = ($line =~ m/The analysis was restarted (\d+) times/);
+    if (defined($n)) {
+      $crashes = $n;
+    }
+  }
+  close(IN) or die("zcat failed to read analysis log\n");
+
+  return ($loc, $files, $funcs, $paths, $defects, $memouts, $pathouts, $crashes);
+}
+
+
+sub getTUs {
+  my ($dir) = @_;
+  
+  my $line = `grep 'are ready for analysis' $dir/build-log.txt`;
+  my ($n) = ($line =~ m/(\d+) (C\/C\+\+ )?compilation units/);
+  if (!defined($n)) {
+    die("could not find # of TUs; line=$line\n");
+  }
+  return $n;
+}
+
+
+sub isWindows {
+  return $platform eq "mingw";
+}
+
+
+# given the name of a config file or "", return "-c <config>" or the
+# empty string in the latter case
+sub makeConfigArg {
+  my ($config) = @_;
+  
+  if ($config eq "") {
+    return "";
+  }
+  
+  # catch any old-style config vars
+  if ($config =~ m/^-c/) {
+    die("config \"$config\" begins with \"-c\" but should not\n");
+  }
+  
+  # on Windows we need to convert from a cygwin path
+  if (isWindows()) {
+    $config = `cygpath -m $config`;
+    die if ($?);
+    chomp($config);
+  }
+
+  return "-c $config";
+}
+
+
+sub getCommitStats {
+  my ($prev, $dir) = @_;
+
+  run("rm -rf tmpdata");
+          
+  my $cmd;
+
+  if ($is4x) {
+    # 4.x commands
+
+    # install DB
+    run("$prev/bin/cov-install-gui -d tmpdata --use-service no " .
+          "--password admin --product default --language 'C/C++'");
+
+    # first commit
+    $cmd = "$prev/bin/cov-commit-defects -d tmpdata --dir $dir --user admin --product default";
+  }
+  else {
+    # 5.x commands
+    $cmd = "$prev/bin/cov-commit-defects --dir $dir " .
+           "--remote localhost --port 8080 " .
+           "--user admin --password coverity " .
+           "--stream perftest";
+  }
+
+  my $first = timeRun($cmd);
+
+  # second commit
+  my $second = 0;
+  if ($runSecondCommit) {
+    $second = timeRun($cmd);
+  }
+
+  my $size = 0;
+  if ($is4x) {
+    $size = getDirSize("tmpdata");
+    run("rm -rf tmpdata");
+  }
+
+  return ($first, $second, $size);
+}
+
+
+# EOF
