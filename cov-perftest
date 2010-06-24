@@ -49,6 +49,9 @@ my $runNativeBuild = 1;
 # true to run the emit, analysis and commit
 my $runCoverity = 1;
 
+# true to run the first commit
+my $runFirstCommit = 1;
+
 # true to run the second commit
 my $runSecondCommit = 0;
 
@@ -77,6 +80,9 @@ while (@ARGV) {
   }
   elsif ($opt eq "--all") {
     $covAnalyzeArgs .= " --all";
+  }
+  elsif ($opt eq "-no-commit") {
+    $runFirstCommit = 0;
   }
   else {
     die("unknown option: $opt\n");
@@ -136,12 +142,13 @@ if ($runCoverity) {
   run("rm -rf $dir/c/output");
   $covAnalysisTime = timeRun("$PREV/bin/cov-analyze --dir $dir $covAnalyzeArgs");
   my @covStats = getAnalysisStats("$dir");
-
-  print("commit\n");
-  my @covCommit = getCommitStats($PREV, "$dir");
-
   $statsString = printStats(@covStats);
-  $commitStatsString = printCommitStats(@covCommit);
+
+  if ($runFirstCommit) {
+    print("commit\n");
+    my @covCommit = getCommitStats($PREV, "$dir");
+    $commitStatsString = printCommitStats(@covCommit);
+  }
 }
 
 
