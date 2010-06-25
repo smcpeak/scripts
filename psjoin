@@ -12,6 +12,8 @@ $force_save = 0;
 $dont_strip = 0;
 $save = "save %psjoin\n";
 $restore = "restore %psjoin\n";
+my $unifyPageNumbers = 0;
+
 while ($ARGV[0] =~ /^-[a-z]/i) {
     if ($ARGV[0] eq "-a") {
 	$force_even = 1;
@@ -24,6 +26,9 @@ while ($ARGV[0] =~ /^-[a-z]/i) {
     } elsif ($ARGV[0] eq "-p") {
 	$dont_strip = 1;
 	shift;
+    } elsif ($ARGV[0] eq "-u") {
+        $unifyPageNumbers = 1;
+        shift;
     } elsif ($ARGV[0] eq "-h") {
 	print STDERR "psjoin - concatenate PostScript files (version 0.3)\n";
 	print STDERR "by Tom Sato <VEF00200\@nifty.ne.jp>,";
@@ -33,6 +38,7 @@ while ($ARGV[0] =~ /^-[a-z]/i) {
 	print STDERR "  -a: align first page of each documents to odd page\n";
 	print STDERR "  -s: try to close unclosed save operators\n";
 	print STDERR "  -p: not strip prolog/trailer of the input files\n";
+        print STDERR "  -u: unify page numbers across all inputs\n";
 	print STDERR "  -h: display this\n";
 	exit 0;
     } else {
@@ -168,7 +174,12 @@ for ($i = 0; $i <= $#ARGV; $i++) {
                 $pages++;
                 $total_pages++;
                 print "\n";
-                print "%%Page: ($i-$pages) $total_pages\n";
+                if ($unifyPageNumbers) {
+                    print "%%Page: ($total_pages) $total_pages\n";
+                }
+                else {
+                    print "%%Page: ($i-$pages) $total_pages\n";
+                }
                 if ($prolog[$i] ne $prolog[$prolog_inx]) {
 		    print $save;
                     print $prolog[$i];
