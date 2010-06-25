@@ -87,30 +87,30 @@ foreach my $fname (@ARGV) {
 
   # create the directory into which we will move this
   my $destPath = "${trashdir}$path";
-  run("mkdir -p $destPath");
+  run("mkdir", "-p", $destPath);
 
   # move the file to the trash
-  run("mv -f $fname $destPath");
+  run("mv", "-f", $fname, $destPath);
 }
 
 exit(0);
 
 
 sub run {
-  my ($cmd) = @_;
+  my @cmd = @_;
 
   if ($debugMode) {
-    print("executing: $cmd\n");
+    print("executing: @cmd\n");
   }
   if ($fakeMode) {
     return;
   }
 
-  my $res = system($cmd);
+  my $res = system(@cmd);
   if ($res != 0) {
     my $sig = $res & 0xff;
     my $code = $res >> 8;
-    die("$0: command `$cmd' failed with " .
+    die("$0: command `@cmd' failed with " .
 	($sig? "signal $sig" : "exit code $code") .
 	" (aborting)\n");
   }

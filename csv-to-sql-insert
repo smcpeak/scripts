@@ -1,0 +1,88 @@
+#!/usr/bin/perl
+# read a CSV, output SQL insert statements
+
+use strict;
+
+# CSV separator character
+my $separator = ",";
+
+# name of table to insert into
+my $tableName = "";
+
+sub usage {
+  print(<<"EOF");
+$0 [options] < input.csv > output.sql
+
+Where <options> include:
+  -table <table>    Specify SQL table name; required.
+  -sep <sep>        Specify CSV separator; defaults to "$separator".
+EOF
+}
+
+while (@ARGV) {
+  my $opt = shift @ARGV;
+  if ($opt eq "-sep") {
+    $separator = shift @ARGV;
+  }
+  elsif ($opt eq "-table") {
+    $tableName = shift @ARGV;
+  }
+  else {
+    usage();
+    die("unknown option: $opt\n");
+  }
+}
+
+if ($tableName eq "") {
+  usage();
+  die("must specify -table\n");
+}
+
+# skip the header line
+my $line = <STDIN>;
+
+while (defined($line = <STDIN>)) {
+  my @fields = splitCSV($line);
+
+  print("INSERT INTO $tableName VALUES(");
+  
+  my $ct = 0;
+  for my $f (@fields) {
+    if ($ct++ > 0) {
+      print(", ");
+    }
+    
+    # SQL quote as string
+    $f =~ s/\'/\'\'/g;
+    print("'$f'");
+  }
+  
+  print(");\n");
+}
+
+
+# Split a line of CSV into fields.  This assumes that
+# newline and $separator do not appear in fields.
+sub splitCSV {
+  my ($line) = @_;
+  chomp($line);
+
+  my @entries = split(/$separator/, $line);
+
+  # remove surrounding double-quotes
+  my @ret = ();
+  foreach my $e (@entries) {
+    my $val;
+    ($val) = ($e =~ m/^\"(.*)\"$/);
+    if (defined($val)) {
+      push @ret, ($val);
+    }
+    else {
+      push @ret, ($e);
+    }
+  }
+
+  return @ret;
+}
+
+# EOF

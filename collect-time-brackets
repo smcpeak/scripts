@@ -41,6 +41,22 @@ $endDate = $ARGV[1];
 shift @ARGV;
 shift @ARGV;
 
+# categorization map
+my %categoryMap = (
+  "DD" => "Overhead",
+  "INT" => "Overhead",
+  "MTG" => "Overhead",
+  "QA" => "KTLO",
+  "bugfix" => "KTLO",
+  "email" => "Overhead",
+  "mbo" => "Overhead",
+  "migration" => "Strategic",
+  "migrator" => "Strategic",
+  "misc" => "Overhead",
+  "parallel" => "Strategic",
+  "review" => "Strategic"
+);
+
 # map from activity to number of minutes spent on it total
 %total = ();
 
@@ -147,16 +163,36 @@ foreach $notesFname (@ARGV) {
   close(IN) or die;
 }
 
+# higher-level categories: maps category name to total minutes
+my %categories = ();
+
 # print final summary
 print("total for $startDate to $endDate:\n");
 $sum = 0;
 foreach $a (sort(keys(%total))) {
   my $diff = printMinutes($a, $total{$a});
   $sum += $diff;
+  
+  my $cat = categorize($a);
+  if (defined($categories{$cat})) {
+    $categories{$cat} += $diff;
+  }
+  else {
+    $categories{$cat} = $diff;
+  }
 }
 printDivider();
 printMinutes("total", $sum);
 print("\n");
+
+# print categorized minutes and fractions
+print("categorized:\n");
+foreach $cat (sort(keys(%categories))) {
+  my $minutes = $categories{$cat};
+  printf("  %20s: %2d%%\n",
+         $cat,
+         int($minutes / $sum * 100));
+}
 
 
 sub subtractMinutes {
@@ -209,7 +245,7 @@ sub printMinutes {
 
 
 sub printDivider {
-  print("  -------------------------\n");
+  print("  ------------------------------------------\n");
 }
 
 
@@ -278,6 +314,17 @@ sub testCompareDates {
   }
 }
 
+# given a task label, yield its category
+sub categorize {
+  my ($task) = @_;
+  
+  my $cat = $categoryMap{$task};
+  if (defined($cat)) {
+    return $cat;
+  }
+  
+  die("categorize: unknown task: $task\n");
+}
 
 sub diagnostic {
   #print("%%% ", @_);

@@ -31,9 +31,12 @@ setPrevent($prevent);
 
 # user for commits
 my $user = "admin";
+my $password = "coverity";
 
 my $language = "C/C++";
-my $product = "Default";
+my $product = `pwd`;
+chomp($product);
+$product =~ s,.*/,,;    # basename
 my $port = "";
 
 
@@ -47,6 +50,8 @@ Options:
   --dir <dir>        intermediate data [$dir]
   -d <data>          GUI data [$data]
   --user <user>      user for commits [$user]
+  --pass <pass>      password for commits [$password]
+  --product <prod>   product/stream for commits [$product]
   --language <lang>  language for GUI product [$language]
   --help             print this message
 
@@ -95,6 +100,16 @@ if (! -d "$bin") {
 }
 
 
+# check the version
+my $verString = `'$prevent/bin/cov-analyze' --ident`;
+chomp($verString);
+my ($verMajor, $verMinor, $verPatch) =
+  ($verString =~ m/^(\d+)\.(\d+)\.(\d+)/);
+if (!defined($verPatch)) {
+  die("malformed version string from cov-analyze --ident: $verString\n");
+}
+
+
 # process the command
 if (@ARGV == 0) {
   usageError("no command specified");
@@ -112,11 +127,15 @@ if ($command !~ m/gui/ && $command ne "cov-upgrade-db") {
 }
 
 if ($command =~ m/gui/ ||
-    $command =~ m/cov-commit-defects/ ||
     $command eq "cov-upgrade-db") {
   push @covArgs, ("-d", $data);
 }
 
+if ($command =~ m/cov-commit-defects/) {
+  if ($verMajor <= 4) {
+    push @covArgs, ("-d", $data);
+  }
+}
 
 if ($command eq "cov-build") {
   if (@ARGV == 0) {
@@ -135,13 +154,21 @@ elsif ($command eq "cov-start-gui") {
 }
 
 elsif ($command eq "cov-install-gui") {
-  push @covArgs, ("--password", "admin",
-                 "--product", $product,
-                 "--language", $language);
+  push @covArgs, ("--password", $password,
+                  "--product", $product,
+                  "--language", $language);
 }
 
 elsif ($command eq "cov-commit-defects") {
   push @covArgs, ("--user", $user);
+
+  if ($verMajor >= 5) {
+    push @covArgs, ("--password", $password);
+    push @covArgs, ("--stream", $product);
+  }
+  else {
+    push @covArgs, ("--product", $product);
+  }
 }
 
 elsif ($command eq "cov-analyze") {
