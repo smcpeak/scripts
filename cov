@@ -122,12 +122,14 @@ shift @ARGV;
 # start building the cov-* arguments
 my @covArgs = ();
 
-if ($command !~ m/gui/ && $command ne "cov-upgrade-db") {
+my $isGUIcmd = $command =~ m/gui/ ||
+               $command =~ m/db$/;
+
+if (!$isGUIcmd) {
   push @covArgs, ("--dir", $dir);
 }
 
-if ($command =~ m/gui/ ||
-    $command eq "cov-upgrade-db") {
+if ($isGUIcmd) {
   push @covArgs, ("-d", $data);
 }
 
