@@ -5,11 +5,7 @@ for ($i=0; $i < @ARGV; $i++) {
   my $fn = $ARGV[$i];
   
   # get image number (if any)
-  my ($n) = ($fn =~ m/(\d+)/);
-  if (defined($n)) {
-    # strip leading 0s
-    $n = $n + 0;
-  }
+  my ($n) = ($fn =~ m/0*([0-9_]+)/);
   
   # img tag
   print("<p><a href=\"../$fn\"><img src=\"$fn\" alt=\"image $fn\"></a><br>\n");
