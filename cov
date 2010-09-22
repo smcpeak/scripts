@@ -106,7 +106,14 @@ chomp($verString);
 my ($verMajor, $verMinor, $verPatch) =
   ($verString =~ m/^(\d+)\.(\d+)\.(\d+)/);
 if (!defined($verPatch)) {
-  die("malformed version string from cov-analyze --ident: $verString\n");
+  if ($verString =~ m/^parallel /) {
+    $verMajor = 6;
+    $verMinor = 0;
+    $verPatch = 0;
+  }
+  else {
+    die("malformed version string from cov-analyze --ident: $verString\n");
+  }
 }
 
 
