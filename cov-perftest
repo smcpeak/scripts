@@ -80,6 +80,7 @@ while (@ARGV) {
   }
   elsif ($opt eq "-timing") {
     $ENV{"COV_EMIT_TIMING"} = 1;
+    $covAnalyzeArgs .= " --debug-flags runtime";
   }
   elsif ($opt eq "--all") {
     $covAnalyzeArgs .= " --all";
@@ -89,6 +90,10 @@ while (@ARGV) {
   }
   elsif ($opt eq "-no-commit") {
     $runFirstCommit = 0;
+  }
+  elsif ($opt =~ m/^-j/) {
+    $covAnalyzeArgs .= " $opt";
+    $covAnalyzeArgs .= " --use-distributor";
   }
   else {
     die("unknown option: $opt\n");
