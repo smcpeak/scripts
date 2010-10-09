@@ -2,8 +2,16 @@
 # run a program some number of times
 
 if [ "$2" = "" ]; then
-  echo "usage: $0 times-to-run command [args...]"
+  echo "usage: $0 [-stop] times-to-run command [args...]"
   exit 2
+fi
+
+# When true, we will stop looping if the command fails.
+stop=false
+
+if [ "x$1" = "x-stop" ]; then
+  stop=true
+  shift
 fi
 
 n="$1"
@@ -12,7 +20,14 @@ shift
 
 while [ $i -lt $n ]; do
   echo "$i: $*"
-  "$@"
+  
+  if "$@"; then
+    true
+  else
+    if $stop; then
+      break
+    fi
+  fi
 
   i=`expr $i + 1`
 done

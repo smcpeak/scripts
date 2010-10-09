@@ -1,0 +1,71 @@
+#!/usr/bin/perl -w
+# throttle a child process by suspending it periodically
+
+use strict;
+use POSIX ":sys_wait_h";      # WNOHANG
+
+if (@ARGV < 2) {
+  print(<<"EOF");
+usage: $0 <n> command [args...]
+
+Runs command.  Every <n> seconds, suspends the child for one second.
+
+Note that it only suspends the *immediate* child.
+EOF
+  die("must supply a command to run\n");
+}
+
+
+my $waitSeconds = shift @ARGV;
+
+if ($waitSeconds == 0) {
+  exec(@ARGV);
+}
+
+
+my $childPid = fork();
+if (!defined($childPid)) {
+  die("fork: $!\n");
+}
+
+if ($childPid == 0) {
+  # in child
+  exec(@ARGV);
+  die("exec: $!\n");
+}
+
+# in parent
+while (1) {
+  my $rv = waitpid($childPid, WNOHANG);
+  if ($rv > 0) {
+    last;
+  }
+
+  sleep($waitSeconds);
+
+  # suspend the child for a second
+  if (kill('STOP', $childPid) < 0) {
+    die("kill: $!\n");
+  }
+
+  sleep(1);
+
+  # resume it
+  if (kill('CONT', $childPid) < 0) {
+    die("kill: $!\n");
+  }
+}
+
+# interpret $? (child exit status)
+my $sig = $? & 0xff;
+my $code = $? >> 8;
+
+if ($sig) {
+  print STDERR ("child died with signal $sig\n");
+  exit(8);
+}
+else {
+  exit($code);
+}
+
+# EOF

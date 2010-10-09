@@ -106,7 +106,14 @@ chomp($verString);
 my ($verMajor, $verMinor, $verPatch) =
   ($verString =~ m/^(\d+)\.(\d+)\.(\d+)/);
 if (!defined($verPatch)) {
-  die("malformed version string from cov-analyze --ident: $verString\n");
+  if ($verString =~ m/^parallel /) {
+    $verMajor = 6;
+    $verMinor = 0;
+    $verPatch = 0;
+  }
+  else {
+    die("malformed version string from cov-analyze --ident: $verString\n");
+  }
 }
 
 
@@ -122,12 +129,14 @@ shift @ARGV;
 # start building the cov-* arguments
 my @covArgs = ();
 
-if ($command !~ m/gui/ && $command ne "cov-upgrade-db") {
+my $isGUIcmd = $command =~ m/gui/ ||
+               $command =~ m/db$/;
+
+if (!$isGUIcmd) {
   push @covArgs, ("--dir", $dir);
 }
 
-if ($command =~ m/gui/ ||
-    $command eq "cov-upgrade-db") {
+if ($isGUIcmd) {
   push @covArgs, ("-d", $data);
 }
 
@@ -165,6 +174,7 @@ elsif ($command eq "cov-commit-defects") {
   if ($verMajor >= 5) {
     push @covArgs, ("--password", $password);
     push @covArgs, ("--stream", $product);
+    push @covArgs, ("--host", "localhost");
   }
   else {
     push @covArgs, ("--product", $product);

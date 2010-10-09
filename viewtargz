@@ -18,7 +18,11 @@ case "$1" in
   *.tar.gz|*.tgz)
     gunzip -c "$1" | tar tf -
     ;;
-    
+
+  *.jar)
+    jar tf "$1"
+    ;;
+
   *)
     echo "I don't know how to view $1."
     ;;

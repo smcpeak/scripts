@@ -16,4 +16,8 @@ for fn in *.[jJ][pP][gG]; do
   fi
 done
 
+echo "making qsize/index.html"
+cd qsize || exit
+make-camera-index *.jpg > index.html
 
+# EOF
