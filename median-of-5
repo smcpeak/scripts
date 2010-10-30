@@ -51,19 +51,19 @@ my @results = ();
 # run it $iters times
 for (my $i = 1; $i <= $iters; $i++) {
   if ($setup ne "") {
-    if (system($setup) != 0) {
+    if (mysystem($setup) != 0) {
       die("setup command failed: $setup\n");
     }
   }
 
   # always sync the disks before timing
-  system("sync");
+  mysystem("sync");
 
   # get time before running the child ($secs, $msecs)
   my @before = gettimeofday();
 
   # run it
-  system("@ARGV >/dev/null 2>&1");
+  mysystem("@ARGV >/dev/null 2>&1");
 
   my @after = gettimeofday();
 
@@ -103,6 +103,18 @@ printf("stddev: %.2f ms\n", $stddev);
 
 
 exit(0);
+
+
+# like system(), but bail on ctrl-C
+sub mysystem {
+  my $res = system(@_);
+  if ($res == 2) {
+    # ctrl-C
+    kill(2, $$);
+    die("should have died...");
+  }
+  return $res;
+}
 
 
 # EOF
