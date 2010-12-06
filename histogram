@@ -1,33 +1,46 @@
 #!/usr/bin/perl -w
-# make an ascii histogram from duplicate lines
+# make an ascii histogram
 
-use strict 'subs';
+use strict;
 
-$count = 0;
+# map from line contents to occurrence frequency
+my %lineToFreq = ();
+
+my $line;
 while ($line = <STDIN>) {
-  if (defined($prevLine) && ($line eq $prevLine)) {
-    $count++;
+  chomp($line);
+
+  incHashElt(\%lineToFreq, $line);
+}
+
+# unique line contents
+my @lines = keys(%lineToFreq);
+
+# sort by increasing occurrence frequency
+@lines = sort {
+  my $c = $lineToFreq{$a} <=> $lineToFreq{$b};
+  if ($c == 0) {
+    $c = $a cmp $b;     # break ties alphabetically
+  }
+  return $c;
+} @lines;
+
+# print
+for $line (@lines) {
+  my $ct = $lineToFreq{$line};
+  printf("%8d %s\n", $ct, $line);
+}
+
+sub incHashElt {
+  my ($hash, $elt) = @_;
+
+  my $cur = $hash->{$elt};
+  if (defined($cur)) {
+    $hash->{$elt} = $cur + 1;
   }
   else {
-    # emit previous count and reset
-    emit();
-    $count = 1;
-    $prevLine = $line;
+    $hash->{$elt} = 1;
   }
 }
 
-emit();
-
-# print count
-sub emit {
-  if (!defined($prevLine)) {
-    return;
-  }
-
-  my $prev = $prevLine;
-  chomp($prev);
-  if ($count) {
-    #print("$prev: ", "*" x $count, "\n");
-    printf("%04d\t$prev\n", $count);
-  }
-}
+# EOF
