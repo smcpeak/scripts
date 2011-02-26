@@ -12,6 +12,7 @@ usage: $0 [options] program [args...]
 options:
   -setup 'command': specify untimed command to run before program
   -iters n        : number of iterations to run (default: 5)
+  -hide           : hide program console output
 
 EOF
 }
@@ -21,7 +22,11 @@ EOF
 # command to invoke before each timed test
 my $setup = "";
 
+# number of times to run the test
 my $iters = 5;
+
+# true if we will show the console output of the program
+my $showOutput = 1;
 
 while (@ARGV && $ARGV[0] =~ m/^-/) {
   my $opt = shift @ARGV;
@@ -31,6 +36,12 @@ while (@ARGV && $ARGV[0] =~ m/^-/) {
   }
   elsif ($opt eq "-iters") {
     $iters = shift @ARGV;
+  }
+  elsif ($opt eq "-show") {
+    $showOutput = 1;
+  }
+  elsif ($opt eq "-hide") {
+    $showOutput = 0;
   }
   else {
     usage();
@@ -63,16 +74,28 @@ for (my $i = 1; $i <= $iters; $i++) {
   my @before = gettimeofday();
 
   # run it
-  mysystem("@ARGV >/dev/null 2>&1");
+  #
+  if ($showOutput) {
+    mysystem(@ARGV);
+  }
+  else {
+    # it is unfortunate that I cannot easily redirect output w/o
+    # using shell, since that means metacharacters in @ARGV are
+    # also vulnerable
+    mysystem("@ARGV >/dev/null 2>&1");
+  }
 
   my @after = gettimeofday();
 
   my $diff = ($after[0] - $before[0]) * 1000 +
              int(($after[1] - $before[1]) / 1000);
 
-  print("$i: $diff ms\n");
+  print("median-of-5 run $i: $diff ms\n");
   push @results, ($diff);
 }
+
+# summarize all runs on one line at the end
+print("all   : @results\n");
 
 # sort the results in increasing numeric order
 @results = sort {$a <=> $b} @results;
