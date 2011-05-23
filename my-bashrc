@@ -139,6 +139,8 @@ export OCAMLRUNPARAM='l=256M'
 # ignore interactive ctrl-D (EOF)
 export IGNOREEOF=10
 
+export BK_TRIGGER_FIX_COPYRIGHT=1
+
 # personal perl modules
 export PERL5LIB=$HOME/lib/perl
 
