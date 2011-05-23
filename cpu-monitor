@@ -2,38 +2,38 @@
 # script to monitor CPU usage (among other things) at much finer
 # granularity than load average
 
-use strict 'subs';
+use strict;
 use IO::Handle;
 
 # which displays to show
-$showCpu = 1;         # c: total cpu utilization
-$showSys = 1;         # s: cpu time spent in kernel mode
-$showTemp = 1;        # cpu core temp in degrees celsius
-$showBatt = 0;        # battery charge percentage
-$showHda = 1;         # a: requests per second to /dev/hda
-$showHdb = 1;         # b: ..............................b
-$showHdc = 0;         # c: ..............................c
-$showHdd = 0;         # d: ..............................d
-$showEth = 1;         # e: packets sent/received over eth0
-$showPpp = 0;         # p: ...........................ppp0
-$showNews = 0;        # n: # of unread news articles
-$kernel22 = 0;        # true for 2.2 kernel, false for 2.4+ kernel
-$kernel24 = 0;        # true for 2.4 kernel, false for 2.6+ kernel
+my $showCpu = 1;         # c: total cpu utilization
+my $showSys = 1;         # s: cpu time spent in kernel mode
+my $showTemp = 1;        # cpu core temp in degrees celsius
+my $showBatt = 0;        # battery charge percentage
+my $showHda = 1;         # a: requests per second to /dev/hda
+my $showHdb = 1;         # b: ..............................b
+my $showHdc = 0;         # c: ..............................c
+my $showHdd = 0;         # d: ..............................d
+my $showEth = 1;         # e: packets sent/received over eth0
+my $showPpp = 0;         # p: ...........................ppp0
+my $showNews = 0;        # n: # of unread news articles
+my $kernel22 = 0;        # true for 2.2 kernel, false for 2.4+ kernel
+my $kernel24 = 0;        # true for 2.4 kernel, false for 2.6+ kernel
 
 # configuration of some input sources
-$ethDevice = "eth0";
-$pppDevice = "ppp0";
-$unreadFile = "$ENV{HOME}/settings/num.unread.news";
-#$tempChip = "via686a-isa-6000";    # seamonkey
-$tempChip = "it8712-isa-0290";      # io
-#$THRM = "THM0";                    # ganymede
-$THRM = "THRM";                     # io
-$logFile = "$ENV{HOME}/.cpulog";
-$logInterval = 600;      # in seconds
-$hdaName = "8,0";        # actually /dev/sda; "3,0" is /dev/hda
+my $ethDevice = "eth0";
+my $pppDevice = "ppp0";
+my $unreadFile = "$ENV{HOME}/settings/num.unread.news";
+#my $tempChip = "via686a-isa-6000";    # seamonkey
+my $tempChip = "it8712-isa-0290";      # io
+#my $THRM = "THM0";                    # ganymede
+my $THRM = "THRM";                     # io
+my $logFile = "$ENV{HOME}/.cpulog";
+my $logInterval = 600;      # in seconds
+my $hdaName = "8,0";        # actually /dev/sda; "3,0" is /dev/hda
 
 # kernel detection
-$kernelVersion = `uname -r`;
+my $kernelVersion = `uname -r`;
 if ($kernelVersion =~ m/^2\.2\./) {
   $kernel22 = 1;
 }
@@ -42,7 +42,7 @@ elsif ($kernelVersion =~ m/^2\.4\./) {
 }
 
 # machine dependencies
-$host = `hostname`;
+my $host = `hostname`;
 chomp($host);
 if ($host eq "ganymede") {
   $showTemp = 1;
@@ -57,22 +57,26 @@ if ($host eq "ganymede") {
 STDOUT->autoflush(1);
 
 # start by sampling counters
-@prev = getTickCounters();
+my @prev = getTickCounters();
 
 # this is used to make sure we completely erase the previous output
-$prevOutputLen = 0;
+my $prevOutputLen = 0;
 
 # used to limit reading frequency of temperature data
-$tempReadDelay = 0;
+my $tempReadDelay = 0;
+
+# saved temp and battery, for when we do not actually read them
+my $saveTemp = 0;
+my $saveBatt = 0;
 
 # similar for battery charge
-$battReadDelay = 0;
+my $battReadDelay = 0;
 
 # number of times we have displayed info since last log
-$unloggedDisplays = 0;
+my $unloggedDisplays = 0;
 
 # sum of tick counters since last log
-@unloggedTicks = asManyZeroesAs(@prev);
+my @unloggedTicks = asManyZeroesAs(@prev);
 
 # drop into infinite loop
 while (1) {
@@ -80,17 +84,17 @@ while (1) {
   sleep(1);
 
   # sample again
-  @next = getTickCounters();
+  my @next = getTickCounters();
 
   # compute differences
-  @ticks = elementwiseSubtract($#next + 1, @next, @prev);
-  ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, $disk4,
-   $sendCt, $recvCt, $pppSendCt, $pppRecvCt) = @ticks;
+  my @ticks = elementwiseSubtract($#next + 1, @next, @prev);
+  my ($user, $nice, $system, $idle, $disk1, $disk2, $disk3, $disk4,
+      $sendCt, $recvCt, $pppSendCt, $pppRecvCt) = @ticks;
   die if !defined($user);
   die if !defined($nice);
   die if !defined($system);
-  $duty = $user + $nice + $system;
-  $total = $duty + $idle;
+  my $duty = $user + $nice + $system;
+  my $total = $duty + $idle;
 
   # and running sum
   @unloggedTicks = elementwiseAdd($#ticks + 1, @unloggedTicks, @ticks);
@@ -99,7 +103,7 @@ while (1) {
   #print("user=$user nice=$nice system=$system idle=$idle\n");
 
   # get # of unread news articles
-  $unread = 0;
+  my $unread = 0;
   if ($showNews && (-f $unreadFile)) {
     open(IN, "<$unreadFile");
     $unread = <IN>;
@@ -107,11 +111,11 @@ while (1) {
     close(IN);
   }
 
-  $temp = readCpuTemp();
-  $batt = readBattery();
+  my $temp = readCpuTemp();
+  my $batt = readBattery();
 
   # compute usages
-  $output = "\r";        # begin by moving to beginning of line
+  my $output = "\r";        # begin by moving to beginning of line
   if ($showCpu) {
     $output .= "c" . pctString($duty * 100 / $total) . " ";
   }
@@ -284,6 +288,7 @@ sub getTickCounters {
   my ($pppRecvCt, $pppSendCt) = (0,0);
 
   # read the lines, filter for eth0 or ppp0
+  my $line;
   while ($line = <IN>) {
     if ($line =~ /$ethDevice/) {
       $line =~ s/.*://;     # strip leading "eth0:"
@@ -381,7 +386,7 @@ sub readBattery {
 
 # return a percentage as a 3-char string
 sub pctString {
-  ($val) = @_;
+  my ($val) = @_;
 
   if ($val < 0) {
     return "<0%";
@@ -400,10 +405,10 @@ sub pctString {
 
 # return a subarray
 sub subarray {
-  ($start, $count, @array) = @_;
+  my ($start, $count, @array) = @_;
 
   my @ret = ();
-  for ($i = 0; $i < $count; $i++) {
+  for (my $i = 0; $i < $count; $i++) {
     $ret[$i] = $array[$i + $start];
   }
 
@@ -413,17 +418,17 @@ sub subarray {
 
 # return an array computed by subtracting elements of one from another
 sub elementwiseSubtract {
-  ($count, @arrays) = @_;
+  my ($count, @arrays) = @_;
 
   if (@arrays != $count * 2) {
     die("\@arrays has length " . scalar(@arrays) . ", but count is $count");
   }
 
-  @left = subarray(0, $count, @arrays);
-  @right = subarray($count, $count, @arrays);
+  my @left = subarray(0, $count, @arrays);
+  my @right = subarray($count, $count, @arrays);
 
   my @ret = ();
-  for ($i = 0; $i < $count; $i++) {
+  for (my $i = 0; $i < $count; $i++) {
     if (!defined($left[$i])) { die("left has no element $i"); }
     if (!defined($right[$i])) { die("right has no element $i"); }
     $ret[$i] = $left[$i] - $right[$i];
@@ -434,17 +439,17 @@ sub elementwiseSubtract {
 
 # ...
 sub elementwiseAdd {
-  ($count, @arrays) = @_;
+  my ($count, @arrays) = @_;
 
   if (@arrays != $count * 2) {
     die("\@arrays has length " . scalar(@arrays) . ", but count is $count");
   }
 
-  @left = subarray(0, $count, @arrays);
-  @right = subarray($count, $count, @arrays);
+  my @left = subarray(0, $count, @arrays);
+  my @right = subarray($count, $count, @arrays);
 
   my @ret = ();
-  for ($i = 0; $i < $count; $i++) {
+  for (my $i = 0; $i < $count; $i++) {
     $ret[$i] = $left[$i] + $right[$i];
   }
 
@@ -455,7 +460,7 @@ sub elementwiseAdd {
 # return an array with as many zeroes as arguments passed
 sub asManyZeroesAs {
   my @ret = ();
-  for ($i = 0; $i < @_; $i++) {
+  for (my $i = 0; $i < @_; $i++) {
     $ret[$i] = 0;
   }
   return @ret;
