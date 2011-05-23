@@ -53,8 +53,66 @@ if ($host eq "ganymede") {
 }
 
 
+# true to print as CSV for perfmon, false to print as single
+# line, repeatedly overwritten, for stand-alone use
+my $printCSV = 0;
+
+
+# process command-line options
+while (scalar(@ARGV) > 0) {
+  my $opt = shift @ARGV;
+
+  if ($opt eq "-csv") {
+    $printCSV = 1;
+  }
+  else {
+    die("unknown option: $opt\n");
+  }
+}
+
+
 # flush all output immediately
 STDOUT->autoflush(1);
+
+
+# print CSV headers
+if ($printCSV) {
+  my $output = "";
+  if ($showCpu) {
+    addCSVCol(\$output, "cpu");
+  }
+  if ($showSys) {
+    addCSVCol(\$output, "sys");
+  }
+  if ($showTemp) {
+    addCSVCol(\$output, "temp");
+  }
+  if ($showHda) {
+    addCSVCol(\$output, "sda");
+  }
+  if ($showHdb) {
+    addCSVCol(\$output, "sdb");
+  }
+  if ($showHdc) {
+    addCSVCol(\$output, "sdc");
+  }
+  if ($showHdd) {
+    addCSVCol(\$output, "sdd");
+  }
+  if ($showEth) {
+    addCSVCol(\$output, "send");
+    addCSVCol(\$output, "recv");
+  }
+  if ($showPpp) {
+    addCSVCol(\$output, "pppsend");
+    addCSVCol(\$output, "ppprecv");
+  }
+  if ($showBatt) {
+    addCSVCol(\$output, "batt");
+  }
+  print($output, "\n");
+}
+
 
 # start by sampling counters
 my @prev = getTickCounters();
@@ -80,7 +138,8 @@ my @unloggedTicks = asManyZeroesAs(@prev);
 
 # drop into infinite loop
 while (1) {
-  # wait a moment
+  # wait a moment; this must be done at the top of the loop because
+  # the initial display is the *difference* between two samples
   sleep(1);
 
   # sample again
@@ -114,51 +173,89 @@ while (1) {
   my $temp = readCpuTemp();
   my $batt = readBattery();
 
-  # compute usages
-  my $output = "\r";        # begin by moving to beginning of line
-  if ($showCpu) {
-    $output .= "c" . pctString($duty * 100 / $total) . " ";
+  # print stats
+  if ($printCSV) {
+    my $output = "";
+    if ($showCpu) {
+      addCSVCol(\$output, ($duty / $total));
+    }
+    if ($showSys) {
+      addCSVCol(\$output, ($system / $total));
+    }
+    if ($showTemp) {
+      addCSVCol(\$output, $temp);
+    }
+    if ($showHda) {
+      addCSVCol(\$output, $disk1);
+    }
+    if ($showHdb) {
+      addCSVCol(\$output, $disk2);
+    }
+    if ($showHdc) {
+      addCSVCol(\$output, $disk3);
+    }
+    if ($showHdd) {
+      addCSVCol(\$output, $disk4);
+    }
+    if ($showEth) {
+      addCSVCol(\$output, $sendCt);
+      addCSVCol(\$output, $recvCt);
+    }
+    if ($showPpp) {
+      addCSVCol(\$output, $pppSendCt);
+      addCSVCol(\$output, $pppRecvCt);
+    }
+    if ($showBatt) {
+      addCSVCol(\$output, $batt);
+    }
+    print($output, "\n");
   }
-  if ($showSys) {
-    $output .= "s" . pctString($system * 100 / $total) . " ";
-  }
-  if ($showTemp) {
-    $output .= "$temp ";
-  }
-  if ($showHda) {
-    $output .= "a$disk1 ";
-  }
-  if ($showHdb) {
-    $output .= "b$disk2 ";
-  }
-  if ($showHdc) {
-    $output .= "c$disk3 ";
-  }
-  if ($showHdd) {
-    $output .= "d$disk4 ";
-  }
-  if ($showEth) {
-    $output .= "e$sendCt/$recvCt ";
-  }
-  if ($showPpp) {
-    $output .= "p$pppSendCt/$pppRecvCt ";
-  }
-  if ($showBatt) {
-    $output .= "B$batt ";
-  }
-  if ($unread > 0) {
-    $output .= "n$unread ";
-  }
-  $output .= " ";        # total of 2 spaces at end to clear old data
-  print($output);
+  else {
+    my $output = "\r";        # begin by moving to beginning of line
+    if ($showCpu) {
+      $output .= "c" . pctString($duty * 100 / $total) . " ";
+    }
+    if ($showSys) {
+      $output .= "s" . pctString($system * 100 / $total) . " ";
+    }
+    if ($showTemp) {
+      $output .= "$temp ";
+    }
+    if ($showHda) {
+      $output .= "a$disk1 ";
+    }
+    if ($showHdb) {
+      $output .= "b$disk2 ";
+    }
+    if ($showHdc) {
+      $output .= "c$disk3 ";
+    }
+    if ($showHdd) {
+      $output .= "d$disk4 ";
+    }
+    if ($showEth) {
+      $output .= "e$sendCt/$recvCt ";
+    }
+    if ($showPpp) {
+      $output .= "p$pppSendCt/$pppRecvCt ";
+    }
+    if ($showBatt) {
+      $output .= "B$batt ";
+    }
+    if ($unread > 0) {
+      $output .= "n$unread ";
+    }
+    $output .= " ";        # total of 2 spaces at end to clear old data
+    print($output);
 
-  # make sure prev line is erased
-  while (length($output) < $prevOutputLen) {
-    print(" ");
-    $prevOutputLen--;
-  }
+    # make sure prev line is erased
+    while (length($output) < $prevOutputLen) {
+      print(" ");
+      $prevOutputLen--;
+    }
 
-  $prevOutputLen = length($output) - 2;   # since $output has 2 spaces at end
+    $prevOutputLen = length($output) - 2;   # since $output has 2 spaces at end
+  }
 
   # replace prev with next
   @prev = @next;
@@ -332,7 +429,9 @@ sub readCpuTemp {
         my $line = `cat /proc/acpi/thermal_zone/$THRM/temperature`;
         ($ret) = ($line =~ /^temperature:\D*(\d+)/);
         if ($ret) {
-          $ret .= "°";     # UTF-8 encoded degree symbol
+          if (!$printCSV) {
+            $ret .= "°";     # UTF-8 encoded degree symbol
+          }
         }
         else {
           $ret = "${THRM}?";
@@ -474,6 +573,23 @@ sub makeLogEntry {
     chomp($d);
     print LLOG ("$d: ($unloggedDisplays) ", join(' ', @unloggedTicks), "\n");
     close(LLOG);
+  }
+}
+
+
+sub addCSVCol {
+  my ($lineRef, $value) = @_;
+
+  # for now, just make sure $value does not have any commas
+  if ($value =~ m/,/) {
+    die("addCSVCol: cannot handle value with commas: $value\n");
+  }
+
+  if (length(${$lineRef}) == 0) {
+    ${$lineRef} = $value;
+  }
+  else {
+    ${$lineRef} .= "," . $value;
   }
 }
 
