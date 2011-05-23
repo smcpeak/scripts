@@ -65,6 +65,9 @@ while (scalar(@ARGV) > 0) {
   if ($opt eq "-csv") {
     $printCSV = 1;
   }
+  elsif ($opt eq "-notemp") {
+    $showTemp = 0;
+  }
   else {
     die("unknown option: $opt\n");
   }
