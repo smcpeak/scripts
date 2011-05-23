@@ -1,0 +1,69 @@
+#!/usr/bin/perl -w
+# count lines of code in a bk repo
+
+use strict;
+
+# map from username to number of lines they "wrote" (in the
+# sense of being the last to touch a line)
+my %linesPerUser = {};
+
+
+
+# testing
+countLinesByUser($ARGV[0]);
+
+printLinesByUser();
+
+exit(0);
+
+
+
+# run "bk annotate" on $fname and use the results to update
+# %linesPerUser
+sub countLinesByUser {
+  my ($fname) = @_;
+
+  open(IN, "bk annotate '$fname' |")
+    or die("cannot bk annotate $fname\n");
+
+  my $lineNum = 0;
+  my $line;
+  while (defined($line = <IN>)) {
+    $lineNum++;
+
+    my ($user) = ($line =~ m/^(\S+)\t/);
+    if (!defined($user)) {
+      die("failed to parse line $lineNum of bk annotate $fname\n");
+    }
+
+    my $n = $linesPerUser{$user};
+    if (defined($n)) {
+      $linesPerUser{$user} = $n + 1;
+    }
+    else {
+      $linesPerUser{$user} = 1;
+    }
+  }
+
+  close(IN) or die;
+}
+
+
+# print %linesByUser
+sub printLinesByUser {
+  # count the total number of lines
+  my $total = 0;
+  foreach my $u (keys(%linesPerUser)) {
+    $total += $linesPerUser{$u};
+  }
+
+  # print the table
+  print("user                  lines    %");
+  foreach my $u (keys(%linesPerUser)) {
+    printf
+
+
+}
+
+
+# EOF

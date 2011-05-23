@@ -1,0 +1,79 @@
+#!/usr/bin/perl -w
+# wrapper around jenny test case generator
+# http://burtleburtle.net/bob/math/jenny.html
+
+use strict;
+
+# array of dimensions; each dimension is a reference to an array
+# of points along that dimension
+my @dimensions = (
+  [ "", "-j 2", "-j 4", "-j 8" ],
+  [ "", "--aggressiveness-level medium", "--aggressiveness-level high" ],
+  [ "--disable-default --enable FORWARD_NULL", "", "--security", 
+    "--concurrency", "--enable-parse-warnings", "--trial", "--all" ],
+  [ "", "--enable-callgraph-metrics" ],
+  [ "", "--enable-constraint-fpp" ],
+  [ "", "--enable-fnptr" ],
+  [ "", "--enable-single-virtual" ],
+  [ "", "--enable-virtual" ],
+  [ "", "--hfa" ],
+  [ "", "--no-field-offset-escape" ],
+  [ "", "--no-stats" ],
+  [ "", "--symbian" ],
+);
+
+my $cmd = "jenny";
+for my $d (@dimensions) {
+  my $n = scalar(@{$d});
+  $cmd .= " $n";
+}
+
+open(IN, "$cmd |") or die("failed to run jenny: $!\n");
+my $line;
+while (defined($line = <IN>)) {
+  chomp($line);
+  $line =~ s/^ +//;  # trim leading space
+  my @pts = split(/ /, $line);
+  if (scalar(@pts) != scalar(@dimensions)) {
+    die("output line has wrong number (" . scalar(@pts) . 
+        ") of points: $line\n");
+  }
+
+  my $dnum = 0;
+  for my $pt (@pts) {
+    my ($dnum1, $dval) = ($pt =~ m/^([0-9]+)([a-zA-Z])$/);
+    if (!defined($dval)) {
+      die("malformed point: $pt\n");
+    }
+    if ($dnum + 1 != $dnum1) {
+      die("expected point to have dim " . ($dnum + 1) . ": $pt\n");
+    }
+    my $d = $dimensions[$dnum];
+
+    my $val;
+    $dval = ord($dval);
+    if ($dval >= ord("a")) {
+      $val = $dval - ord("a");
+    }
+    else {
+      $val = $dval - ord("A");
+    }
+
+    if (!( 0 <= $val && $val < scalar(@{$d}) )) {
+      die("point $val out of range for dimension: $pt\n");
+    }
+    my $chosen = $d->[$val];
+
+    print("$chosen ");
+
+    $dnum++;
+  }
+  print("\n");
+}
+
+close(IN) or die("jenny failed with code $?\n");
+
+exit(0);
+
+
+# EOF
