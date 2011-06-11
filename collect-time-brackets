@@ -132,12 +132,18 @@ foreach $notesFname (@ARGV) {
       }
 
       if ($active) {
+        # sum activities for today
+        my $sum = 0;
+        foreach my $a (keys(%today)) {
+          if (!isIgnoredActivity($a)) {
+            $sum += $today{$a};
+          }
+        }
+
         # print summary of the day, and add to total
         print("$notesFname: $curDate:\n");
-        my $sum = 0;
-        foreach $a (sort(keys(%today))) {
-          my $minutes = printMinutes($a, $today{$a});
-          $sum += $minutes;
+        foreach my $a (sort(keys(%today))) {
+          my $minutes = printMinutes($a, $today{$a}, $sum);
 
           if ($minutes) {
             if (!defined($total{$a})) {
@@ -147,7 +153,7 @@ foreach $notesFname (@ARGV) {
           }
         }
         printDivider();
-        printMinutes("sum", $sum);
+        printMinutes("sum", $sum, $sum);
         print("\n");
       }
 
@@ -166,12 +172,18 @@ foreach $notesFname (@ARGV) {
 # higher-level categories: maps category name to total minutes
 my %categories = ();
 
+# sum the activities in advance so I can print percentags
+my $sum = 0;
+foreach my $a (keys(%total)) {
+  if (!isIgnoredActivity($a)) {
+    $sum += $total{$a};
+  }
+}
+
 # print final summary
 print("total for $startDate to $endDate:\n");
-$sum = 0;
-foreach $a (sort(keys(%total))) {
-  my $diff = printMinutes($a, $total{$a});
-  $sum += $diff;
+foreach my $a (sort(keys(%total))) {
+  my $diff = printMinutes($a, $total{$a}, $sum);
   
   my $cat = categorize($a);
   if (defined($categories{$cat})) {
@@ -182,7 +194,7 @@ foreach $a (sort(keys(%total))) {
   }
 }
 printDivider();
-printMinutes("total", $sum);
+printMinutes("total", $sum, $sum);
 print("\n");
 
 # print categorized minutes and fractions
@@ -226,19 +238,35 @@ sub testSubtractMinutes {
 }
 
 
+# return true if the activity should be ignored
+sub isIgnoredActivity {
+  my ($activity) = @_;
+
+  if ($activity =~ m/^-/) {     # begins with "-"
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
 # print a line of info for one activity, and return $minutes if the
 # activity should be counted in the total, 0 otherwise
 sub printMinutes {
-  my ($activity, $minutes) = @_;
+  my ($activity, $minutes, $sum) = @_;
 
-  printf("  %20s: %4d  %2.2f", $activity, $minutes, $minutes / (8 * 60));
-  if ($activity =~ m/^-/) {
-    # begins with "-", not counted
-    print(" (not counted)\n");
+  my $pct = 0;
+  if ($sum > 0) {
+    $pct = int($minutes / $sum * 100);
+  }
+
+  if (isIgnoredActivity($activity)) {
+    printf("  %20s: %4d  %2.2f  (not counted)\n", $activity, $minutes, $minutes / (8 * 60));
     return 0;
   }
   else {
-    print("\n");
+    printf("  %20s: %4d  %2.2f  %3d%%\n", $activity, $minutes, $minutes / (8 * 60), $pct);
     return $minutes;
   }
 }
@@ -322,8 +350,8 @@ sub categorize {
   if (defined($cat)) {
     return $cat;
   }
-  
-  die("categorize: unknown task: $task\n");
+
+  return "uncat";
 }
 
 sub diagnostic {
