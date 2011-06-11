@@ -180,10 +180,10 @@ while (1) {
   if ($printCSV) {
     my $output = "";
     if ($showCpu) {
-      addCSVCol(\$output, ($duty / $total));
+      addCSVCol(\$output, int($duty * 100 / $total));
     }
     if ($showSys) {
-      addCSVCol(\$output, ($system / $total));
+      addCSVCol(\$output, int($system * 100 / $total));
     }
     if ($showTemp) {
       addCSVCol(\$output, $temp);
