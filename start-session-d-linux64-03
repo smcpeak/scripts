@@ -9,8 +9,8 @@ grab_id() {
   id=`xwininfo -name "$1" | grep "Window id" | awk '{ print $4 }'`
   id=$id
   if [ "$id" = "" ]; then
-    echo "Couldn't find the right window id"
-    exit 2
+    echo "Couldn't find the right window id for $1"
+    #exit 2
   fi
 }
 
