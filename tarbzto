@@ -1,0 +1,15 @@
+#!/bin/sh
+# script to tar and bzip2 a directory, with a specified destination file
+
+if [ "$2" = "" ]; then
+  echo "usage: $0 directory-name final-tarball-name.tar.bz2"
+  exit
+fi
+
+# I often screw up and put a trailing slash in the name
+# (by using filename completion); this fixes it
+d=`echo $1 | sed 's#/$##'`
+
+tar cvf - $d | bzip2 -c > "$2"
+
+# EOF
