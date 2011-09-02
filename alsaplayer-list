@@ -32,13 +32,33 @@ while (defined($line = <IN>)) {
 close(IN) or die;
 
 # construct a command line
-my @cmd = ("alsaplayer", "--session", "0", "--replace", @filenames);
-if ($debug) {
-  for my $s (@cmd) {
-    print("$s\n");
+run("alsaplayer", "--session", "0", "--replace", @filenames);
+
+# ugh!
+sleep(1);
+
+# wtf?
+run("alsaplayer", "--session", "0", "--stop");
+
+# ugh!!
+sleep(1);
+
+# also have to start it?
+run("alsaplayer", "--session", "0", "--start");
+
+
+sub run {
+  my @cmd = @_;
+
+  if ($debug) {
+    for my $s (@cmd) {
+      print("$s\n");
+    }
+  }
+
+  if (system(@cmd) != 0) {
+    die("command faild with code $?: @cmd\n");
   }
 }
-
-(system(@cmd)==0) || die("alsaplayer failed with code $?\n");
 
 # EOF
