@@ -36,6 +36,7 @@ xset -dpms
 start-cpu-monitor
 #start-xbiff
 start-logwin
+start-perfmon
 
 # mp3
 xterm -geometry 80x24+0-32 -title mp3 -e sh -c 'stitle mp3; console-renice -15 $$; cd $HOME/mp3; exec bash' &
