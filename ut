@@ -1,11 +1,12 @@
-#! /bin/csh -f
+#!/bin/sh
 # set title to user@host
 
-set title = "`whoami`@`hostname | sed 's/\..*//'`"
+title="`whoami`@`hostname | sed 's/\..*//'`"
 
-if ( "$1" == "" ) then
-  stitle $title
+if [ "$1" = "" ]; then
+  stitle "$title"
 else
-  stitle "${title}: ${1}"
-endif
+  stitle "$title: $1"
+fi
 
+# EOF
