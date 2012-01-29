@@ -52,7 +52,7 @@ $bzipped    = ($prefix =~ s/(\.tar\.bz2)|(\.tbz2)|(\.tbz)$//);
 $pkzipped   = ($prefix =~ s/(\.zip)|(\.ZIP)$//);
 $debbed     = ($prefix =~ s/\.deb$//);
 $compressed = ($prefix =~ s/\.tar\.Z$//);
-$jarred     = ($prefix =~ s/\.jar$//);
+$jarred     = ($prefix =~ s/\.[wj]ar$//);
 $rarred     = ($prefix =~ s/\.rar$//);
 $rpmmed     = ($prefix =~ s/\.rpm$//);
 
