@@ -24,7 +24,10 @@ if [ "$PS1" != "" ]; then
   #  intr: soft-kill (normal ^C)
   #  susp: suspend process
   #  -ixon -ixoff: disable software flow control (annoying ^S/^Q thing)
-  stty erase ^H kill ^K intr ^C susp ^Z -ixon -ixoff >/dev/null 2>&1
+  #stty erase ^H kill ^K intr ^C susp ^Z -ixon -ixoff >/dev/null 2>&1
+  
+  # just turn off flow control
+  stty -ixon -ixoff >/dev/null 2>&1
 fi
 
 # environment variables
