@@ -10,14 +10,7 @@ $myname = $0;
 $myname =~ s%.*/%%;   # strip path component
 if (@ARGV < 1) {
   print("usage: $myname filename.tar.gz\n",
-        "   or: $myname filename.tar.bz2\n",
-        "   or: $myname filename.zip\n",
-        "   or: $myname filename.tar\n",
-        "   or: $myname filename.deb\n",
-        "   or: $myname filename.tar.Z\n",
-        "   or: $myname filename.jar\n",
-        "   or: $myname filename.rar\n",
-        "   or: $myname filename.rpm\n",
+        "   or other known extension\n",
         "unpacks contents of file into a subdir of current directory\n",
         "($myname will create a directory if necessary)\n");
   exit(0);
@@ -55,11 +48,12 @@ $compressed = ($prefix =~ s/\.tar\.Z$//);
 $jarred     = ($prefix =~ s/\.jar$//);
 $rarred     = ($prefix =~ s/\.rar$//);
 $rpmmed     = ($prefix =~ s/\.rpm$//);
+$seven7d    = ($prefix =~ s/\.7z$//);
 
 # how many matched?
 $recognizedFormat = $tarred + $gzipped + $bzipped + $pkzipped +
                     $debbed + $compressed + $jarred + $rarred +
-                    $rpmmed;
+                    $rpmmed + $seven7d;
 
 if ($recognizedFormat == 0) {
   # extension not recognized..
@@ -67,7 +61,7 @@ if ($recognizedFormat == 0) {
   exit(1);
 }
 if ($recognizedFormat != 1) {
-  die "multiply-archived?  I'm confused...\n";
+  die "multiple recognized extensions?  I'm confused...\n";
 }
 
 #print("prefix is $prefix\n");
@@ -117,6 +111,9 @@ elsif ($rarred) {
 }
 elsif ($rpmmed) {
   die("sorry, RPM not implemented..\n");
+}
+elsif ($seven7d) {
+  $res = system("7z", "x", $archiveAbsolute);
 }
 else {
   die("oops");
