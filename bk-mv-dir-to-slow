@@ -1,0 +1,8 @@
+#!/bin/sh
+
+while [ "x$1" != "x" ]; do
+  runecho bk-mvdir "$1" "slow-$1" || exit
+  shift
+done
+
+# EOF

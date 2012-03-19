@@ -1,0 +1,69 @@
+#!/usr/bin/perl -w
+# bk mv directory that is faster than bk builtin
+
+use strict;
+
+if (scalar(@ARGV) != 2) {
+  die("usage: $0 srcdir destdir\n");
+}
+         
+my $srcdir = $ARGV[0];
+my $destdir = $ARGV[1];
+
+if (! -d $srcdir) {
+  die("source dir does not exist: $srcdir\n");
+}
+
+if (-d $destdir) {
+  die("dest dir already exists: $destdir\n");
+}
+if (!mkdir($destdir)) {
+  die("mkdir $destdir: $!\n");
+}
+
+my @files = `bk sfiles -g $srcdir`;
+
+for my $file (@files) {
+  chomp($file);
+
+  my ($dir, $rest) = ($file =~ m,^([^/]+)/(.*)$,);
+  if (!defined($rest)) {
+    die("file does not have directory separator: $file\n");
+  }
+
+  runecho("bk", "mv", $file, "$destdir/$rest");
+}
+
+if (-d $srcdir) {
+  print("warning: bk did not remove $srcdir\n");
+}
+else {
+  print("$srcdir is now gone\n");
+}
+
+# like system(), but bail on ctrl-C
+sub mysystem {
+  my $res = system(@_);
+  if ($res == 2) {
+    # ctrl-C
+    kill(2, $$);
+    die("should have died...");
+  }
+  return $res;
+}
+
+sub runecho {
+  my @cmd = @_;
+
+  print("@cmd\n");
+  my $res = mysystem(@cmd);
+  if ($res != 0) {
+    my $sig = $res & 0xff;
+    my $code = $res >> 8;
+    die("$0: command \"@cmd\" failed with " .
+	($sig? "signal $sig" : "exit code $code") .
+	" (aborting)\n");
+  }
+}
+
+# EOF

@@ -1,0 +1,23 @@
+#!/bin/sh
+# extract just the VERSION file from a distro tarball
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 tarball"
+  exit 2
+fi
+
+while [ "x$1" != "x" ]; do
+  versionfile=`tar tfz "$1" | grep 'VERSION$'`
+  if [ "x$versionfile" = "x" ]; then
+    echo "failed to find the name of the VERSION file in $1"
+    exit 2
+  fi
+
+  # I deliberately do not quote $versionfile since there can be more
+  # than one VERSION file (findbugs-ext/VERSION) and I want them all.
+  runecho tar xfz "$1" $versionfile || exit
+
+  shift
+done
+
+# EOF
