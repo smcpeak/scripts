@@ -1,0 +1,6 @@
+#!/bin/sh
+# xargs with newline as delimiter
+
+exec xargs -d '\n' "$@"
+
+# EOF
