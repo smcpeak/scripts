@@ -1,68 +1,373 @@
 #!/usr/bin/perl -w
-# count lines of code in a bk repo
+# count lines of code in a BK repo
 
 use strict;
 
-# map from username to number of lines they "wrote" (in the
-# sense of being the last to touch a line)
-my %linesPerUser = {};
+
+# ------------------------ configuration ------------------------
+# Set of source code file name extensions, in lowercase; file
+# extensions will be lowercased before comparison, to effect a
+# case-insensitive comparison.
+#
+# NOTE: HTML and TXT are not included because they do not
+# implement functionality that we ship to users.
+my @sourceExts = qw(c cc cpp h hh hpp java xml js cs pl rb
+                    bat cmd css dtd pm pom properties
+                    ptc py sh xsl
+                    ast c++ ccs conf cst cxx h++ lex perl y);
+
+# Map from regex to file classification.  Any file that does not match
+# any regex is classified as "principal".  Files mapped (either
+# implicitly or explicitly) to "principal" are what is counted.
+# "Principal" means source code files in the sense of being primarily
+# maintained by Coverity, implementing functionality that we ship to
+# users and not automatically generated.
+#
+# They are processed in order.  The first one that matches a given
+# file name is used to classify that file name.
+my @classifications = (
+  # Some examples appear below.  Adjust them as needed.
+
+  # JPrevent
+  "^modelsrc/"            => "models",
+  "^testsuite/"           => "tests",
+  "^third-party/"         => "third party",
+  "^src/dont_call.xml"    => "generated",
+
+  # C#Prevent
+  "^models/"              => "models",
+
+  # CPrevent analysis; exclude non-analysis components
+  #
+  # 2010-11-12: I simplified the regexes so I could summarize what
+  # we are counting more concisely.  The changes don't significantly
+  # change the results, except that the old regexes were erroneously
+  # counting the test inputs in test-checkers.
+  "/test"                 => "tests",
+  "/jtest"                => "tests",
+  "jp-testsuite"          => "tests",
+  "/cmd-test"             => "tests",
+  "/cmd-jtest"            => "tests",
+  "/library"              => "models",
+  "/cc\.ast\.hpp"         => "generated",
+  "^analysis/"            => "principal",
+  "^libs/"                => "principal",
+  "^jfe/src/java_emit/"   => "principal",
+  "."                     => "other",
+);
+
+# Map from an alternate user name to the canonical username.
+my %userNameMap = (
+  "ac"                    => "achou",
+  "acc"                   => "achou",
+  "andy"                  => "achou",
+  "bryan"                 => "bfulton",
+  "brian"                 => "bdantes",
+  "ch"                    => "chgros",
+  "hallem"                => "shallem",
+  "mcdirmid"              => "smcdirmid",
+  "scott"                 => "smcpeak",
+);
+
+# Where is cov-count-lines?
+my $covCountLines = "$ENV{HOME}/opt/cov-sa-linux64-5.5.1/bin/cov-count-lines";
 
 
+# ------------------------- outputs -------------------------
+# When true, print all the source file names, as classified
+# by their extension
+my $printSourceFileNames = 0;
 
-# testing
-countLinesByUser($ARGV[0]);
+# When true, print a table of all the extensions found in the
+# repo and how many files had that extension, including those
+# classified as not being source code.
+my $printExtensionHistogram = 0;
 
-printLinesByUser();
+# When true, print every source file name and its classification
+# according to @classifications.
+my $printFileNameClassifications = 0;
+
+# When true, print a table of classifications and file counts.
+my $printClassHistogram = 0;
+
+# When true, print table of authors and line counts.
+my $printAuthorHistogram = 1;
+
+# An author must have at least this percent (rounded) of lines
+# to be reported in the author table.
+my $authorPctThreshold = 1;
+
+# When true, print out the names of files with more than $bigFileLOC.
+my $checkForBigFiles = 1;
+
+# LOC threshold, as reported by cov-count-lines, for files to
+# warn about.
+my $bigFileLOC = 5000;
+
+# When true, print miscellaneous debug stuff.
+my $debug = 1;
+
+# When true, do not delete the temporary file used as input to
+# cov-count-lines.
+my $saveTempFile = 1;
+
+
+# --------------------- how to query SCM ------------------------
+# Get a list of all files in the repo.
+my $getRepoFilesCmd = "bk sfiles -g";
+
+# Read a list of files on stdin and produce annotated source code.
+my $annotateCmd = "xargs bk annotate";
+
+# for git
+if (0) {
+  $getRepoFilesCmd = "ls";   # crude...
+  $annotateCmd = "xargs -n 1 git blame | cut -b11- ";    # hacky...
+}
+
+
+# --------------------------- program ---------------------------
+if (scalar(@classifications) % 2 != 0) {
+  die("\@classifications must be an even-length list\n");
+}
+
+# Get the list of all repo files.  Note that these have newlines
+# at the end of each one.
+diagnostic("running: $getRepoFilesCmd");
+my @allRepoFiles = `$getRepoFilesCmd`;
+print("Total files in repo: " . scalar(@allRepoFiles) . "\n");
+
+# hash of source extensions
+my %sourceExtsHash = ();
+for my $se (@sourceExts) {
+  $sourceExtsHash{$se} = 1;
+}
+
+# map of all extensions to frequency, so I can see all of them
+# to recognize cases where the set of extensions is incomplete
+my %extToFreq = ();
+
+# All source files.  These don't have newlines.
+my @sourceFiles = ();
+
+# throw away the deleted and non-source files
+for my $fname (@allRepoFiles) {
+  chomp($fname);
+
+  # discard deleted (etc.) files
+  if ($fname =~ m,^BitKeeper/,) {
+    incHashElt(\%extToFreq, "(deleted)");
+    next;
+  }
+
+  # classify extension
+  my ($ext) = ($fname =~ m/\.([^.\/]+)$/);
+  if (defined($ext)) {
+    $ext = lc($ext);
+    incHashElt(\%extToFreq, $ext);
+    if (defined($sourceExtsHash{$ext})) {
+      push @sourceFiles, ($fname);
+    }
+  }
+  else {
+    incHashElt(\%extToFreq, "(none)");
+  }
+}
+print("Source files in repo: " . scalar(@sourceFiles) . "\n");
+
+# all source files
+if ($printSourceFileNames) {
+  for my $fn (@sourceFiles) {
+    print("$fn\n");
+  }
+}
+
+# breakdown by hash
+if ($printExtensionHistogram) {
+  print("file extensions:\n");
+  for my $ext (sort(keys(%extToFreq))) {
+    printf("  %25s  %5d  %s\n", $ext, $extToFreq{$ext},
+           (defined($sourceExtsHash{$ext})? "(source)" : ""));
+  }
+}
+
+# files per classification
+my %classToFreq = ();
+
+# all the principal source code files
+my @principalSourceFiles = ();
+
+# A temporary file containing all of the principal source code file names,
+# one per line, for feeding to cov-count-lines.
+my $psfListFile = "/tmp/count-bk-lines.$$.tmp";
+open(LIST, ">$psfListFile") or die("cannot write $psfListFile: $!\n");
+END {
+  if (defined($psfListFile)) {
+    if ($saveTempFile) {
+      print("saved temp file: $psfListFile\n");
+    }
+    else {
+      if ($debug) {
+        print("rm $psfListFile\n");
+      }
+      unlink($psfListFile);
+    }
+  }
+  else {
+    # apparently END blocks are run even if execution never
+    # got their lexical point of definition ....
+  }
+}
+
+# All the classification regexes, in order.
+my @classRegexes = ();
+
+# Map from regex to classification.
+my %regexToClass = ();
+
+for (my $i=0; $i < scalar(@classifications); $i += 2) {
+  my $regex = $classifications[$i];
+  my $class = $classifications[$i+1];
+  push @classRegexes, ($regex);
+  $regexToClass{$regex} = $class;
+}
+
+# Classify source files using @classifications.
+for my $fname (@sourceFiles) {
+  my $class = "principal";
+  for my $regex (@classRegexes) {
+    if ($fname =~ m/$regex/) {
+      $class = $regexToClass{$regex};
+      last;
+    }
+  }
+
+  incHashElt(\%classToFreq, $class);
+
+  if ($printFileNameClassifications) {
+    print("$class: $fname\n");
+  }
+
+  if ($class eq "principal") {
+    push @principalSourceFiles, ($fname);
+    print LIST ("$fname\n");
+  }
+}
+
+close(LIST) or die;
+
+if ($printClassHistogram) {
+  print("file classifications:\n");
+  for my $class (sort(keys(%classToFreq))) {
+    printf("  %25s  %5d\n", $class, $classToFreq{$class});
+  }
+}
+
+print("Principal source code files in repo: $classToFreq{principal}\n");
+
+# Total LOC according to cov-count-lines.
+my $totalLOC = undef;
+diagnostic("running: $covCountLines --list $psfListFile");
+open(PIPE, "$covCountLines --list $psfListFile |")
+  or die("cannot run $covCountLines: $!\n");
+my $line;
+while (defined($line = <PIPE>)) {
+  # check for unusually big files, which might be autogenerated
+  if ($checkForBigFiles) {
+    my ($fname, $loc) = ($line =~ m/^File: (.*); Analyzable lines: (\d+)$/);
+    if (defined($loc) && $loc > $bigFileLOC) {
+      print("suspicious: $fname has $loc LOC\n");
+    }
+  }
+
+  my ($tot) = ($line =~ m/^Total Analyzable Lines for Coverity Pricing: (\d+)$/);
+  if (defined($tot)) {
+    $totalLOC = $tot;
+  }
+}
+close(PIPE)
+  or die("$covCountLines failed\n");
+
+if (!defined($totalLOC)) {
+  die("cov-count-lines failed to produce the expected final output line\n");
+}
+
+print("Principal LOC according to cov-count-lines: $totalLOC\n");
+
+# Total number of lines across all files.
+my $totalLines = 0;
+
+# Map from author to number of lines.
+my %authorToLines = ();
+
+# Process each principal source code file, gathering the
+# above two pieces of info.
+diagnostic("running: cat $psfListFile | $annotateCmd");
+open(PIPE, "cat $psfListFile | $annotateCmd |")
+  or die("cannot run the $annotateCmd pipe: $!\n");
+while (defined($line = <PIPE>)) {
+  my ($author) = ($line =~ m/^(\S+)\s/);
+  if (!defined($author)) {
+    die("malformed bk annotate output line: $line");   # $line has a newline
+  }
+
+  # if the author string has a slash, throw it and the second name away
+  $author =~ s,/.*,,;
+  
+  # normalize by lowercasing
+  $author = lc($author);
+  
+  # pass through canonicalization map
+  my $canon = $userNameMap{$author};
+  if (defined($canon)) {
+    $author = $canon;
+  }
+
+  incHashElt(\%authorToLines, $author);
+  $totalLines++;
+}
+close(PIPE)
+  or die("$annotateCmd pipe failed\n");
+
+print("Principal total lines (incl. blank/comment): $totalLines\n");
+
+if ($printAuthorHistogram) {
+  print("                     author      lines    %\n");
+  print("  -----------------------------------------\n");
+
+  for my $author (sort(keys(%authorToLines))) {
+    my $pct = 0;
+    if ($totalLines > 0) {
+      $pct = int($authorToLines{$author} * 100 / $totalLines + 0.5);
+    }
+
+    if ($pct >= $authorPctThreshold) {
+      printf("  %25s  %9d %3d%%\n", $author, $authorToLines{$author}, $pct);
+    }
+  }
+}
 
 exit(0);
 
 
+# bump the count of $elt in $hash (reference to a hash) by 1
+sub incHashElt {
+  my ($hash, $elt) = @_;
 
-# run "bk annotate" on $fname and use the results to update
-# %linesPerUser
-sub countLinesByUser {
-  my ($fname) = @_;
-
-  open(IN, "bk annotate '$fname' |")
-    or die("cannot bk annotate $fname\n");
-
-  my $lineNum = 0;
-  my $line;
-  while (defined($line = <IN>)) {
-    $lineNum++;
-
-    my ($user) = ($line =~ m/^(\S+)\t/);
-    if (!defined($user)) {
-      die("failed to parse line $lineNum of bk annotate $fname\n");
-    }
-
-    my $n = $linesPerUser{$user};
-    if (defined($n)) {
-      $linesPerUser{$user} = $n + 1;
-    }
-    else {
-      $linesPerUser{$user} = 1;
-    }
+  if (defined($hash->{$elt})) {
+    $hash->{$elt}++;
   }
-
-  close(IN) or die;
+  else {
+    $hash->{$elt} = 1;
+  }
 }
 
 
-# print %linesByUser
-sub printLinesByUser {
-  # count the total number of lines
-  my $total = 0;
-  foreach my $u (keys(%linesPerUser)) {
-    $total += $linesPerUser{$u};
+# debugging print
+sub diagnostic {
+  if ($debug) {
+    print(@_, "\n");
   }
-
-  # print the table
-  print("user                  lines    %");
-  foreach my $u (keys(%linesPerUser)) {
-    printf
-
-
 }
 
 

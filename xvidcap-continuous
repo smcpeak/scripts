@@ -1,0 +1,36 @@
+#!/bin/sh
+# run xvidcap to make a continuous screen capture
+
+# how many seconds each video should last for
+video_secs=60
+
+# how old, in minutes, a capture-* video must be for this
+# script to remove it to save disk space
+remove_age_mins=60
+
+# screen capture of course has the potential for privacy
+# problems; make sure the files are created as private
+umask 0077
+
+while true; do
+  # clean up the old videos
+  find . -maxdepth 1 -mmin +$remove_age_mins -name 'capture-*.mpeg' \
+         -exec runecho rm '{}' ';' || exit
+
+  now=`date +%Y-%m-%dT%H:%M:%S`
+  echo "capturing movie $now"
+  if xvidcap --file capture-$now.mpeg \
+             --audio no --gui no \
+             --cap_geometry 1550x1100+50+0 \
+             --time $video_secs; then
+    true
+  else
+    # xvidcap seems to crash when the system load is high; I want it
+    # to try to keep going, but I do not want to add a bunch more
+    # load, so this is rate limited
+    echo "xvidcap failed; waiting  1s to try again"
+    sleep  1
+  fi
+done
+
+# EOF

@@ -17,6 +17,12 @@ my $lineNumber = 0;
 while (defined($line = <STDIN>)) {
   $lineNumber++;
 
+  # allow some section headings to be ignored
+  if ($line =~ m/NONUMBER/) {
+    print($line);
+    next;
+  }
+
   eval {
     my $level;      # heading level
     my $label;      # heading label

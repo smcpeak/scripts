@@ -1,0 +1,64 @@
+#!/usr/bin/perl -w
+# enqueue a playlist.txt file in a running alsaplay instance
+
+use strict;
+
+if (scalar(@ARGV) != 1) {
+  die("usage: $0 playlist.txt\n");
+}
+
+my $debug = 0;
+
+my $playlist = $ARGV[0];
+
+# read $playlist into @filenames
+my @filenames = ();
+open(IN, "<$playlist") or die("cannot read $playlist: $!\n");
+my $line;
+while (defined($line = <IN>)) {
+  # chomp
+  $line =~ s/[\r\n]+$//;
+  
+  # remove comments
+  $line =~ s/\#.*//;
+  
+  # skip blank lines
+  if ($line =~ m/^\s*$/) {
+    next;
+  }
+  
+  push @filenames, ($line);
+}
+close(IN) or die;
+
+# construct a command line
+run("alsaplayer", "--session", "0", "--replace", @filenames);
+
+# ugh!
+sleep(1);
+
+# wtf?
+run("alsaplayer", "--session", "0", "--stop");
+
+# ugh!!
+sleep(1);
+
+# also have to start it?
+run("alsaplayer", "--session", "0", "--start");
+
+
+sub run {
+  my @cmd = @_;
+
+  if ($debug) {
+    for my $s (@cmd) {
+      print("$s\n");
+    }
+  }
+
+  if (system(@cmd) != 0) {
+    die("command faild with code $?: @cmd\n");
+  }
+}
+
+# EOF

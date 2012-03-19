@@ -1,0 +1,20 @@
+#!/usr/bin/perl -w
+# url-encode stdin, write to stdout
+
+use strict;
+
+my $line;
+while (defined($line = <STDIN>)) {
+  for (my $i=0; $i < length($line); $i++) {
+    my $c = substr($line, $i, 1);
+    if ($c =~ m/^[a-zA-Z0-9\$\-_.+!*\'(),]$/) {
+      print($c);
+    }
+    else {
+      my $i = ord($c);
+      printf("%%%02X", $i);
+    }
+  }
+}
+
+# EOF
