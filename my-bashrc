@@ -147,6 +147,9 @@ export BK_TRIGGER_FIX_COPYRIGHT=1
 # personal perl modules
 export PERL5LIB=$HOME/lib/perl
 
+# Make maven suck a little less
+export MAVEN_OPTS="-XX:MaxPermSize=1024M"
+
 # site-specific (should be last thing in this file)
 if [ -f ~/.bashrc-site ]; then
   . ~/.bashrc-site
