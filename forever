@@ -1,0 +1,15 @@
+#!/bin/sh
+# run a command in an infinite loop
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 command [args...]"
+  exit 2
+fi
+
+while true; do
+  echo "$@"
+  "$@"
+  echo "exit code: $?"
+done
+
+# EOF

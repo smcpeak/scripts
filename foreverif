@@ -1,0 +1,14 @@
+#!/bin/sh
+# run a command in an infinite loop until it fails
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 command [args...]"
+  exit 2
+fi
+
+while true; do
+  echo "$@"
+  "$@" || exit
+done
+
+# EOF
