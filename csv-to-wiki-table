@@ -13,14 +13,31 @@ use strict;
 #   | g || h || i
 #   |}
 
+# True to make the first row a title row.
+my $firstRowTitle = 0;
+
+# Process command line arguments.
+for my $arg (@ARGV) {
+  if ($arg eq "-title") {
+    $firstRowTitle = 1;
+  }
+  else {
+    die("unknown argument: $arg\n");
+  }
+}
+
 print("{| border=\"1\"\n");
 
 
 my $line = <STDIN>;
 my @fields = splitCSV($line);
 
-print("| " . join(" || ", @fields) . "\n");
-
+if ($firstRowTitle) {
+  print("! " . join(" !! ", @fields) . "\n");
+}
+else {
+  print("| " . join(" || ", @fields) . "\n");
+}
 
 while (defined($line = <STDIN>)) {
   print("|-\n");
