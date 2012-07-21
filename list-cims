@@ -1,0 +1,68 @@
+#!/usr/bin/perl -w
+# list all running CIMs on the machine
+
+use strict;
+
+my @pids = `/bin/ls -1 /proc`;
+
+for my $pid (@pids) {
+  chomp($pid);
+  if ($pid !~ m/^[0-9]+$/) {
+    next;    # exclude non-pids
+  }
+
+  if (!open(IN, "</proc/$pid/cmdline")) {
+    next;    # ignore processes I don't have permission to see
+  }
+  my $cmdline = <IN>;     # bug: if newline in cmdline, stops there
+  close(IN);             
+
+  if (!defined($cmdline)) {
+    next;    # ?
+  }
+
+  my ($cesHome) = ($cmdline =~ m/\x00-Dces.home=([^\x00]+)\x00/);
+  if (!defined($cesHome)) {
+    next;    # not a CIM process
+  }
+
+  print("---------------------------------------\n");  
+  print("pid: $pid\n");
+  print("ces.home: $cesHome\n");
+  
+  printPort($cesHome, "config/web.properties", "http.port", "HTTP port");
+  printPort($cesHome, "config/cim.properties", "commitPort", "Commit port");
+  printPort($cesHome, "config/system.properties", "pg_port", "Postgres port");
+  
+  my $tomcatPort = `grep '^<Server port=.* shutdown=' $cesHome/server/base/conf/server.xml 2>/dev/null`;
+  if ($? == 0) {
+    my ($port) = ($tomcatPort =~ m/port=\"(\d+)\"/);
+    if (defined($port)) {
+      print("Tomcat control port: $port\n");
+    }
+    else {
+      print("Tomcat control port: bad port line: $tomcatPort\n");
+    }
+  }
+  else {
+    print("Tomcat control port: unknown\n");
+  }
+  
+  print("\n");
+}
+
+sub printPort {
+  my ($cesHome, $configFile, $varName, $label) = @_;
+
+  my $port = `grep $varName $cesHome/$configFile 2>/dev/null`;
+  chomp($port);
+  if ($? == 0) {
+    $port =~ s/^$varName=//;
+    print("$label: $port\n");
+  }
+  else {
+    print("$label: unknown\n");
+  }
+}
+
+# EOF

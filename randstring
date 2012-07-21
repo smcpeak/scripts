@@ -1,0 +1,6 @@
+#!/bin/sh
+# produce a random string
+
+dd if=/dev/urandom bs=1 count=16 2>/dev/null | base64 | cut -b1-8
+
+# EOF

@@ -8,6 +8,24 @@ fi
 
 rev="$1"
 
+if [ -d .git ]; then
+  # get parent
+  parents=`git log -n 1 --format=format:%P $1`
+  if [ x = "x$parents" ]; then
+    echo "failed to get parents of $rev"
+  fi
+  parent=`echo $parents | awk '{ print $1 }'`
+  if [ x = "x$parent" ]; then
+    echo "failed to get parent of $rev"
+  fi
+
+  # get diff
+  echo git diff "$parent..$rev" \> "changeset-$rev.patch"
+  git diff "$parent..$rev" > "changeset-$rev.patch"
+
+  exit
+fi
+
 # get the parent of the revision
 parent=`bk prs -h -r$rev -d:PARENT:`
 if [ x = x$parent ]; then
