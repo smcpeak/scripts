@@ -1,0 +1,185 @@
+#!/usr/bin/perl -w
+# re-do a given git merge cset
+
+use strict;
+
+if (@ARGV < 1) {
+  die("usage: $0 [-interactive] [-quiet] <hash>\n");
+}
+
+# When true, allow user to merge files that have conflicts
+# and enter a commit message, in order to create a merge
+# node that might be pushed
+my $interactive = 0;
+
+# When true, suppress all output except the last message.
+my $quiet = "";
+my $quietDevNull = "";
+
+while (scalar(@ARGV > 0) && $ARGV[0] =~ m/^-/) {
+  my $arg = $ARGV[0];
+  shift @ARGV;
+
+  if ($arg eq "-interactive") {
+    $interactive = 1;
+  }
+  elsif ($arg eq "-quiet") {
+    $quiet = "--quiet";
+    $quietDevNull = ">/dev/null 2>&1";     # some git commands are broken w.r.t. --quiet ....
+  }
+  else {
+    die("unknown argument: $arg\n");
+  }
+}
+
+if ($interactive && $quiet) {
+  die("-interactive and -quiet are incompatible\n");
+}
+
+my $origMerge = $ARGV[0];
+
+# Get primary and merge parent.
+my $parents = `git log -n 1 --format=format:%P $origMerge`;
+if ($? != 0) {
+  die("command failed: git log -n 1 --format=format:%P $origMerge\n");
+}
+
+my ($primaryParent, $mergeParent) =
+  ($parents =~ m/^([0-9a-f]{40}) ([0-9a-f]{40})$/);
+if (!defined($mergeParent)) {
+  # Special-case non-merges so I don't have to filter elsewhere.
+  if ($parents =~ m/^[0-9a-f]{40}$/) {
+    print("$origMerge is not a merge node\n");
+    exit(0);
+  }
+
+  die("unrecognized git log output: $parents");
+}
+
+diagnostic("primary parent: $primaryParent");
+diagnostic("merge parent: $mergeParent");
+
+# Check out primary parent in preparation for new merge.
+run("git checkout $quiet $primaryParent");
+
+# Merge in merge parent.
+my $code = mysystemcode("git merge $mergeParent $quietDevNull");
+if ($code > 1) {
+  die("failed: git merge $mergeParent\n");
+}
+
+if ($code > 0) {
+  # Manual merging required.
+  if ($interactive) {
+    # Start merging.
+    run("git mergetool");
+
+    # Throw away the .orig files.
+    run("git ls-files --others --exclude-standard | xargs rm -f");
+
+    # Commit it.
+    run("git citool");
+  }
+  else {
+    # Get set of conflicting files.
+    my @conflictOutput = `git ls-files --unmerged`;
+    if ($? != 0) {
+      die("failed: git ls-files --unmerged\n");
+    }
+    my %conflictFiles = ();
+    for my $line (@conflictOutput) {
+      my ($fname) = ($line =~ m/\t(.*)$/);
+      chomp($fname);
+      $conflictFiles{$fname} = 1;
+    }
+
+    # Assume that all the conflicting files should be merged according
+    # to how they were merged originally.  This is not right for some
+    # of our broken merges, but it allows the check for broken merges
+    # to be mostly automatic, since broken merges have problems in the
+    # files that didn't have conflicts.
+    for my $fname (sort(keys(%conflictFiles))) {
+      run("git show $origMerge:$fname > $fname");
+      run("git add $fname");
+    }
+
+    # Throw away the files that would be used by mergetool.
+    run("git ls-files --others --exclude-standard | xargs rm -f");
+
+    run("git commit $quiet -m experimental-temporary-merge");
+  }
+}
+
+# Get the new commit's hash.
+my $newMerge = `git rev-parse HEAD`;
+if ($? != 0) {
+  die("failed: git rev-parse HEAD\n");
+}
+chomp($newMerge);
+diagnostic("new merge: $newMerge");
+
+# Diff with original merge.
+$code = mysystemcode("git diff --name-only --exit-code $origMerge..$newMerge $quietDevNull");
+if ($code > 1) {
+  die("failed: git diff --name-only --exit-code $origMerge..$newMerge\n");
+}
+
+if ($code == 1) {
+  print("$origMerge appears BROKEN\n");
+}
+else {
+  print("$origMerge looks fine\n");
+}
+
+exit($code);
+
+
+# run a command, and die if it fails
+sub run {
+  my (@cmd) = @_;
+
+  my $code = mysystemcode(@cmd);
+  if ($code >= 1) {
+    die("exited with code $code: @cmd\n");
+  }
+}
+
+
+# like mysystem, but return the exit code, or die if the
+# child died by signal
+sub mysystemcode {
+  my (@cmd) = @_;
+
+  my $code = mysystem(@cmd);
+  if ($code != 0) {
+    if ($code >= 256) {
+      $code = $code >> 8;
+      return $code;
+    }
+    else {
+      die("died by signal $code: @cmd\n");
+    }
+  }
+}
+
+
+# like system, except bail if underlying command died by
+# ctrl-c
+sub mysystem {
+  my (@cmd) = @_;
+
+  diagnostic("@cmd");
+  my $code = system(@cmd);
+  if ($code == 2) {
+    die("interrupted\n");
+  }
+  return $code;
+}
+
+sub diagnostic {
+  if (!$quiet) {
+    print(@_, "\n");
+  }
+}
+
+# EOF
