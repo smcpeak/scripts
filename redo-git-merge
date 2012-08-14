@@ -38,6 +38,12 @@ if ($interactive && $quiet) {
 
 my $origMerge = $ARGV[0];
 
+# Get the current HEAD.  That says which branch we are on, or if not
+# on a branch, which revision we're at.  We need to restore that at
+# the end.
+my $origHEAD = `cat .git/HEAD`;       # should have a newline
+print("current HEAD: $origHEAD");
+
 # Get primary and merge parent.
 my $parents = `git log -n 1 --format=format:%P $origMerge`;
 if ($? != 0) {
@@ -130,6 +136,14 @@ if ($code == 1) {
 else {
   print("$origMerge looks fine\n");
 }
+
+# Restore HEAD to where it was.
+open(OUT, ">.git/HEAD") or die("failed to open .git/HEAD: $!\n");
+print OUT ($origHEAD);
+close(OUT) or die;
+
+# Check out working files consistent with that HEAD.
+mysystem("git reset --hard");
 
 exit($code);
 
