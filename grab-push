@@ -26,7 +26,13 @@ if ($finalNum <= 1) {
 
 my $prevTag = $prefix . ($finalNum - 1);
 
-my $cmd = "bk export -tpatch -r$prevTag..$pushTag > $pushTag.diff";
+my $cmd;
+if (-d "BitKeeper") {
+  $cmd = "bk export -tpatch -r$prevTag..$pushTag > $pushTag.diff";
+}
+else {
+  $cmd = "git diff $prevTag..$pushTag > $pushTag.diff";
+}
 print($cmd . "\n");
 exec($cmd);
 
