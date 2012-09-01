@@ -25,15 +25,57 @@ for my $pid (@pids) {
   if (!defined($cesHome)) {
     next;    # not a CIM process
   }
+        
+  my $cwd;
+  eval {
+    $cwd = readlink("/proc/$pid/cwd");
+  };
+  if ($@) {
+    print("readlink exception: $@\n");
+    next;
+  }
+  if (!defined($cwd)) {
+    # no permissions?
+    print("readlink: $!\n");
+    $cwd = "";
+  }
+  else {
+    # absolutize $cesHome if necessary
+    if ($cesHome !~ m,^/,) {
+      if ($cesHome eq ".") {
+        $cesHome = $cwd;
+      }
+      else {
+        $cesHome = $cwd . "/" . $cesHome;
+      }
+    }
+  }
 
-  print("---------------------------------------\n");  
+  print("---------------------------------------\n");
   print("pid: $pid\n");
+  #print("cwd: $cwd\n");
   print("ces.home: $cesHome\n");
-  
+
+  if (-f "$cesHome/build.xml") {
+    print("development build\n");
+
+    print("HTTP port: ");
+    system('grep "name=\"ces.tomcat.port" build.xml | sed -e "s/.*value=\"//" -e "s/\".*//"');
+
+    print("Commit port: 9090 (usually)\n");
+    print("Postgres port: 5432 (usually)\n");
+
+    print("Tomcat control port: ");
+    system('grep "name=\"tomcat.server.port" build.xml | sed -e "s/.*value=\"//" -e "s/\".*//"');
+    
+    print("\n");
+    next;
+  }
+
   printPort($cesHome, "config/web.properties", "http.port", "HTTP port");
   printPort($cesHome, "config/cim.properties", "commitPort", "Commit port");
   printPort($cesHome, "config/system.properties", "pg_port", "Postgres port");
-  
+
   my $tomcatPort = `grep '^<Server port=.* shutdown=' $cesHome/server/base/conf/server.xml 2>/dev/null`;
   if ($? == 0) {
     my ($port) = ($tomcatPort =~ m/port=\"(\d+)\"/);
