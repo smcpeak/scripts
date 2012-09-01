@@ -8,6 +8,23 @@ video_secs=60
 # script to remove it to save disk space
 remove_age_mins=60
 
+# process command line arguments
+while [ "x$1" != "x" ]; do
+  opt="$1"
+  shift
+
+  case "$opt" in
+    -age)
+      remove_age_mins="$1"
+      shift
+      ;;
+      
+    *)
+      echo "unknown option: $opt"
+      exit 2
+  esac
+done
+
 # screen capture of course has the potential for privacy
 # problems; make sure the files are created as private
 umask 0077
