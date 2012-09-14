@@ -56,17 +56,18 @@ for my $pid (@pids) {
   #print("cwd: $cwd\n");
   print("ces.home: $cesHome\n");
 
-  if (-f "$cesHome/build.xml") {
+  my $buildXML = "$cesHome/build.xml";
+  if (-f $buildXML) {
     print("development build\n");
 
     print("HTTP port: ");
-    system('grep "name=\"ces.tomcat.port" build.xml | sed -e "s/.*value=\"//" -e "s/\".*//"');
+    system('grep "name=\"ces.tomcat.port" '.$buildXML.' | sed -e "s/.*value=\"//" -e "s/\".*//"');
 
     print("Commit port: 9090 (usually)\n");
     print("Postgres port: 5432 (usually)\n");
 
     print("Tomcat control port: ");
-    system('grep "name=\"tomcat.server.port" build.xml | sed -e "s/.*value=\"//" -e "s/\".*//"');
+    system('grep "name=\"tomcat.server.port" '.$buildXML.' | sed -e "s/.*value=\"//" -e "s/\".*//"');
     
     print("\n");
     next;
