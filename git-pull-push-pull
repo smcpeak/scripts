@@ -1,0 +1,39 @@
+#!/bin/sh
+
+git pull || exit
+
+# the pull needs to be repeated because when I commit from NFS, the
+# consistency check takes ~10 minutes which is plenty of time for
+# someone else to do a push
+tmp=git-pull.$$.tmp
+while true; do
+  echo "doing additional pull in case there are more commits"
+  if git pull >$tmp 2>&1; then
+    true
+  else
+    # git pull failed
+    code=$?
+    cat $tmp
+    rm $tmp
+    exit $code
+  fi
+
+  if grep "Already up-to-date" $tmp; then
+    cat $tmp
+    rm $tmp
+    break
+  else
+    cat $tmp
+    rm $tmp
+
+    # do it again
+  fi
+done
+
+git push || exit
+
+runecho sleep 2
+
+git pull || exit
+
+exec git-revname
