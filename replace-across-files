@@ -210,6 +210,9 @@ sub doReplacementsInFile {
           print("replace (y/n/Y/N/q/!/?)? [y] ");
 
           my $response = <STDIN>;
+          if (!defined($response)) {
+            die("unexpected EOF on stdin\n");
+          }
           chomp($response);
           if ($response eq "?") {
             print(<<"EOF");
