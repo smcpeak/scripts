@@ -4,6 +4,18 @@
 
 #echo "in .bashrc"
 
+# this will print either nothing or "[<branch>]" or "[<branch>](merge pending)"
+print_git_branch() {
+  if [ -f .git/HEAD ]; then
+    # The HEAD file is usually "ref: refs/heads/<branch>", although
+    # in a "detached HEAD" state, it is a raw SHA1 hash.
+    sed -e 's,^ref: refs/heads/,,' -e 's/^/[/' -e 's/$/]/' .git/HEAD | tr -d '\r\n'
+  fi
+  if [ -f .git/MERGE_HEAD ]; then
+    echo -n '(merge pending)'
+  fi
+}
+
 if [ "$PS1" != "" ]; then
   # set prompt:
   #  \n - newline
@@ -13,9 +25,9 @@ if [ "$PS1" != "" ]; then
   #  \$ - prompt char ($ for normal user, # for root)
   if echo "$DISPLAY" | grep '^:' >/dev/null; then
     # omit host name since it's local
-    PS1="\n$PS1PREFIX"'\u:\w\$ '
+    PS1="\n$PS1PREFIX"'\u:\w`print_git_branch`\$ '
   else
-    PS1="\n$PS1PREFIX"'\u@\h:\w\$ '
+    PS1="\n$PS1PREFIX"'\u@\h:\w`print_git_branch`\$ '
   fi
 
   # setup some sane terminal options
