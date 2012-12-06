@@ -1,0 +1,20 @@
+#!/bin/sh
+# name of current rev
+
+if [ "$1" = "" ]; then
+  # current version
+  rev=HEAD
+else
+  rev="$1"
+fi
+
+hash=`git rev-parse --short=10 "$rev"`
+if [ "$?" -ne 0 ]; then
+  exit 2
+fi
+tag=`git describe --tags --exact-match "$rev" 2>/dev/null`
+author=`git log -n 1 --format=format:%ae "$rev" | sed 's/@.*//'`
+
+echo "$hash $author $tag"
+
+# EOF

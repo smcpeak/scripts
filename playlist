@@ -10,6 +10,8 @@ srand;
 $random = 0;       # when true, we play songs from playlists in random order
 $dummy = 0;        # when true, don't actually play anything
 
+my $HOME = $ENV{"HOME"};
+
 # top loop is the argument-processing loop; arguments are
 # parameter-settings, mp3s or playlists
 $nontrivialArgs = 0;
@@ -90,7 +92,12 @@ sub playMp3 {
 
   print("playing: $mp3fname\n");
   if (!$dummy) {
-    system('/home/scott/bin/xaudio "' . $mp3fname . '" 2>/dev/null');
+    if (-x "$HOME/bin/xaudio") {
+      system("$HOME/bin/xaudio '" . $mp3fname . "' 2>/dev/null");
+    }
+    else {
+      system("mpg123", "-q", $mp3fname);
+    }
   }
 }
 

@@ -1,0 +1,18 @@
+#!/bin/sh
+# re-indent JSON on stdin, writing to stdout
+
+# temporary file
+tmp=/tmp/indent-json.tmp.$$
+onExit()
+{
+  rm $tmp
+}
+trap onExit EXIT
+
+# grab all the input and store it in a file
+cat > $tmp
+
+# run JSONTest to parse it
+java -cp $HOME/prevent-carmel/objs/linux64/classes com.coverity.json.JSONTest $tmp ' '
+
+# EOF
