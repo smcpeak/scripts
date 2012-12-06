@@ -210,6 +210,10 @@ sub doReplacementsInFile {
           print("replace (y/n/Y/N/q/!/?)? [y] ");
 
           my $response = <STDIN>;
+          if (!defined($response)) {
+            print("\ninput EOF, bailing; you cannot pipe in with xargs...\n");
+            exit(2);
+          }
           chomp($response);
           if ($response eq "?") {
             print(<<"EOF");
