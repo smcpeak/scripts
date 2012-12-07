@@ -93,12 +93,25 @@ sub playMp3 {
   print("playing: $mp3fname\n");
   if (!$dummy) {
     if (-x "$HOME/bin/xaudio") {
-      system("$HOME/bin/xaudio '" . $mp3fname . "' 2>/dev/null");
+      system("$HOME/bin/xaudio " . shellQuote($mp3fname) . " 2>/dev/null");
     }
     else {
       system("mpg123", "-q", $mp3fname);
     }
   }
+}
+
+
+# Return $str quoted as a single shell word.
+sub shellQuote {
+  my ($str) = @_;
+
+  # Replace single quotes with: '"'"'
+  # That closes the sq-string, then "'", then re-open sq-string.
+  $str =~ s/\'/\'\"\'\"\'/g;
+
+  # Return that in single quotes.
+  return "'" . $str . "'";
 }
 
 
