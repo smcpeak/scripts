@@ -37,6 +37,7 @@ if ($interactive && $quiet) {
 }
 
 my $origMerge = $ARGV[0];
+print("checking commit: $origMerge\n");
 
 # Get the current HEAD.  That says which branch we are on, or if not
 # on a branch, which revision we're at.  We need to restore that at
@@ -99,15 +100,42 @@ if ($code > 0) {
       $conflictFiles{$fname} = 1;
     }
 
+    print("conflicting files:\n");
+    for my $fname (sort(keys(%conflictFiles))) {
+      print("  $fname\n");
+    }
+
+    # temporary file for stderr from "git show"
+    my $tmpfile = "redo-git-merge.tmp.$$";
+
     # Assume that all the conflicting files should be merged according
     # to how they were merged originally.  This is not right for some
     # of our broken merges, but it allows the check for broken merges
     # to be mostly automatic, since broken merges have problems in the
     # files that didn't have conflicts.
     for my $fname (sort(keys(%conflictFiles))) {
-      run("git show $origMerge:$fname > $fname");
-      run("git add $fname");
+      my $showCode = mysystemcode("git show $origMerge:$fname > $fname 2> $tmpfile");
+      if ($showCode != 0) {
+        # Check for case that file was deleted.
+        my $errorMessage = `cat $tmpfile`;
+        if (grep("exist", $errorMessage)) {
+          print("looks like $fname was deleted in $origMerge, doing so here\n");
+          run("git rm $fname");
+        }
+        else {
+          print("error from git show:\n");
+          print($errorMessage);
+          die("git show failed\n");
+        }
+      }
+      else {
+        run("git add $fname");
+      }
     }
+
+    # Remove the temp file; but note that the next command would
+    # do so as well.
+    unlink($tmpfile);
 
     # Throw away the files that would be used by mergetool.
     run("git ls-files --others --exclude-standard | xargs rm -f");
