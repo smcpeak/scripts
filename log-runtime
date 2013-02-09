@@ -1,0 +1,24 @@
+#!/bin/sh
+# append the start time and run time of a program to a file, in seconds
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 file-to-append-to command [args...]"
+  exit 2
+fi
+
+outfile="$1"
+shift
+
+start=`date '+%s'`
+
+# run it
+"$@"
+code=$?
+
+end=`date '+%s'`
+elapsed=`expr $end - $start`
+echo "$start + $elapsed s exit $code:" "$@" >> "$outfile"
+
+exit "$code"
+
+# EOF

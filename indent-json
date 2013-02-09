@@ -1,6 +1,17 @@
 #!/bin/sh
 # re-indent JSON on stdin, writing to stdout
 
+# look for a repo
+classfile=objs/linux64/classes/com/coverity/json/JSONTest.class
+if [ -f $HOME/prevent-carmel/$classfile ]; then
+  repo=$HOME/prevent-carmel
+elif [ -f $HOME/enc/prevent-git/$classfile ]; then
+  repo=$HOME/enc/prevent-git
+else
+  echo "failed to find a repo with JSONTest" 1>&2
+  exit 2
+fi
+
 # temporary file
 tmp=/tmp/indent-json.tmp.$$
 onExit()
@@ -13,6 +24,6 @@ trap onExit EXIT
 cat > $tmp
 
 # run JSONTest to parse it
-java -cp $HOME/prevent-carmel/objs/linux64/classes com.coverity.json.JSONTest $tmp ' '
+java -cp $repo/objs/linux64/classes com.coverity.json.JSONTest $tmp ' '
 
 # EOF
