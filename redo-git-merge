@@ -129,7 +129,11 @@ if ($code > 0) {
         }
       }
       else {
-        run("git add $fname");
+        # The -f argument is needed because we have some files, such as
+        # analysis/cov-analyze/cmd-test-version-check/dir/c/emit/host/emit-db,
+        # that are nominally filtered out by .gitignore but we have them
+        # checked in anyway.
+        run("git", "add", "-f", $fname);
       }
     }
 
@@ -140,7 +144,9 @@ if ($code > 0) {
     # Throw away the files that would be used by mergetool.
     run("git ls-files --others --exclude-standard | xargs rm -f");
 
-    run("git commit $quiet -m experimental-temporary-merge");
+    # --no-verify bypasses the pre-commit hooks, which can be
+    # very slow.
+    run("git commit $quiet --no-verify -m experimental-temporary-merge");
   }
 }
 
