@@ -114,13 +114,13 @@ if ($code > 0) {
     # to be mostly automatic, since broken merges have problems in the
     # files that didn't have conflicts.
     for my $fname (sort(keys(%conflictFiles))) {
-      my $showCode = mysystemcode("git show $origMerge:$fname > $fname 2> $tmpfile");
+      my $showCode = mysystemcode("git show '$origMerge:$fname' > '$fname' 2> $tmpfile");
       if ($showCode != 0) {
         # Check for case that file was deleted.
         my $errorMessage = `cat $tmpfile`;
         if (grep("exist", $errorMessage)) {
           print("looks like $fname was deleted in $origMerge, doing so here\n");
-          run("git rm $fname");
+          run("git", "rm", $fname);
         }
         else {
           print("error from git show:\n");
@@ -142,7 +142,7 @@ if ($code > 0) {
     unlink($tmpfile);
 
     # Throw away the files that would be used by mergetool.
-    run("git ls-files --others --exclude-standard | xargs rm -f");
+    run("git ls-files --others --exclude-standard | xargs -d '\\n' rm -f");
 
     # --no-verify bypasses the pre-commit hooks, which can be
     # very slow.
