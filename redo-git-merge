@@ -142,7 +142,10 @@ if ($code > 0) {
     unlink($tmpfile);
 
     # Throw away the files that would be used by mergetool.
-    run("git ls-files --others --exclude-standard | xargs -d '\\n' rm -f");
+    #
+    # EXCEPT: Leave behind log files, since the build scripts rely
+    # on the ability to create a log file here so it can send email.
+    run("git ls-files --others --exclude-standard | grep -v '\\.log\$' | xargs -d '\\n' rm -f");
 
     # --no-verify bypasses the pre-commit hooks, which can be
     # very slow.
