@@ -16,12 +16,19 @@ my $interactive = 0;
 my $quiet = "";
 my $quietDevNull = "";
 
+# When true, the diff will show the complete "lost" changes,
+# not just the file names.
+my $showLostChanges = 0;
+
 while (scalar(@ARGV > 0) && $ARGV[0] =~ m/^-/) {
   my $arg = $ARGV[0];
   shift @ARGV;
 
   if ($arg eq "-interactive") {
     $interactive = 1;
+  }
+  elsif ($arg eq "-showLostChanges") {
+    $showLostChanges = 1;
   }
   elsif ($arg eq "-quiet") {
     $quiet = "--quiet";
@@ -162,9 +169,10 @@ chomp($newMerge);
 diagnostic("new merge: $newMerge");
 
 # Diff with original merge.
-$code = mysystemcode("git diff --name-only --exit-code $origMerge..$newMerge $quietDevNull");
+my $nameOnly = ($showLostChanges? "" : "--name-only");
+$code = mysystemcode("git diff $nameOnly --exit-code $origMerge..$newMerge $quietDevNull");
 if ($code > 1) {
-  die("failed: git diff --name-only --exit-code $origMerge..$newMerge\n");
+  die("failed: git diff $nameOnly --exit-code $origMerge..$newMerge\n");
 }
 
 if ($code == 1) {
