@@ -16,19 +16,12 @@ my $interactive = 0;
 my $quiet = "";
 my $quietDevNull = "";
 
-# When true, the diff will show the complete "lost" changes,
-# not just the file names.
-my $showLostChanges = 0;
-
 while (scalar(@ARGV > 0) && $ARGV[0] =~ m/^-/) {
   my $arg = $ARGV[0];
   shift @ARGV;
 
   if ($arg eq "-interactive") {
     $interactive = 1;
-  }
-  elsif ($arg eq "-showLostChanges") {
-    $showLostChanges = 1;
   }
   elsif ($arg eq "-quiet") {
     $quiet = "--quiet";
@@ -168,15 +161,60 @@ if ($? != 0) {
 chomp($newMerge);
 diagnostic("new merge: $newMerge");
 
-# Diff with original merge.
-my $nameOnly = ($showLostChanges? "" : "--name-only");
-$code = mysystemcode("git diff $nameOnly --exit-code $origMerge..$newMerge $quietDevNull");
-if ($code > 1) {
-  die("failed: git diff $nameOnly --exit-code $origMerge..$newMerge\n");
+# Diff with original merge.  Put the original second on the command
+# line so what is displayed is the changes we are suspicious of.
+my $diffCommand = "git diff --exit-code $newMerge..$origMerge";
+print("$diffCommand | (some internal filtering)\n");
+my @diffOutput = `$diffCommand`;
+if ($? != 0 && $? != 256) {
+  die("failed with signal+code*256 = $?: $diffCommand\n");
 }
 
-if ($code == 1) {
-  print("$origMerge appears BROKEN\n");
+# Examine the changes in detail so we can filter out copyright-only
+# changes and a few other sources of noise.
+my @oneFileChanges = ();
+my $problemFileCount = 0;
+my $fileCount = 0;
+
+for my $diffLine (@diffOutput) {
+  if (scalar(@oneFileChanges) > 0 && $diffLine =~ m/^diff /) {
+    # Examine previous file diffs.
+    $problemFileCount += examineOneFileChanges(@oneFileChanges);
+    $fileCount++;
+
+    # Begin accumulating new file diffs.
+    @oneFileChanges = ();
+  }
+
+  push @oneFileChanges, ($diffLine);
+}
+
+if (scalar(@oneFileChanges) > 0) {
+  $problemFileCount += examineOneFileChanges(@oneFileChanges);
+  $fileCount++;
+}
+
+print("Files with differences: $fileCount\n");
+print("Files with suspicious differences: $problemFileCount\n");
+
+if ($problemFileCount > 0) {
+  print(<<"EOF");
+*****
+*****    $origMerge appears BROKEN
+*****
+
+The diff above shows the changes that are suspicious in the sense that
+they are different from what would be obtained by letting git merge
+all the changes it is capable of merging automatically.  See this page
+for more information:
+
+http://wiki.sf.coverity.com/mediawiki/index.php/Git_merge_issues
+
+Please be aware that there might also be incorrect changes that are
+not shown because this script does not check what happened to files
+that required manual merging.
+
+EOF
 }
 else {
   print("$origMerge looks fine\n");
@@ -191,6 +229,51 @@ close(OUT) or die;
 mysystem("git reset --hard");
 
 exit($code);
+
+
+# Return 1 and print @oneFileChanges if it has changes that are
+# not just noise.
+sub examineOneFileChanges{
+  my @oneFileChanges = @_;
+
+  my $problemLines = 0;
+
+  for my $line (@oneFileChanges) {
+    if ($line =~ m/^[-+]/) {
+      if ($line =~ m/^[-+][-+][-+]/) {
+        # Just the header line showing the file name, ignore.
+      }
+      elsif ($line =~ m/[Cc]opyright/) {
+        # Copyright line, ignore.
+      }
+      elsif ($line =~ m/All rights reserved/) {
+        # Some copyright lines do not spell out "copyright".
+      }
+      elsif ($line =~ m/^[-+]\s*\}+\s*$/) {
+        # It is just a closing brace, possibly shown because
+        # it is the last line and its newline was added or
+        # removed.
+      }
+      elsif ($line =~ m/No newline at end of file/) {
+        # Final newline was altered, ignore.
+      }
+      else {
+        $problemLines++;
+      }
+    }
+    else {
+      # Not a changed line, just context or whatever; ignore.
+    }
+  }
+
+  if ($problemLines > 0) {
+    print(@oneFileChanges);
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
 
 
 # run a command, and die if it fails
