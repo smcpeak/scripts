@@ -228,7 +228,7 @@ close(OUT) or die;
 # Check out working files consistent with that HEAD.
 mysystem("git reset --hard");
 
-exit($code);
+exit($problemFileCount > 0 ? 1 : 0);
 
 
 # Return 1 and print @oneFileChanges if it has changes that are
