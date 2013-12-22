@@ -1,0 +1,21 @@
+#!/bin/sh
+# run sox with the options to convert from the "pcm" format
+# that the Andriod "Virtual Recorder" app uses
+
+if [ "x$2" = "x" ]; then
+  echo "usage: $0 input.pcm output.wav"
+  exit 2
+fi
+
+# -r 22050: 22.5 kHz sample rate
+# -b 16: 16 bits per sample
+# -c 1: monaural (one channel)
+# -e signed-integer: signed integer PCM encoding
+# -L: little endian
+# -t raw: treat as headerless
+#
+# trim 4000s: remove some samples at the start, which seems to be some
+# sort of header, causing a pop sound
+exec runecho sox -r 22050 -b 16 -c 1 -e signed-integer -L -t raw "$1" "$2" trim 4000s
+
+# EOF
