@@ -1,0 +1,9 @@
+#!/bin/sh
+# given some HTML design doc on stdin, extract the links to pivotal
+# assumes all links are on one line
+
+grep 'href="https://www.pivotaltracker.com' | \
+  sed -e 's/.*<a href=/<a href=/' \
+      -e 's,</a>.*,</a>,'
+
+# EOF

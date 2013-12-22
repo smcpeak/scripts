@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+# given the name of a CSV file exported from a Pivotal project,
+# print HTML links to all stories to stdout
+
+import csv                   # csv.reader
+import sys                   # sys.argv
+
+class Error(Exception):
+  """A condition to be treated as an error."""
+  pass
+
+# https://wiki.python.org/moin/EscapingHtml
+#
+# do not escape quotes because I am trying to match the links
+# with what is in my design doc
+htmlEscapeTable = {
+  "&": "&amp;",
+  #'"': "&quot;",
+  #"'": "&apos;",
+  ">": "&gt;",
+  "<": "&lt;",
+}
+
+def htmlEscape(text):
+  """Escape 'text' for use in HTML text and attributes."""
+  return "".join(htmlEscapeTable.get(c,c) for c in text)
+
+try:
+
+  if len(sys.argv) != 2:
+    print("usage: "+sys.argv[0]+" input.csv")
+    sys.exit(2)
+
+  inputFname = sys.argv[1]
+
+  with open(inputFname, "rt") as csvfile:
+    reader = csv.reader(csvfile)
+
+    header = reader.next()
+    if header[0] != "Id":
+      raise Error("Expected column 0 to be 'Id'")
+    if header[1] != "Story":
+      raise Error("Expected column 1 to be 'Story'")
+    if header[8] != "Current State":
+      raise Error("Expected column 8 to be 'Current State'")
+    if header[15] != "URL":
+      raise Error("Expected column 15 to be 'URL'")
+    #print(", ".join(header))
+
+    for row in reader:
+      id = row[0]
+      story = row[1]
+      currentState = row[8]
+      url = row[15]
+
+      # When I extract CSV from Pivotal, the links use HTTP, whereas
+      # I always access it with HTTPS so I want that instead.
+      url = url.replace("http://", "https://")
+
+      # Right now I only care about stories in the backlog, which
+      # can be recognized as state "unstarted".
+      if currentState == "unstarted":
+        print("<a href=\""+htmlEscape(url)+"\">Pivotal "+id+": "+htmlEscape(story)+"</a>")
+
+except Error as e:
+  print("Error: "+e.args[0])
+  sys.exit(2)
+
+
+# EOF
