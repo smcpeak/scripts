@@ -41,6 +41,8 @@ try:
       raise Error("Expected column 0 to be 'Id'")
     if header[1] != "Story":
       raise Error("Expected column 1 to be 'Story'")
+    if header[6] != "Story Type":
+      raise Error("Expected column 6 to be 'Story Type'")
     if header[8] != "Current State":
       raise Error("Expected column 8 to be 'Current State'")
     if header[15] != "URL":
@@ -50,6 +52,7 @@ try:
     for row in reader:
       id = row[0]
       story = row[1]
+      storyType = row[6]
       currentState = row[8]
       url = row[15]
 
@@ -57,10 +60,15 @@ try:
       # I always access it with HTTPS so I want that instead.
       url = url.replace("http://", "https://")
 
-      # Right now I only care about stories in the backlog, which
-      # can be recognized as state "unstarted".
-      if currentState == "unstarted":
-        print("<a href=\""+htmlEscape(url)+"\">Pivotal "+id+": "+htmlEscape(story)+"</a>")
+      # Ignore accepted tasks, and those in the icebox (unscheduled).
+      if currentState == "accepted" or currentState == "unscheduled":
+        continue
+
+      # Also ignore bugs
+      if storyType == "bug":
+        continue
+
+      print("<a href=\""+htmlEscape(url)+"\">Pivotal "+id+": "+htmlEscape(story)+"</a>")
 
 except Error as e:
   print("Error: "+e.args[0])
