@@ -60,8 +60,12 @@ try:
       # I always access it with HTTPS so I want that instead.
       url = url.replace("http://", "https://")
 
-      # Ignore accepted tasks, and those in the icebox (unscheduled).
-      if currentState == "accepted" or currentState == "unscheduled":
+      # Accepted tasks should be marked "done".
+      if currentState == "accepted":
+        story = story + " (DONE)";
+
+      # Ignore stories in the icebox (unscheduled).
+      if currentState == "unscheduled":
         continue
 
       # Also ignore bugs
