@@ -25,6 +25,11 @@ def htmlEscape(text):
   """Escape 'text' for use in HTML text and attributes."""
   return "".join(htmlEscapeTable.get(c,c) for c in text)
 
+def checkColumn(header, index, label):
+  if header[index] != label:
+    raise Error("Expected column "+str(index)+" to be '"+label+
+                "', not '"+header[index]+"'")
+
 try:
 
   if len(sys.argv) != 2:
@@ -36,25 +41,26 @@ try:
   with open(inputFname, "rt") as csvfile:
     reader = csv.reader(csvfile)
 
+    idIndex = 0
+    storyIndex = 1
+    storyTypeIndex = 6
+    currentStateIndex = 8
+    urlIndex = 14      # 2014-03-01: they changed it from 15
+
     header = reader.next()
-    if header[0] != "Id":
-      raise Error("Expected column 0 to be 'Id'")
-    if header[1] != "Story":
-      raise Error("Expected column 1 to be 'Story'")
-    if header[6] != "Story Type":
-      raise Error("Expected column 6 to be 'Story Type'")
-    if header[8] != "Current State":
-      raise Error("Expected column 8 to be 'Current State'")
-    if header[15] != "URL":
-      raise Error("Expected column 15 to be 'URL'")
+    checkColumn(header, idIndex, "Id")
+    checkColumn(header, storyIndex, "Story")
+    checkColumn(header, storyTypeIndex, "Story Type")
+    checkColumn(header, currentStateIndex, "Current State")
+    checkColumn(header, urlIndex, "URL")
     #print(", ".join(header))
 
     for row in reader:
-      id = row[0]
-      story = row[1]
-      storyType = row[6]
-      currentState = row[8]
-      url = row[15]
+      id = row[idIndex]
+      story = row[storyIndex]
+      storyType = row[storyTypeIndex]
+      currentState = row[currentStateIndex]
+      url = row[urlIndex]
 
       # When I extract CSV from Pivotal, the links use HTTP, whereas
       # I always access it with HTTPS so I want that instead.
