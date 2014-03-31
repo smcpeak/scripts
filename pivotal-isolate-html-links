@@ -4,6 +4,7 @@
 
 grep 'href="https://www.pivotaltracker.com' | \
   sed -e 's/.*<a href=/<a href=/' \
-      -e 's,</a>.*,</a>,'
+      -e 's,</a>.*,</a>,'                   | \
+  grep -v DEFERRED
 
 # EOF
