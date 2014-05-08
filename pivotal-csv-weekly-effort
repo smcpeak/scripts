@@ -1,0 +1,139 @@
+#!/usr/bin/env python
+# given the name of a CSV file exported from a Pivotal project,
+# generate a CSV matrix of (person,week) where 1 means person commented during that week
+
+import csv                   # csv.reader
+import datetime              # datetime.date
+import re                    # re.compile
+import sys                   # sys.argv, sys.stdout.write
+
+class Error(Exception):
+  """A condition to be treated as an error."""
+  pass
+
+def checkColumn(header, index, label):
+  if header[index] != label:
+    raise Error("Expected column "+str(index)+" to be '"+label+
+                "', not '"+header[index]+"'")
+
+# Unit test my regex.
+pattern = re.compile(r"\(([-.a-zA-Z ]+) - ([A-Z][a-z][a-z]) (\d+), (\d{4})\)$");
+m = pattern.search("Pushed\nin p-fresno-push-16775 (Charles-Henri M. Gros - Oct 14, 2013)")
+if not m:
+  raise Error("no match")
+
+# Table of month names to ordinals.
+monthNameTable = {
+  "Jan": 1,
+  "Feb": 2,
+  "Mar": 3,
+  "Apr": 4,
+  "May": 5,
+  "Jun": 6,
+  "Jul": 7,
+  "Aug": 8,
+  "Sep": 9,
+  "Oct": 10,
+  "Nov": 11,
+  "Dec": 12,
+}
+
+def monthToOrdinal(month):
+  """Convert 'month', a 3-letter month abbreviation, to an ordinal in [1,12]."""
+  if month in monthNameTable:
+    return monthNameTable[month]
+  else:
+    raise Error("invalid month name: "+month)
+
+def dateRoundedDownToMonday(date):
+  """Return 'date' moved back to the nearest Monday.  If it is a Monday, return it unchanged."""
+
+  # Get the "ISO calendar" day of the week.
+  wday = date.isocalendar()[2]
+
+  # Calculate the adjustment interval.
+  delta = datetime.timedelta(wday - 1)
+
+  # Return adjusted date.
+  return date - delta
+
+def prin(s):
+  """Print 's' without a newline."""
+  sys.stdout.write(s)
+
+# Map from person to set of mondays of weeks in which they made comments.
+# Set is represented as map from monday to 1.
+personToMondays = {}
+
+# Set of mondays.
+allMondays = {}
+
+try:
+
+  if len(sys.argv) != 2:
+    print("usage: "+sys.argv[0]+" input.csv")
+    sys.exit(2)
+
+  inputFname = sys.argv[1]
+  lineNumber = 0
+
+  with open(inputFname, "rt") as csvfile:
+    reader = csv.reader(csvfile)
+
+    commentStartIndex = 17      # column "R"
+    commentEndIndex = 35        # column "AJ"
+
+    header = reader.next()
+    lineNumber = lineNumber+1
+    for col in range(commentStartIndex, commentEndIndex+1):
+      checkColumn(header, col, "Comment")
+
+    for row in reader:
+      lineNumber = lineNumber+1
+      for col in range(commentStartIndex, commentEndIndex+1):
+        comment = row[col]
+        if comment != "":
+
+          # Parse the comment for author and date
+          m = pattern.search(comment)
+          if not m:
+            raise Error(inputFname+":"+str(lineNumber)+": malformed comment: "+comment)
+          author = m.group(1)
+          month = m.group(2)
+          day = m.group(3)
+          year = m.group(4)
+
+          date = datetime.date(int(year), monthToOrdinal(month), int(day))
+          monday = dateRoundedDownToMonday(date)
+
+          #print("author: "+author)
+          #print("monday: "+monday.isoformat())
+
+          if author not in personToMondays:
+            personToMondays[author] = {}
+          personToMondays[author][monday] = 1
+          allMondays[monday] = 1
+
+  sortedMondays = sorted(allMondays.keys())
+
+  prin("\"author\"")
+  for m in sortedMondays:
+    prin(",\""+m.isoformat()+"\"")
+  print("")
+
+  for author in sorted(personToMondays.keys()):
+    prin("\""+author+"\"")
+    personMondays = personToMondays[author]
+    for m in sortedMondays:
+      if m in personMondays:
+        prin(",1")
+      else:
+        prin(",0")
+    print("")
+
+except Error as e:
+  print("Error: "+e.args[0])
+  sys.exit(2)
+
+
+# EOF
