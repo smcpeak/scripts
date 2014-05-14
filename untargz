@@ -49,11 +49,12 @@ $jarred     = ($prefix =~ s/\.[wj]ar$//);
 $rarred     = ($prefix =~ s/\.rar$//);
 $rpmmed     = ($prefix =~ s/\.rpm$//);
 $seven7d    = ($prefix =~ s/\.7z$//);
+$xztarred   = ($prefix =~ s/\.tar\.xz$//);
 
 # how many matched?
 $recognizedFormat = $tarred + $gzipped + $bzipped + $pkzipped +
                     $debbed + $compressed + $jarred + $rarred +
-                    $rpmmed + $seven7d;
+                    $rpmmed + $seven7d + $xztarred;
 
 if ($recognizedFormat == 0) {
   # extension not recognized..
@@ -90,6 +91,9 @@ if ($tarred) {
 }
 elsif ($gzipped) {
   $res = system("(cd ..; gunzip -c \"$archive\") | tar xvf -");
+}
+elsif ($xztarred) {
+  $res = system("(cd ..; xz -c -d \"$archive\") | tar xvf -");
 }
 elsif ($compressed) {
   $res = system("(cd ..; uncompress -c \"$archive\") | tar xvf -");
