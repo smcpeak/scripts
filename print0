@@ -1,0 +1,12 @@
+#!/usr/bin/perl -w
+# print lines of stdin to stdout with NUL terminators
+
+use strict;
+
+my $line;
+while (defined($line = <STDIN>)) {
+  $line =~ s/[\r\n]+$//;
+  print("$line\0");
+}
+
+# EOF
