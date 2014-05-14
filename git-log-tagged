@@ -1,0 +1,8 @@
+#!/bin/sh
+# briefly list all commits with tags
+
+# grepping for '(' is not ideal of course, but I do not
+# know a better way
+git log --format=format:'%ad %ae %d' | grep '('
+
+# EOF

@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+# verify a signature on a file
+
+if (@ARGV != 2) {
+  die("usage: $0 filename.asc/sig filename\n");
+}
+
+my $sigfile = $ARGV[0];
+my $mainfile = $ARGV[1];
+
+my $cmd = "gpg --verify '$sigfile' '$mainfile'";
+my $output;
+my $code;
+runCmd();
+if ($code == 0) {
+  exit(0);
+}
+
+my ($keyID) = ($output =~ m/key ID ([0-9A-Z]+).*public key not found/);
+if (!defined($keyID)) {
+  exit(2);
+}
+$cmd = "gpg --keyserver pgpkeys.mit.edu --recv-key $keyID";
+runCmd();
+if ($code != 0) {
+  exit(2);
+}
+
+$cmd = "gpg --verify '$sigfile' '$mainfile'";
+runCmd();
+exit($code == 0? 0 : 2);
+
+
+sub runCmd {
+  print("running: $cmd\n");
+  $output = `$cmd 2>&1`;
+  $code = $?;
+
+  print($output);
+  print("exit code: " . interpretExitCode($code) . "\n");
+}
+
+
+sub interpretExitCode {
+  my ($code) = @_;
+
+  if ($code == 0 || $code >= 256) {
+    return ($code >> 8);
+  }
+  else {
+    return "signal " . $code;
+  }
+}
+
+
+
+# EOF

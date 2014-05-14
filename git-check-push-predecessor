@@ -1,0 +1,76 @@
+#!/usr/bin/perl -w
+# check a push for being a descendant of its push predecessor
+
+use strict;
+
+if (@ARGV != 1) {
+  print(<<"EOF");
+usage: $0 push-tag
+
+Checks to see if push-tag is a descendant of push-tag minus one.
+EOF
+  die("incorrect number of arguments\n");
+}
+
+my $pushTag = $ARGV[0];
+
+# separate out the last numeric component
+my ($prefix, $finalNum) = ($pushTag =~ m/^(.*\D)(\d+)$/);
+if (!defined($finalNum)) {
+  die("failed to parse push tag's final number: $pushTag\n");
+}
+
+if ($finalNum <= 1) {
+  print("skipping $pushTag because cannot handle final number $finalNum\n");
+  exit(2);
+}
+
+my $prevTag = $prefix . ($finalNum - 1);
+
+# Get the hash of the predecessor.  This is complicated because some of
+# our tags are "annotated tags", which need to be dereferenced to know
+# which rev they refer to.
+my @showRefOutput = `git show-ref -d $prevTag`;
+if ($? != 0) {
+  print("failed to find predecessor tag: $prevTag\n");
+  exit(2);
+}
+my $prevHash;
+if (scalar(@showRefOutput) == 1) {
+  # lightwieght tag: first and only line has the rev I want
+  ($prevHash) = ($showRefOutput[0] =~ m/^([0-9a-f]{40}) /);
+  if (!defined($prevHash)) {
+    die("malformed show-ref first line: $showRefOutput[0]");
+  }
+}
+elsif (scalar(@showRefOutput) == 2) {
+  # annotated tag: second line has the rev
+  ($prevHash) = ($showRefOutput[1] =~ m/^([0-9a-f]{40}) .*\^\{\}$/);
+  if (!defined($prevHash)) {
+    die("malformed show-ref second line: $showRefOutput[1]");
+  }
+}
+else {
+  die("unexpected number of lines from show-ref: " . 
+      (scalar(@showRefOutput)) . "\n");
+}
+
+# Get the hash of the most recent common ancestor of the pair.
+my $gcaHash = `git merge-base $pushTag $prevTag`;
+if ($? != 0) {
+  die("failed: git merge-base $pushTag $prevTag\n");
+}
+chomp($gcaHash);
+
+if ($gcaHash eq $prevHash) {
+  #print("$pushTag has $prevTag as ancestor\n");
+}
+else { 
+  # error
+  #print("gca($pushTag,$prevTag) is $gcaHash\n");
+  #print("hash of $prevTag is $prevHash\n");
+  print("$pushTag does NOT have $prevTag as ancestor\n");
+  exit(1);
+}
+
+# EOF
