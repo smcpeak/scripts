@@ -16,8 +16,9 @@ if ($code == 0) {
   exit(0);
 }
 
-my ($keyID) = ($output =~ m/key ID ([0-9A-Z]+).*public key not found/);
+my ($keyID) = ($output =~ m/key ID ([0-9A-Z]+)(.|\n)*public key not found/);
 if (!defined($keyID)) {
+  print("verify failed, I do not see the key ID in the output\n");
   exit(2);
 }
 $cmd = "gpg --keyserver pgpkeys.mit.edu --recv-key $keyID";
