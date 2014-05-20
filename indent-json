@@ -12,18 +12,23 @@ else
   exit 2
 fi
 
-# temporary file
-tmp=/tmp/indent-json.tmp.$$
+# temporary files
+tmpin=/tmp/indent-json.tmpin.$$
+tmpout=/tmp/indent-json.tmpout.$$
 onExit()
 {
-  rm $tmp
+  rm -f $tmpin
+  rm -f $tmpout
 }
 trap onExit EXIT
 
 # grab all the input and store it in a file
-cat > $tmp
+cat > $tmpin
 
 # run JSONTest to parse it
-java -cp $repo/objs/linux64/classes com.coverity.json.JSONTest $tmp ' '
+java -cp $repo/objs/linux64/classes com.coverity.json.JSONTest $tmpin ' ' > $tmpout
+
+# Strip out the first line that says how many results there were.
+tail -n +2 $tmpout
 
 # EOF
