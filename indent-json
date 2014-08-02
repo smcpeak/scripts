@@ -3,10 +3,10 @@
 
 # look for a repo
 classfile=objs/linux64/classes/com/coverity/json/JSONTest.class
-if [ -f $HOME/prevent-carmel/$classfile ]; then
-  repo=$HOME/prevent-carmel
-elif [ -f $HOME/enc/prevent-git/$classfile ]; then
-  repo=$HOME/enc/prevent-git
+if [ -f $HOME/prevent-gilroy/$classfile ]; then
+  repo=$HOME/prevent-gilroy
+elif [ -f $HOME/enc/prevent-gilroy/$classfile ]; then
+  repo=$HOME/enc/prevent-gilroy
 else
   echo "failed to find a repo with JSONTest" 1>&2
   exit 2
