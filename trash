@@ -49,7 +49,7 @@ if (! -d $trashdir) {
 # verify all arguments exist
 foreach my $fname (@ARGV) {
   if (! -e $fname) {
-    die("$0: $fname does not exist (stopping before doing anything)\n");
+    die("$0: \"$fname\" does not exist (stopping before doing anything)\n");
   }
 }
 
