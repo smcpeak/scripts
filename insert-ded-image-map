@@ -1,15 +1,36 @@
 #!/usr/bin/env python3
 # insert HTML image map(s) based on DED source files
 
+# Example HTML:
+#
+# <map name="some-image-map">
+#   <!-- BEGIN IMAGE MAP FOR "some-diagram.ded" -->
+#   <!-- This image map is automatically inserted by the
+#        'insert-ded-image-map' script.  Do not edit it manually. -->
+#   <!--AUTO--><area shape="rect" coords="30,35,285,130" href="#EntityA" />
+#   <!--AUTO--><area shape="rect" coords="415,35,545,100" href="#EntityB" />
+#   <!--AUTO--><area shape="rect" coords="30,160,365,450" href="#EntityC" />
+#   <!-- END IMAGE MAP FOR "some-diagram.ded" -->
+# </map>
+
 import json                  # json.loads
 import re                    # re.search, etc.
 import shutil                # shutil.copyfile
 import sys                   # sys.argv
 
-# Print a fatal error message and exit.
+class Error(Exception):
+  """A condition to be treated as an error."""
+  pass
+
+# Throw a fatal error with message.
 def die(message):
-  sys.stderr.write(message+"\n")
-  sys.exit(2)
+  raise Error(message)
+
+# Throw a fatal error with the given context and the
+# current exception as the conflcit.
+def dieContext(context):
+  msg = sys.exc_info()[1]
+  raise Error(context+": "+str(msg))
 
 try:
   if len(sys.argv) != 2:
@@ -28,65 +49,78 @@ try:
 
   # Read the HTML file, looking for places where an image
   # map should be inserted.
+  htmlInputLineNumber = 0
   with open(htmlFname, "rt") as htmlInputFile:
     for line in htmlInputFile:
-      if dedFname:
-        # We are skipping to the end of the current image map.
-        m = re.compile("<!-- END IMAGE MAP FOR \"(.*)\" -->").search(line)
-        if m:
-          if m.group(1) == dedFname:
-            # Done with this map.
-            dedFname = None
-            htmlOutput.append(line)
-          else:
-            die("Image map for \""+dedFname+"\" is either not terminated "+
-                "or ends with an incorrect terminator:\n"+
-                "  "+line)
+      try:
+        htmlInputLineNumber += 1
 
-      else:
-        htmlOutput.append(line)
+        if dedFname:
+          # We are skipping to the end of the current image map.
+          m = re.compile("<!-- END IMAGE MAP FOR \"(.*)\" -->").search(line)
+          if m:
+            if m.group(1) == dedFname:
+              # Done with this map.
+              dedFname = None
+              htmlOutput.append(line)
+            else:
+              die("Image map for \""+dedFname+"\" is either not terminated "+
+                  "or ends with an incorrect terminator:\n"+
+                  "  "+line)
 
-        m = re.compile("<!-- BEGIN IMAGE MAP FOR \"(.*)\" -->").search(line)
-        if m:
-          dedFname = m.group(1)
+        else:
+          htmlOutput.append(line)
 
-          # Prologue.
-          htmlOutput.append("  <!-- This image map is automatically inserted by the\n");
-          htmlOutput.append("       'insert-ded-image-map' script.  Do not edit it manually. -->\n");
+          m = re.compile("<!-- BEGIN IMAGE MAP FOR \"(.*)\" -->").search(line)
+          if m:
+            dedFname = m.group(1)
 
-          try:
-            # Parse the DED file.
-            with open(dedFname, "rt") as dedFile:
-              dedDiagram = json.load(dedFile)
+            # Prologue.
+            htmlOutput.append("  <!-- This image map is automatically inserted by the\n");
+            htmlOutput.append("       'insert-ded-image-map' script.  Do not edit it manually. -->\n");
 
-            # Emit <map> elements for each entity with name and attributes.
-            dedEntities = dedDiagram["entities"]
-            for entity in dedEntities:
-              name = entity["name"]
-              try:
-                attributes = entity["attributes"]
-                if len(name) > 0 and len(attributes) > 0:
-                  x = int(entity["loc"]["x"])
-                  y = int(entity["loc"]["y"])
-                  w = int(entity["size"]["w"])
-                  h = int(entity["size"]["h"])
+            try:
+              # Parse the DED file.
+              with open(dedFname, "rt") as dedFile:
+                dedDiagram = json.load(dedFile)
 
-                  # HTML image maps use (x1,y1,x2,y2) rectangles.
-                  x2 = x+w
-                  y2 = y+h
+              # Emit <map> elements for each entity with name and attributes.
+              dedEntities = dedDiagram["entities"]
+              for entity in dedEntities:
+                name = entity["name"]
+                try:
+                  attributes = entity["attributes"]
+                  if len(name) > 0 and len(attributes) > 0:
+                    x = int(entity["loc"]["x"])
+                    y = int(entity["loc"]["y"])
+                    w = int(entity["size"]["w"])
+                    h = int(entity["size"]["h"])
 
-                  htmlOutput.append("  <!--AUTO--><area shape=\"rect\" coords=\""+
-                                    str(x)+","+str(y)+","+str(x2)+","+str(y2)+
-                                    "\" href=\"#"+name+"\" />\n");
+                    # HTML image maps use (x1,y1,x2,y2) rectangles.
+                    x2 = x+w
+                    y2 = y+h
 
-              except:
-                die(dedFname+": entity \""+name+"\": "+str(sys.exc_info()[1]))
+                    htmlOutput.append("  <!--AUTO--><area shape=\"rect\" coords=\""+
+                                      str(x)+","+str(y)+","+str(x2)+","+str(y2)+
+                                      "\" href=\"#"+name+"\" />\n");
 
-          except SystemExit as e:
-            raise      # avoid catching what the inner 'die' throws
+                except KeyError as e:
+                  die("entity \""+name+"\": key not found: \""+e.args[0]+"\"")
 
-          except:
-            die(""+dedFname+": "+str(sys.exc_info()[1]))
+                except:
+                  dieContext("entity \""+name+"\"")
+
+            except KeyError as e:
+              die(dedFname+": key not found: \""+e.args[0]+"\"")
+
+            except:
+              dieContext(dedFname)
+
+      except:
+        dieContext(htmlFname+":"+str(htmlInputLineNumber))
+
+  if dedFname:
+    die("Image map for \""+dedFname+"\" is not terminated");
 
   # Make a backup of the original file before rewriting it.
   shutil.copyfile(htmlFname, htmlFname+".bak");
@@ -98,9 +132,15 @@ try:
 
   sys.exit(0)
 
+except Error as e:
+  print("Error: "+e.args[0])
+  sys.exit(2)
+
 except SystemExit as e:
-  raise
+  raise      # let this one go
+
 except:
-  die(str(sys.exc_info()[1]))
+  print("Error: "+str(sys.exc_info()[1]))
+  sys.exit(2)
 
 # EOF
