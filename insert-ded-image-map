@@ -7,9 +7,9 @@
 #   <!-- BEGIN IMAGE MAP FOR "some-diagram.ded" -->
 #   <!-- This image map is automatically inserted by the
 #        'insert-ded-image-map' script.  Do not edit it manually. -->
-#   <!--AUTO--><area shape="rect" coords="30,35,285,130" href="#EntityA" />
-#   <!--AUTO--><area shape="rect" coords="415,35,545,100" href="#EntityB" />
-#   <!--AUTO--><area shape="rect" coords="30,160,365,450" href="#EntityC" />
+#   <!--AUTO--><area shape="rect" coords="30,35,285,130" href="#EntityA" alt="EntityA" />
+#   <!--AUTO--><area shape="rect" coords="415,35,545,100" href="#EntityB" alt="EntityB" />
+#   <!--AUTO--><area shape="rect" coords="30,160,365,450" href="#EntityC" alt="EntityC" />
 #   <!-- END IMAGE MAP FOR "some-diagram.ded" -->
 # </map>
 
@@ -102,7 +102,8 @@ try:
 
                     htmlOutput.append("  <!--AUTO--><area shape=\"rect\" coords=\""+
                                       str(x)+","+str(y)+","+str(x2)+","+str(y2)+
-                                      "\" href=\"#"+name+"\" />\n");
+                                      "\" href=\"#"+name+
+                                      "\" alt=\""+name+"\" />\n");
 
                 except KeyError as e:
                   die("entity \""+name+"\": key not found: \""+e.args[0]+"\"")
