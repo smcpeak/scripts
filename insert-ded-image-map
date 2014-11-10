@@ -34,7 +34,7 @@ def dieContext(context):
 
 try:
   if len(sys.argv) != 2:
-    print("usage: "+sys.argv[0]+" file-to-edit.html")
+    print("usage: "+sys.argv[0]+" file-to-edit.html", file=sys.stderr)
     sys.exit(2)
 
   # Name of file to read and then rewrite.
@@ -106,7 +106,12 @@ try:
                                       "\" alt=\""+name+"\" />\n");
 
                 except KeyError as e:
-                  die("entity \""+name+"\": key not found: \""+e.args[0]+"\"")
+                  key = e.args[0]
+                  if key == "attributes":
+                    # Ignore; treat like empty attributes.
+                    0
+                  else:
+                    die("entity \""+name+"\": key not found: \""+key+"\"")
 
                 except:
                   dieContext("entity \""+name+"\"")
@@ -134,14 +139,14 @@ try:
   sys.exit(0)
 
 except Error as e:
-  print("Error: "+e.args[0])
+  print("Error: "+e.args[0], file=sys.stderr)
   sys.exit(2)
 
 except SystemExit as e:
   raise      # let this one go
 
 except:
-  print("Error: "+str(sys.exc_info()[1]))
+  print("Error: "+str(sys.exc_info()[1]), file=sys.stderr)
   sys.exit(2)
 
 # EOF
