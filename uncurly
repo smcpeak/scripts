@@ -1,0 +1,13 @@
+#!/bin/sh
+# remove "curly quotes" from stdin, write to stdout
+
+# For the moment, I'm just fixing the Java-style "\u" escapes
+# that Thunderbird inserts when I copy+paste an email into emacs.
+exec sed -e 's/\\u2013/--/g' \
+         -e 's/\\u2018/'"'/g" \
+         -e 's/\\u2019/'"'/g" \
+         -e 's/\\u2026/.../g' \
+         -e 's/\\u201c/"/g' \
+         -e 's/\\u201d/"/g'
+
+# EOF
