@@ -60,14 +60,10 @@ for my $pid (@pids) {
   if (-f $buildXML) {
     print("development build\n");
 
-    print("HTTP port: ");
-    system('grep "name=\"ces.tomcat.port" '.$buildXML.' | sed -e "s/.*value=\"//" -e "s/\".*//"');
-
+    print("HTTP port: 8080 (usually)\n");
     print("Commit port: 9090 (usually)\n");
     print("Postgres port: 5432 (usually)\n");
-
-    print("Tomcat control port: ");
-    system('grep "name=\"tomcat.server.port" '.$buildXML.' | sed -e "s/.*value=\"//" -e "s/\".*//"');
+    print("Tomcat control port: 8005 (usually)\n");
     
     print("\n");
     next;
