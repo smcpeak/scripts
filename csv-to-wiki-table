@@ -1,7 +1,5 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env python
 # convert CSV input into mediawiki table markup output
-
-use strict;
 
 # example output:
 #
@@ -13,66 +11,58 @@ use strict;
 #   | g || h || i
 #   |}
 
+import csv                   # csv.reader
+import sys                   # sys.argv
+
+class Error(Exception):
+  """A condition to be treated as an error."""
+  pass
+
 # True to make the first row a title row.
-my $firstRowTitle = 0;
+firstRowTitle = 0
 
-# Process command line arguments.
-for my $arg (@ARGV) {
-  if ($arg eq "-title") {
-    $firstRowTitle = 1;
-  }
-  else {
-    die("unknown argument: $arg\n");
-  }
-}
+try:
 
-print("{| border=\"1\"\n");
+  if len(sys.argv) < 2:
+    print("usage: [-title] "+sys.argv[0]+" input.csv")
+    sys.exit(2)
 
+  if sys.argv[1] == "-title":
+    firstRowTitle = 1
+    inputFname = sys.argv[2]
+  else:
+    inputFname = sys.argv[1]
 
-my $line = <STDIN>;
-my @fields = splitCSV($line);
+  with open(inputFname, "rt") as csvfile:
+    reader = csv.reader(csvfile)
 
-if ($firstRowTitle) {
-  print("! " . join(" !! ", @fields) . "\n");
-}
-else {
-  print("| " . join(" || ", @fields) . "\n");
-}
+    print("{| border=\"1\"");
 
-while (defined($line = <STDIN>)) {
-  print("|-\n");
+    for fields in reader:
+      if firstRowTitle:
+        print("! "+(" !! ".join(fields)))
+      else:
+        print("| "+(" || ".join(fields)))
+      break
 
-  @fields = splitCSV($line);
-  print("| " . join(" || ", @fields) . "\n");
-}
+    for fields in reader:
+      print("|-")
 
-print("|}\n");
+      # Bug: If one of the fields contains wiki metacharacters
+      # like "||" itself, this will not escape them.
+      print("| "+(" || ".join(fields)))
 
+    print("|}")
 
-# Split a line of CSV into fields.  The interface assumes that
-# newlines do not appear in fields.  The implementation assumes that
-# commas do not either.
-sub splitCSV {
-  my ($line) = @_;
-  chomp($line);
+except Error as e:
+  print("Error: "+e.args[0])
+  sys.exit(2)
 
-  my @entries = split(/,/, $line);
-
-  # remove surrounding double-quotes
-  my @ret = ();
-  foreach my $e (@entries) {
-    my $val;
-    ($val) = ($e =~ m/^\"(.*)\"$/);
-    if (defined($val)) {
-      push @ret, ($val);
-    }
-    else {
-      push @ret, ($e);
-    }
-  }
-
-  return @ret;
-}
-
+except IOError as e:
+  if e.filename:
+    print("Error: "+e.filename+": "+e.strerror)
+  else:
+    print("Error: "+e.strerror)
+  sys.exit(2)
 
 # EOF
