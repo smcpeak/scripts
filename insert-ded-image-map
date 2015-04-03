@@ -3,6 +3,8 @@
 
 # Example HTML:
 #
+# <img src="some-image.png" alt="some alt text"
+#      usemap="#some-image-map">
 # <map name="some-image-map">
 #   <!-- BEGIN IMAGE MAP FOR "some-diagram.ded" -->
 #   <!-- This image map is automatically inserted by the
@@ -87,8 +89,8 @@ try:
               # Emit <map> elements for each entity with name and attributes.
               dedEntities = dedDiagram["entities"]
               for entity in dedEntities:
-                name = entity["name"]
                 try:
+                  name = entity["name"]
                   attributes = entity["attributes"]
                   if len(name) > 0 and len(attributes) > 0:
                     x = int(entity["loc"]["x"])
@@ -100,6 +102,13 @@ try:
                     x2 = x+w
                     y2 = y+h
 
+                    # Hack: Let a special line in the attributes override the
+                    # anchor name.  (I should instead modify ded to add a
+                    # separate field for this.)
+                    m = re.compile("^anchor: (.*)$").search(attributes);
+                    if m:
+                      name = m.group(1)
+
                     htmlOutput.append("  <!--AUTO--><area shape=\"rect\" coords=\""+
                                       str(x)+","+str(y)+","+str(x2)+","+str(y2)+
                                       "\" href=\"#"+name+
@@ -107,7 +116,7 @@ try:
 
                 except KeyError as e:
                   key = e.args[0]
-                  if key == "attributes":
+                  if key == "attributes" or key == "name":
                     # Ignore; treat like empty attributes.
                     0
                   else:
@@ -117,7 +126,7 @@ try:
                   dieContext("entity \""+name+"\"")
 
             except KeyError as e:
-              die(dedFname+": key not found: \""+e.args[0]+"\"")
+              die(dedFname+": key not found: \""+e.args[0]+"\" in "+json.dumps(entity))
 
             except:
               dieContext(dedFname)
