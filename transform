@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+# script to apply a stdin->stdout filter/transform to a file
+
+import subprocess            # subprocess.check_output
+import sys                   # sys.argv
+#import traceback             # traceback.print_exc
+
+class Error(Exception):
+  """A condition to be treated as an error."""
+  pass
+
+# Throw a fatal error with message.
+def die(message):
+  raise Error(message)
+
+try:
+  if len(sys.argv) < 3:
+    print("usage: "+sys.argv[0]+" file filter-program [args]")
+    sys.exit(2)
+
+  # Name of file to read and then rewrite.
+  fname = sys.argv[1]
+
+  # Command and arguments.
+  command = sys.argv[2:]
+
+  # Open the file and process it to yield the output as
+  # one big string.
+  with open(fname, "rb") as inputFile:
+    output = subprocess.check_output(command, stdin=inputFile)
+
+  # Now overwrite the file with the output.
+  with open(fname, "wb") as outputFile:
+    outputFile.write(output)
+
+  print("transformed file \""+fname+"\" with command: "+(" ".join(command)));
+
+  sys.exit(0)
+
+except Error as e:
+  print("Error: "+e.args[0], file=sys.stderr)
+  sys.exit(2)
+
+except SystemExit as e:
+  raise      # let this one go
+
+except:
+  print("Error: "+str(sys.exc_info()[1]), file=sys.stderr)
+  #traceback.print_exc(file=sys.stderr)       # tmp
+  sys.exit(2)
+
+# EOF
