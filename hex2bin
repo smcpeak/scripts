@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+# dump standard input or file that is hex (like bin2hex output) as binary
+
+import sys                   # sys.argv
+import os                    # os.write
+import traceback             # traceback.print_exc
+
+class Error(Exception):
+  """A condition to be treated as an error."""
+  pass
+
+# Throw a fatal error with message.
+def die(message):
+  raise Error(message)
+
+def hex2bin(inputFile):
+  data = inputFile.read()
+
+  # Value being accumulated.
+  acc = 0
+  hasChar = False
+
+  for c in data:
+    n = c
+    if not isinstance(n, int):
+      # Apparently I get integers when reading from a file,
+      # and characters when reading from stdin?
+      n = ord(c)
+
+    if ord("0") <= n and n <= ord("9"):
+      acc = (acc << 4) + (n - ord("0"))
+      hasChar = True
+    elif ord("A") <= n and n <= ord("F"):
+      acc = (acc << 4) + 10 + (n - ord("A"))
+      hasChar = True
+    elif ord("a") <= n and n <= ord("f"):
+      acc = (acc << 4) + 10 + (n - ord("a"))
+      hasChar = True
+    else:
+      # Treat as whitespace, flush accumulated character.
+      if hasChar:
+        # Python makes it so hard to work with binary data!
+        os.write(1, bytearray([acc]))
+        acc = 0
+        hasChar = False
+
+  if hasChar:
+    os.write(1, bytearray([acc]))
+
+  # TODO: Input validation, "comments".
+
+try:
+  if len(sys.argv) > 2:
+    print("usage: "+sys.argv[0]+" file")
+    sys.exit(2)
+
+  if len(sys.argv) == 2:
+    with open(sys.argv[1], "rt") as inputFile:
+      hex2bin(inputFile)
+  else:
+    hex2bin(sys.stdin)
+
+  sys.exit(0)
+
+except Error as e:
+  print("Error: "+e.args[0], file=sys.stderr)
+  sys.exit(2)
+
+except SystemExit as e:
+  raise      # let this one go
+
+except:
+  print("Error: "+str(sys.exc_info()[1]), file=sys.stderr)
+  traceback.print_exc(file=sys.stderr)       # tmp
+  sys.exit(2)
+
+
+# EOF

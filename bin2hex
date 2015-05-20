@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+# dump standard input or file as hex in a form that hex2bin can read
+
+import sys                   # sys.argv
+#import traceback             # traceback.print_exc
+
+class Error(Exception):
+  """A condition to be treated as an error."""
+  pass
+
+# Throw a fatal error with message.
+def die(message):
+  raise Error(message)
+
+def bin2hex(inputFile):
+  data = inputFile.read()
+    
+  column = 0
+  for c in data:
+    n = c
+    if not isinstance(n, int):
+      # Apparently I get integers when reading from a file,
+      # and characters when reading from stdin?
+      n = ord(c)
+
+    print(("%02X" % n)+" ", end="")
+
+    column = column+1
+    if column % 16 == 0:
+      print("")
+    elif column % 4 == 0:
+      print(" ", end="")
+      
+  if column % 16 != 0:
+    print("")
+
+  # TODO: Print a "comment" with an offset and ASCII
+
+try:
+  if len(sys.argv) > 2:
+    print("usage: "+sys.argv[0]+" file")
+    sys.exit(2)
+
+  if len(sys.argv) == 2:
+    with open(sys.argv[1], "rb") as inputFile:
+      bin2hex(inputFile)
+  else:
+    bin2hex(sys.stdin)
+
+  sys.exit(0)
+
+except Error as e:
+  print("Error: "+e.args[0], file=sys.stderr)
+  sys.exit(2)
+
+except SystemExit as e:
+  raise      # let this one go
+
+except:
+  print("Error: "+str(sys.exc_info()[1]), file=sys.stderr)
+  #traceback.print_exc(file=sys.stderr)       # tmp
+  sys.exit(2)
+
+
+# EOF
