@@ -1,2 +1,6 @@
-#! /bin/csh -f
-awk '{ print tolower ( $0 ) }'
+#!/bin/sh
+# map stdin to lowercase, write to stdout
+
+exec awk '{ print tolower ( $0 ) }'
+
+# EOF
