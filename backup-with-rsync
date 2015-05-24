@@ -1,0 +1,40 @@
+#!/bin/sh
+# back up a directory using rsync
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 <directory>"
+  echo ""
+  echo "The directory must have a 'backup' symlink in it."
+  exit 2
+fi
+
+SRCDIR="$1"
+if echo "$SRCDIR" | grep '/$' >/dev/null; then
+  echo "The directory argument should not end with a slash."
+  exit 2
+fi
+
+DESTDIR=`readlink "$1/backup"`
+if [ $? -ne 0 ]; then
+  echo "There is no symlink called: $1/backup"
+  exit 2
+fi
+
+exec runecho rsync --verbose --archive --delete \
+  --exclude="data-coverity" \
+  --exclude="*.o" \
+  --exclude="*.class" \
+  --exclude="*.i" \
+  --exclude="*.ii" \
+  --exclude="*.exe" \
+  --exclude="/bld" \
+  --exclude="/dist" \
+  --exclude="/.m2" \
+  --exclude="/opt" \
+  --exclude="backup.tar.gz" \
+  --exclude="/.ccache" \
+  --exclude="/.cache" \
+  --exclude="/lib" \
+  "$SRCDIR/" "$DESTDIR"
+
+# EOF
