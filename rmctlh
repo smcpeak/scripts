@@ -1,4 +1,4 @@
-#! /bin/csh -f
+#!/bin/sh
 # remove ^H from stdin
 # specifically, (any char) followed by ^H is stripped
 # this also has the side effect of causing any other
@@ -6,3 +6,5 @@
 #   notation as well, because I use cat -v
 
 cat -v | sed 's/.^H//g'
+
+# EOF
