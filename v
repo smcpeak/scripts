@@ -51,9 +51,14 @@ known file formats, an associated players
     .pdf - Adobe PDF
 
   Archives: viewtargz
-    .tgz - Gzipped tar file (also .tar.gz)
+    .tgz     - Gzipped tar file (also .tar.gz)
     .tar.bz2 - BZipped tar file
-    .zip - Zipped archive (also .ZIP)
+    .zip     - Zipped archive (also .ZIP)
+
+  Certificates: openssl
+    .pem - PEM certificate
+    .crt - PEM certificate
+    .der - DER certificate
 
 EOF
   exit 0
@@ -95,7 +100,15 @@ while [ "$1" != "" ]; do
     *.tgz|*.tar.gz|*.tar.bz2|*.zip)
       viewtargz "$fname"
       ;;
-      
+
+    *.pem|*.crt)
+      openssl x509 -in "$fname" -text
+      ;;
+
+    *.der)
+      openssl x509 -in "$fname" -inform der -text
+      ;;
+
     *)
       echo "I don't know how to view $fname"
       exit 2
