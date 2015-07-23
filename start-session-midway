@@ -28,7 +28,10 @@ xset s off
 xset -dpms
 
 # .xinitrc is taking care of this?
-#xmodmap-make.caps.another.ctrl
+xmodmap-make.caps.another.ctrl
+
+# rest of this is not needed or does not work
+exit 0
 
 # xclock does not seem to respect the -fn command line argument any more!
 #start-xclock
