@@ -1,0 +1,7 @@
+#!/bin/sh
+# start eclipse, taking over the invoking terminal for logs
+
+stitle eclipse-console
+exec eclipse
+
+# EOF
