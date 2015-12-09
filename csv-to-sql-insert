@@ -1,88 +1,96 @@
-#!/usr/bin/perl
+#!/usr/bin/env python2
 # read a CSV, output SQL insert statements
 
-use strict;
+import csv                   # csv.reader
+import re                    # re.match
+import sys                   # sys.argv
 
-# CSV separator character
-my $separator = ",";
+class Error(Exception):
+  """A condition to be treated as an error."""
+  pass
 
 # name of table to insert into
-my $tableName = "";
+tableName = ""
 
-sub usage {
-  print(<<"EOF");
-$0 [options] < input.csv > output.sql
+def usage():
+  print(sys.argv[0]+""" [options] < input.csv > output.sql
 
 Where <options> include:
-  -table <table>    Specify SQL table name; required.
-  -sep <sep>        Specify CSV separator; defaults to "$separator".
-EOF
-}
+  -table <table>    Specify SQL table name; required.""")
 
-while (@ARGV) {
-  my $opt = shift @ARGV;
-  if ($opt eq "-sep") {
-    $separator = shift @ARGV;
-  }
-  elsif ($opt eq "-table") {
-    $tableName = shift @ARGV;
-  }
-  else {
-    usage();
-    die("unknown option: $opt\n");
-  }
-}
+def die(msg):
+  raise Error(msg)  
 
-if ($tableName eq "") {
-  usage();
-  die("must specify -table\n");
-}
-
-# skip the header line
-my $line = <STDIN>;
-
-while (defined($line = <STDIN>)) {
-  my @fields = splitCSV($line);
-
-  print("INSERT INTO $tableName VALUES(");
+try:
   
-  my $ct = 0;
-  for my $f (@fields) {
-    if ($ct++ > 0) {
-      print(", ");
-    }
-    
-    # SQL quote as string
-    $f =~ s/\'/\'\'/g;
-    print("'$f'");
-  }
-  
-  print(");\n");
-}
+  i = 1
+  while i < len(sys.argv):
+    opt = sys.argv[i]
 
+    if opt == "-table":
+      if i+1 < len(sys.argv):
+        tableName = sys.argv[i+1]
+        i = i+1
+      else:
+        die("argument required for the -table option")
+    else:
+      usage()
+      die("unknown option: "+opt)
 
-# Split a line of CSV into fields.  This assumes that
-# newline and $separator do not appear in fields.
-sub splitCSV {
-  my ($line) = @_;
-  chomp($line);
+    i = i+1
 
-  my @entries = split(/$separator/, $line);
+  if tableName == "":
+    usage()
+    die("must specify -table\n")
 
-  # remove surrounding double-quotes
-  my @ret = ();
-  foreach my $e (@entries) {
-    my $val;
-    ($val) = ($e =~ m/^\"(.*)\"$/);
-    if (defined($val)) {
-      push @ret, ($val);
-    }
-    else {
-      push @ret, ($e);
-    }
-  }
+  reader = csv.reader(sys.stdin)
 
-  return @ret;
-}
+  # skip the header line
+  for fields in reader:
+    break
+
+  # process the data lines
+  for fields in reader:
+    sys.stdout.write("INSERT INTO "+tableName+" VALUES(")
+
+    ct = 0
+    for f in fields:
+      # Insert a comma between values.
+      if ct > 0:
+        sys.stdout.write(", ")
+      ct = ct+1
+
+      # Map empty values to NULL.  This might not be what we really
+      # want, but it is easier to clean the data after it is in the
+      # database.
+      if f == "":
+        sys.stdout.write("NULL")
+
+      # Assume that fields consisting entirely of digits (or period) are
+      # meant to be SQL integers, and hence should not be
+      # quoted.  (Unfortunately, the Python CSV module cannot
+      # tell me if these digits were double-quoted in the
+      # original file...).
+      elif re.match("^[0-9.]+$", f):     # blah ... "
+        # Write without quoting.
+        sys.stdout.write(f)
+        
+      else:
+        # SQL quote as string.
+        qf = f.replace("'", "''")
+        sys.stdout.write("'"+qf+"'")
+
+    sys.stdout.write(");\n")
+
+except Error as e:
+  print("Error: "+e.args[0])
+  sys.exit(2)
+
+except IOError as e:
+  if e.filename:
+    print("Error: "+e.filename+": "+e.strerror)
+  else:
+    print("Error: "+e.strerror)
+  sys.exit(2)
 
 # EOF
