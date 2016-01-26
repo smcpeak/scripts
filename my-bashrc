@@ -50,7 +50,7 @@ export CVSROOT=~/cvsroot
 #export CXX=g++
 #export CXXFLAGS="-g -Wall"
 
-export PAGER=more
+export PAGER=less
 export XAPPLRESDIR=~/.xapplresdir
 export LD_LIBRARY_PATH=~/lib
 export CVS_RSH=ssh
