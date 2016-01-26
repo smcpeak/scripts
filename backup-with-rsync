@@ -2,9 +2,12 @@
 # back up a directory using rsync
 
 if [ "x$1" = "x" ]; then
-  echo "usage: $0 <directory>"
+  echo "usage: $0 <sourcedir> [<destdir>]"
   echo ""
-  echo "The directory must have a 'backup' symlink in it."
+  echo "If <destdir> is omitted, then the source directory must have"
+  echo "a 'backup' symlink in it."
+  echo ""
+  echo "The <destdir> can be <machine>:<dest> to make a remote copy."
   exit 2
 fi
 
@@ -14,10 +17,14 @@ if echo "$SRCDIR" | grep '/$' >/dev/null; then
   exit 2
 fi
 
-DESTDIR=`readlink "$1/backup"`
-if [ $? -ne 0 ]; then
-  echo "There is no symlink called: $1/backup"
-  exit 2
+if [ "x$2" = "x" ]; then
+  DESTDIR=`readlink "$1/backup"`
+  if [ $? -ne 0 ]; then
+    echo "error: No <destdir> provided and there is no symlink called: $1/backup"
+    exit 2
+  fi
+else
+  DESTDIR="$2"
 fi
 
 exec runecho rsync --verbose --archive --delete \
