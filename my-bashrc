@@ -162,6 +162,10 @@ export PERL5LIB=$HOME/lib/perl
 # Make maven suck a little less
 export MAVEN_OPTS="-XX:MaxPermSize=1024M"
 
+# Disable use of color output from GCC.  The main problem is it
+# does not work well in the emacs compilation output window.
+export GCC_COLORS=
+
 # site-specific (should be last thing in this file)
 if [ -f ~/.bashrc-site ]; then
   . ~/.bashrc-site
