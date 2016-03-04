@@ -1,12 +1,25 @@
 #!/usr/bin/perl
 # verify a signature on a file
 
-if (@ARGV != 2) {
-  die("usage: $0 filename.asc/sig filename\n");
+if (@ARGV != 1 && @ARGV != 2) {
+  die("usage: $0 filename.asc/sig [filename]\n");
 }
 
 my $sigfile = $ARGV[0];
-my $mainfile = $ARGV[1];
+
+my $mainfile;
+if (@ARGV == 1) {
+  # Infer name of main file from name of signature file.
+  my ($base, $ext) = ($sigfile =~ m/^(.*)\.(asc|sig)$/);
+  if (!defined($base)) {
+    die("error: When just one file name is provided as an argument,\n" .
+        "it should end in either \".asc\" or \".sig\".\n");
+  }
+  $mainfile = $base;
+}
+else {
+  $mainfile = $ARGV[1];
+}
 
 # The MIT server seems to usually be down lately.
 #my $keyserver = "pgpkeys.mit.edu";
