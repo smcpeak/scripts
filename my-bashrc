@@ -125,6 +125,24 @@ function exitstatus {
 PROMPT_COMMAND=exitstatus
 
 
+# Put a directory at the beginning of PATH.  This works even with an
+# argument that is not absolute.  Credit to Michael Marks.
+prepath() {
+  if [ "x$1" = "x" ]; then
+    echo "usage: prepath <directory>"
+    return 2
+  fi
+  newpath=`readlink -e --verbose "$1"`
+  code="$?"
+  if [ "$code" -eq 0 ]; then
+    PATH="$newpath:$PATH"
+    echo "PATH is now $PATH"
+  else
+    return "$code"
+  fi
+}
+
+
 # disable shell mail checking
 unset MAILCHECK
 
