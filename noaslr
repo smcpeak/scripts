@@ -1,0 +1,11 @@
+#!/bin/sh
+# run a program with Address Space Layout Randomization disabled
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 command [args...]"
+  exit 2
+fi
+
+exec setarch `uname -m` --addr-no-randomize "$@"
+
+# EOF
