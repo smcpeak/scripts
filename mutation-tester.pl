@@ -28,6 +28,9 @@ my $stopMutant = 2000000000;
 # compile and test command lines.
 my $stopAfterOne = 0;
 
+# True to write a report at the end.
+my $writeReport = 1;
+
 while (@ARGV >= 1 && $ARGV[0] =~ m/^-/) {
   my $opt = $ARGV[0];
   if ($opt =~ m/^-/) {
@@ -47,6 +50,7 @@ while (@ARGV >= 1 && $ARGV[0] =~ m/^-/) {
         "  --start <n>        test mutant <n> and greater only\n" .
         "  --stop <n>         test up to mutant <n> only\n" .
         "  --one              stop after first candidate mutant\n" .
+        "  --noreport         do not write a report at the end\n" .
         "");
       exit(0);
     }
@@ -67,6 +71,9 @@ while (@ARGV >= 1 && $ARGV[0] =~ m/^-/) {
     }
     elsif ($opt eq "--one") {
       $stopAfterOne = 1;
+    }
+    elsif ($opt eq "--noreport") {
+      $writeReport = 0;
     }
     else {
       die("unknown option: $opt\ntry --help\n");
@@ -307,24 +314,26 @@ if ($mutantSurvived) {
 }
 
 
-# Write a version of the input file with lines annotated with results.
-my $reportFname = "$fname.mutreport";
-open(OUT, ">$reportFname") or die("cannot write $reportFname: $!\n");
+if ($writeReport) {
+  # Write a version of the input file with lines annotated with results.
+  my $reportFname = "$fname.mutreport";
+  open(OUT, ">$reportFname") or die("cannot write $reportFname: $!\n");
 
-for (my $i=0; $i < @lines; $i++) {
-  my $line = $lines[$i];
-  chomp($line);
+  for (my $i=0; $i < @lines; $i++) {
+    my $line = $lines[$i];
+    chomp($line);
 
-  my $result = $lineToResult{$i};
-  if (!defined($result)) {
-    $result = "";
+    my $result = $lineToResult{$i};
+    if (!defined($result)) {
+      $result = "";
+    }
+
+    printf OUT ("/* %6d: %-10s */ %s\n", $i+1, $result, $line);
   }
 
-  printf OUT ("/* %6d: %-10s */ %s\n", $i+1, $result, $line);
+  close(OUT) or die;
+  print("Wrote mutation report to $reportFname\n");
 }
-
-close(OUT) or die;
-print("Wrote mutation report to $reportFname\n");
 
 exit(0);
 
