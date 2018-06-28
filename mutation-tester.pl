@@ -335,6 +335,18 @@ if ($writeReport) {
   print("Wrote mutation report to $reportFname\n");
 }
 
+
+# Subtle: Right now, we have some build artifacts (object files and
+# executables) that were derived from a mutant.  If we leave things
+# that way, we'll have problems later.  By touching the original file,
+# that should cause the normal build process to rebuild anything that
+# depends on it.
+if (0!=system("touch", $fname)) {
+  print("WARNING: failed to touch $fname\n");
+  print("Make sure you do so manually to clear the mutants from your build!\n");
+}
+
+
 exit(0);
 
 
