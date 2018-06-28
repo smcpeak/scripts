@@ -9,6 +9,19 @@ runUnitTests();
 # True to print lines subject to mutation.
 my $scan = 0;
 
+# Command to run to compile the program.
+my $compileStep = "";
+
+# Command to run to test the program.
+my $testStep = "";
+
+# Test step timeout as a 'timeout' duration.
+my $timeoutDuration = "1s";
+
+# True to stop after one, which is useful when developing the
+# compile and test command lines.
+my $stopAfterOne = 0;
+
 while (@ARGV >= 1 && $ARGV[0] =~ m/^-/) {
   my $opt = $ARGV[0];
   if ($opt =~ m/^-/) {
@@ -21,14 +34,33 @@ while (@ARGV >= 1 && $ARGV[0] =~ m/^-/) {
         "usage: $0 [options] file-to-test.cc\n" .
         "\n" .
         "options\n" .
-        "  --help          print this message\n" .
-        "  --scan          print lines subject to mutation\n" .
-        "  --              end options list\n" .
+        "  --help             print this message\n" .
+        "  --scan             print lines subject to mutation, then stop\n" .
+        "  --compile <cmd>    command to compile mutant.cc\n" .
+        "  --test <cmd>       command to test compiled program\n" .
+        "  --one              stop after first candidate mutant\n" .
         "");
       exit(0);
     }
     elsif ($opt eq "--scan") {
       $scan = 1;
+    }
+    elsif ($opt eq "--compile") {
+      shift @ARGV;
+      if (scalar(@ARGV) == 0) {
+        die("missing command after --compile\n");
+      }
+      $compileStep = $ARGV[0];
+    }
+    elsif ($opt eq "--test") {
+      shift @ARGV;
+      if (scalar(@ARGV) == 0) {
+        die("missing command after --test\n");
+      }
+      $testStep = $ARGV[0];
+    }
+    elsif ($opt eq "--one") {
+      $stopAfterOne = 1;
     }
     else {
       die("unknown option: $opt\ntry --help\n");
@@ -43,17 +75,26 @@ if (@ARGV != 1) {
 
 my $fname = $ARGV[0];
 
-print("$scan $fname\n");
 
 if (!$scan) {
-  die("unimplemented: no --scan\n");
+  if ($compileStep eq "") {
+    die("must pass --compile option; try --help\n");
+  }
+  if ($testStep eq "") {
+    die("must pass --test option; try --help\n");
+  }
 }
 
+
+# Read the file to test.
 open(IN, "<$fname") or die("cannot open $fname: $!\n");
 my @lines = <IN>;
 close(IN) or die;
+#print("read " . (scalar(@lines)) . " lines\n");
 
-print("read " . (scalar(@lines)) . " lines\n");
+
+# Collect the 0-based line numbers of lines to mutate.
+my @linesToMutate = ();
 
 # Number of unbalanced open-parens seen so far.
 my $totalParens = 0;
@@ -130,20 +171,109 @@ for (my $i=0; $i < @lines; $i++) {
     $wantLine = 0;
   }
 
-  printf("%6d %2d %2d  %s %s\n",
-         $i+1,
-         $totalParens,
-         $parens,
-         ($wantLine?    "***" :
-          $nonStmt?     "   " :
-          $blank?       "  _" :
-          $braces?      "  b" :
-          $return?      "  r" :
-          $assert?      "  a" :
-          $decl?        "  d" :
-          $rejParens?   "  p" :
-                        "???"),
-         $line);
+  if ($scan) {
+    printf("%6d %2d %2d  %s %s\n",
+           $i+1,
+           $totalParens,
+           $parens,
+           ($wantLine?    "***" :
+            $nonStmt?     "   " :
+            $blank?       "  _" :
+            $braces?      "  b" :
+            $return?      "  r" :
+            $assert?      "  a" :
+            $decl?        "  d" :
+            $rejParens?   "  p" :
+                          "???"),
+           $line);
+  }
+
+  if ($wantLine) {
+    push @linesToMutate, ($i);
+  }
+}
+
+if ($scan) {
+  exit(0);
+}
+
+
+mkdir("mut");     # ignore any error
+
+# Set of 1-based line numbers for which tests need to be improved.
+my @survivingMutants = ();
+
+# Stats on results.
+my $compileFailed = 0;
+my $mutantSurvived = 0;
+my $mutantKilled = 0;
+
+# Process each line.
+foreach my $lineNumber (@linesToMutate) {
+  my $linePlusOne = $lineNumber + 1;
+  print("Testing mutant $linePlusOne ...\n");
+
+  # Write out a modified version of the file.
+  open(OUT, ">mutant.cc") or die("cannot write mutant.cc: $!\n");
+  for (my $i=0; $i < @lines; $i++) {
+    my $line = $lines[$i];
+    if ($i == $lineNumber) {
+      print OUT ("//REMOVED: $line\n");
+    }
+    else {
+      print OUT ("$line\n");
+    }
+  }
+  close(OUT) or die;
+
+  # Run the compile step.
+  my $compileOutFname = "mut/m$linePlusOne.compile.out";
+  if (0!=mysystem("$compileStep >$compileOutFname 2>&1")) {
+    $compileFailed++;
+    print("  Compile step failed, see $compileOutFname\n");
+    next;
+  }
+
+  # Run test step.
+  my $testOutFname = "mut/m$linePlusOne.test.out";
+  my $code = mysystem("timeout $timeoutDuration $testStep >$testOutFname 2>&1");
+  if ($code == 0) {
+    print("  Mutant survived, see $testOutFname\n");
+    push @survivingMutants, ($linePlusOne);
+    $mutantSurvived++;
+  }
+  else {
+    my $how;
+    if ($code != 0) {
+      if ($code >= 256) {
+        $how = "exit " . ($code >> 8);
+      }
+      else {
+        $how = "signal $code";
+      }
+    }
+    print("  Mutant killed ($how), as desired.\n");
+    $mutantKilled++;
+  }
+
+  if ($stopAfterOne) {
+    print("Stopping after first mutant candidate due to --one option.\n");
+    last;
+  }
+}
+
+printf("Tester complete.  Stats:\n");
+printf("  Total candidates:  %6d\n", scalar(@linesToMutate));
+printf("  Compile failed:    %6d\n", $compileFailed);
+printf("  Killed mutants:    %6d\n", $mutantKilled);
+printf("  Surviving mutants: %6d\n", $mutantSurvived);
+
+if ($mutantSurvived) {
+  print("\nSurvivors: @survivingMutants\n");
+  exit(1);
+}
+else {
+  exit(0);
 }
 
 
@@ -182,7 +312,19 @@ sub isDeclaration {
 }
 
 
+# like system, except bail if underlying command died by ctrl-c
+sub mysystem {
+  my (@cmd) = @_;
 
+  my $code = system(@cmd);
+  if ($code == 2) {
+    die("Interrupted by Ctrl+C.\n");
+  }
+  return $code;
+}
+
+
+# ----------------------- unit tests ----------------------------
 sub testIsDeclaration {
   my @positiveExamples = (
     "TextCoord const m = this->mark();",
