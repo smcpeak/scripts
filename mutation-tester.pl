@@ -18,6 +18,12 @@ my $testStep = "";
 # Test step timeout as a 'timeout' duration.
 my $timeoutDuration = "1s";
 
+# Minimum-valued mutant to test.
+my $startMutant = 0;
+
+# Maximum-valued mutant to test.
+my $stopMutant = 2000000000;
+
 # True to stop after one, which is useful when developing the
 # compile and test command lines.
 my $stopAfterOne = 0;
@@ -38,6 +44,8 @@ while (@ARGV >= 1 && $ARGV[0] =~ m/^-/) {
         "  --scan             print lines subject to mutation, then stop\n" .
         "  --compile <cmd>    command to compile mutant.cc\n" .
         "  --test <cmd>       command to test compiled program\n" .
+        "  --start <n>        test mutant <n> and greater only\n" .
+        "  --stop <n>         test up to mutant <n> only\n" .
         "  --one              stop after first candidate mutant\n" .
         "");
       exit(0);
@@ -46,18 +54,16 @@ while (@ARGV >= 1 && $ARGV[0] =~ m/^-/) {
       $scan = 1;
     }
     elsif ($opt eq "--compile") {
-      shift @ARGV;
-      if (scalar(@ARGV) == 0) {
-        die("missing command after --compile\n");
-      }
-      $compileStep = $ARGV[0];
+      $compileStep = grabArg($opt);
     }
     elsif ($opt eq "--test") {
-      shift @ARGV;
-      if (scalar(@ARGV) == 0) {
-        die("missing command after --test\n");
-      }
-      $testStep = $ARGV[0];
+      $testStep = grabArg($opt);
+    }
+    elsif ($opt eq "--start") {
+      $startMutant = grabArg($opt);
+    }
+    elsif ($opt eq "--stop") {
+      $stopMutant = grabArg($opt);
     }
     elsif ($opt eq "--one") {
       $stopAfterOne = 1;
@@ -67,6 +73,16 @@ while (@ARGV >= 1 && $ARGV[0] =~ m/^-/) {
     }
     shift @ARGV;
   }
+}
+
+sub grabArg {
+  my ($opt) = @_;
+
+  shift @ARGV;
+  if (scalar(@ARGV) == 0) {
+    die("missing command after $opt\n");
+  }
+  return $ARGV[0];
 }
 
 if (@ARGV != 1) {
@@ -204,14 +220,28 @@ mkdir("mut");     # ignore any error
 my @survivingMutants = ();
 
 # Stats on results.
+my $mutantSkipped = 0;
 my $compileFailed = 0;
 my $mutantSurvived = 0;
 my $mutantKilled = 0;
 
+# Map from 0-based line number to test result.
+my %lineToResult = ();
+
+# Autoflush output so I can see mutant name while it is being processed.
+$| = 1;
+
 # Process each line.
 foreach my $lineNumber (@linesToMutate) {
-  my $linePlusOne = $lineNumber + 1;
-  print("Testing mutant $linePlusOne ...\n");
+  my $mutant = $lineNumber + 1;
+
+  if (!( $startMutant <= $mutant && $mutant <= $stopMutant )) {
+    $mutantSkipped++;
+    $lineToResult{$lineNumber} = "skip";
+    next;
+  }
+
+  print("Testing mutant $mutant... ");
 
   # Write out a modified version of the file.
   open(OUT, ">mutant.cc") or die("cannot write mutant.cc: $!\n");
@@ -227,20 +257,22 @@ foreach my $lineNumber (@linesToMutate) {
   close(OUT) or die;
 
   # Run the compile step.
-  my $compileOutFname = "mut/m$linePlusOne.compile.out";
+  my $compileOutFname = "mut/m$mutant.compile.out";
   if (0!=mysystem("$compileStep >$compileOutFname 2>&1")) {
     $compileFailed++;
-    print("  Compile step failed, see $compileOutFname\n");
+    print("compile failed, see $compileOutFname\n");
+    $lineToResult{$lineNumber} = "compile";
     next;
   }
 
   # Run test step.
-  my $testOutFname = "mut/m$linePlusOne.test.out";
+  my $testOutFname = "mut/m$mutant.test.out";
   my $code = mysystem("timeout $timeoutDuration $testStep >$testOutFname 2>&1");
   if ($code == 0) {
-    print("  Mutant survived, see $testOutFname\n");
-    push @survivingMutants, ($linePlusOne);
+    print("survived!\n");
+    push @survivingMutants, ($mutant);
     $mutantSurvived++;
+    $lineToResult{$lineNumber} = "survive";
   }
   else {
     my $how;
@@ -252,8 +284,9 @@ foreach my $lineNumber (@linesToMutate) {
         $how = "signal $code";
       }
     }
-    print("  Mutant killed ($how), as desired.\n");
+    print("killed ($how), as desired.\n");
     $mutantKilled++;
+    $lineToResult{$lineNumber} = $how;
   }
 
   if ($stopAfterOne) {
@@ -263,18 +296,37 @@ foreach my $lineNumber (@linesToMutate) {
 }
 
 printf("Tester complete.  Stats:\n");
-printf("  Total candidates:  %6d\n", scalar(@linesToMutate));
-printf("  Compile failed:    %6d\n", $compileFailed);
-printf("  Killed mutants:    %6d\n", $mutantKilled);
-printf("  Surviving mutants: %6d\n", $mutantSurvived);
+printf("  Total candidates:              %6d\n", scalar(@linesToMutate));
+printf("  Skipped due to --start/--stop: %6d\n", $mutantSkipped);
+printf("  Compile failed:                %6d\n", $compileFailed);
+printf("  Killed mutants:                %6d\n", $mutantKilled);
+printf("  Surviving mutants:             %6d\n", $mutantSurvived);
 
 if ($mutantSurvived) {
   print("\nSurvivors: @survivingMutants\n");
-  exit(1);
 }
-else {
-  exit(0);
+
+
+# Write a version of the input file with lines annotated with results.
+my $reportFname = "$fname.mutreport";
+open(OUT, ">$reportFname") or die("cannot write $reportFname: $!\n");
+
+for (my $i=0; $i < @lines; $i++) {
+  my $line = $lines[$i];
+  chomp($line);
+
+  my $result = $lineToResult{$i};
+  if (!defined($result)) {
+    $result = "";
+  }
+
+  printf OUT ("/* %6d: %-10s */ %s\n", $i+1, $result, $line);
 }
+
+close(OUT) or die;
+print("Wrote mutation report to $reportFname\n");
+
+exit(0);
 
 
 sub isDeclaration {
