@@ -1,0 +1,84 @@
+#!/usr/bin/perl -w
+# My pre-commit hook.
+
+# This file lives in ~/scripts.  Then I put into my git repos this
+# .git/hooks/pre-commit file:
+#
+#   #!/bin/sh
+#   exec perl $HOME/scripts/git-hook-pre-commit
+#
+# It does the following:
+#
+# * A frequent problem on Windows is I create a file using a native
+# Windows program like Eclipse, which is interpreted by cygwin tools
+# like git as being executable.  Then I get spuriously executable
+# files in my repo.  This rejects the commit when that happens.
+
+use strict;
+
+# Get list of files in commit.
+my @files = `git diff --cached --name-only`;
+if ($? != 0) {
+  die("git diff failed with exit code $?\n");
+}
+
+# Found any problem?
+my $problems = 0;
+
+# Process them.
+foreach my $fname (@files) {
+  chomp($fname);
+
+  # Check for source files.
+  if (looksLikeSource($fname)) {
+    # Get the permissions in the index of the staged file.
+    my $line = `git ls-files --stage '$fname'`;
+    if ($? != 0) {
+      die("git ls-files --stage '$fname' failed with exit code $?\n");
+    }
+    chomp($line);
+    my ($perms) = ($line =~ m/^\d{3}(\d{3}) /);
+    if (!defined($perms)) {
+      die("failed to parse output of git ls-files: $line\n");
+    }
+
+    # Reject if executable.
+    if (hasExecuteBit($perms)) {
+      print STDERR ("$fname: Looks like source but is executable (as staged).\n");
+      $problems++;
+    }
+  }
+}
+
+print STDERR ("Problems: $problems.\n");
+exit($problems? 2 : 0);
+
+
+# Return true if $fname looks like source code based on its file name.
+sub looksLikeSource {
+  my ($fname) = @_;
+
+  if ($fname =~ m/\.(c|h|cc|hh|cpp|hpp|cxx|hxx|C|H)$/) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+# Return true if $perms, a string of 3 octal digits interpreted as a
+# unix permissions bit set, has any of the execute (LSB) bits set.
+sub hasExecuteBit {
+  my ($perms) = @_;
+
+  if ($perms =~ m/[1357]/) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+
+# EOF
