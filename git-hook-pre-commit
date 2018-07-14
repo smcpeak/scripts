@@ -16,10 +16,27 @@
 
 use strict;
 
+my $verbose = 0;
+
+while (scalar(@ARGV) > 0) {
+  my $opt = $ARGV[0];
+  shift @ARGV;
+
+  if ($opt eq "-v") {
+    $verbose = 1;
+  }
+  else {
+    die("$0: unrecognized option: \"$opt\"\n");
+  }
+}
+
 # Get list of files in commit.
+if ($verbose) {
+  print(    "git diff --cached --name-only\n");
+}
 my @files = `git diff --cached --name-only`;
 if ($? != 0) {
-  die("git diff failed with exit code $?\n");
+  die("$0: git diff failed with exit code $?\n");
 }
 
 # Found any problem?
@@ -32,14 +49,22 @@ foreach my $fname (@files) {
   # Check for source files.
   if (looksLikeSource($fname)) {
     # Get the permissions in the index of the staged file.
+    if ($verbose) {
+      print(   "git ls-files --stage '$fname'\n");
+    }
     my $line = `git ls-files --stage '$fname'`;
     if ($? != 0) {
-      die("git ls-files --stage '$fname' failed with exit code $?\n");
+      die("$0: git ls-files --stage '$fname' failed with exit code $?\n");
     }
     chomp($line);
+    if ($line eq "") {
+      # If the file has been staged for deletion, ls-files prints nothing.
+      next;
+    }
+
     my ($perms) = ($line =~ m/^\d{3}(\d{3}) /);
     if (!defined($perms)) {
-      die("failed to parse output of git ls-files: $line\n");
+      die("$0: failed to parse output of git ls-files: $line\n");
     }
 
     # Reject if executable.
@@ -47,10 +72,12 @@ foreach my $fname (@files) {
       print STDERR ("$fname: Looks like source but is executable (as staged).\n");
       $problems++;
     }
+
+    inspectSourceContents($fname);
   }
 }
 
-print STDERR ("Problems: $problems.\n");
+print STDERR ("$0 found $problems problems.\n");
 exit($problems? 2 : 0);
 
 
@@ -78,6 +105,26 @@ sub hasExecuteBit {
   else {
     return 0;
   }
+}
+
+
+# Check the contents of source code for prohibited things.
+sub inspectSourceContents {
+  my ($fname) = @_;
+
+  open(IN, "<$fname") or die("Cannot read $fname: $!\n");
+  my $lineNumber = 0;
+  my $line;
+  while (defined($line = <IN>)) {
+    $lineNumber++;
+
+    # Check for NOCHECKIN.
+    if ($line =~ m/NOCHECKIN/) {
+      print STDERR ("$0: $fname:$lineNumber: found NOCHECKIN\n");
+      exit(2);
+    }
+  }
+  close(IN) or die;
 }
 
 
