@@ -1,0 +1,13 @@
+#!/bin/sh
+# grep all source code
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 [<grep options>] <grep-style regexp>"
+  exit 2
+fi
+
+# -n: Print line numbers.
+# -H: Print file name even if only one passed.
+git ls-files | xargsn grep -n -H "$@"
+
+# EOF
