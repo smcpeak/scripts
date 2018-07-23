@@ -1,0 +1,8 @@
+#!/bin/sh
+# Sort with LANG=C.
+
+export LANG=C
+exec sort "$@"
+
+# EOF
+
