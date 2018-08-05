@@ -18,6 +18,6 @@ done
 
 echo "making qsize/index.html"
 cd qsize || exit
-make-camera-index *.jpg > index.html
+make-camera-index *.[jJ][pP][gG] > index.html
 
 # EOF
