@@ -1,0 +1,6 @@
+#!/bin/sh
+# run nano without colorization
+
+exec nano -Ynone "$@"
+
+# EOF
