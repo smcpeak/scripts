@@ -162,7 +162,7 @@ for (my $i=0; $i < @lines; $i++) {
   }
 
   my $assert = 0;
-  if ($line =~ m/\b(xassert|assert|selfCheck)\b/) {
+  if ($line =~ m/\b(xassert|assert|selfCheck|xfailure)\b/) {
     $assert = 1;
     $wantLine = 0;
   }
