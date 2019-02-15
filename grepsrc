@@ -6,8 +6,14 @@ if [ "x$1" = "x" ]; then
   exit 2
 fi
 
-# -n: Print line numbers.
-# -H: Print file name even if only one passed.
-git ls-files | xargsn grep -n -H "$@"
+# git ls-files is passed the name of the repo root directory, which
+# causes it to print all files in the repo, and as paths relative to
+# the working directory.  Without that, it only prints names of files
+# in the working directory and below.
+#
+# grep options:
+#   -n: Print line numbers.
+#   -H: Print file name even if only one passed.
+git ls-files $(git rev-parse --show-toplevel) | xargsn grep -n -H "$@"
 
 # EOF
