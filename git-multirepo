@@ -6,10 +6,22 @@ if [ "x$1" = "x" ]; then
   exit 2
 fi
 
+# 'true' if the command interacts with the remote repository.
+isRemote=false
+case "$1" in
+  push|pull|fetch)
+    isRemote=true
+    ;;
+esac
+
 for fn in *; do
   if [ -d "$fn/.git" ]; then
     echo "------------ $fn -------------"
-    (cd "$fn" && git "$@") || break
+    if $isRemote && ! grep '^ref: ' "$fn/.git/HEAD" >/dev/null; then
+      echo "$fn is in a detached state, skipping remote command $1"
+    else
+      (cd "$fn" && git "$@") || break
+    fi
   fi
 done
 
