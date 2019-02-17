@@ -1,0 +1,16 @@
+#!/bin/sh
+# Run a git command on every repo in the current directory.
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 command [args...]"
+  exit 2
+fi
+
+for fn in *; do
+  if [ -d "$fn/.git" ]; then
+    echo "------------ $fn -------------"
+    (cd "$fn" && git "$@") || break
+  fi
+done
+
+# EOF
