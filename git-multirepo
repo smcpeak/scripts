@@ -17,11 +17,17 @@ esac
 for fn in *; do
   if [ -d "$fn/.git" ]; then
     echo "------------ $fn -------------"
-    if $isRemote && ! grep '^ref: ' "$fn/.git/HEAD" >/dev/null; then
-      echo "$fn is in a detached state, skipping remote command $1"
-    else
-      (cd "$fn" && git "$@") || break
+    if $isRemote; then
+      if ! grep '^ref: ' "$fn/.git/HEAD" >/dev/null; then
+        echo "$fn is in a detached state, skipping remote command $1"
+        continue
+      fi
+      if [ -z `(cd "$fn" && git remote)` ]; then
+        echo "$fn does not have a remote, skipping remote command $1"
+        continue
+      fi
     fi
+    (cd "$fn" && git "$@") || break
   fi
 done
 
