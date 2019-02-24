@@ -22,7 +22,8 @@ for fn in *; do
         echo "$fn is in a detached state, skipping remote command $1"
         continue
       fi
-      if [ -z `(cd "$fn" && git remote)` ]; then
+      remote=`(cd "$fn" && git remote)`
+      if [ -z "$remote" ]; then
         echo "$fn does not have a remote, skipping remote command $1"
         continue
       fi
