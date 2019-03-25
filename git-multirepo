@@ -1,0 +1,35 @@
+#!/bin/sh
+# Run a git command on every repo in the current directory.
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 command [args...]"
+  exit 2
+fi
+
+# 'true' if the command interacts with the remote repository.
+isRemote=false
+case "$1" in
+  push|pull|fetch)
+    isRemote=true
+    ;;
+esac
+
+for fn in *; do
+  if [ -d "$fn/.git" ]; then
+    echo "------------ $fn -------------"
+    if $isRemote; then
+      if ! grep '^ref: ' "$fn/.git/HEAD" >/dev/null; then
+        echo "$fn is in a detached state, skipping remote command $1"
+        continue
+      fi
+      remote=`(cd "$fn" && git remote)`
+      if [ -z "$remote" ]; then
+        echo "$fn does not have a remote, skipping remote command $1"
+        continue
+      fi
+    fi
+    (cd "$fn" && git "$@") || break
+  fi
+done
+
+# EOF
