@@ -14,8 +14,8 @@ def die(message):
 
 def bin2hex(inputFile):
   data = inputFile.read()
-    
-  column = 0
+
+  printCount = 0
   for c in data:
     n = c
     if not isinstance(n, int):
@@ -23,15 +23,25 @@ def bin2hex(inputFile):
       # and characters when reading from stdin?
       n = ord(c)
 
-    print(("%02X" % n)+" ", end="")
-
-    column = column+1
-    if column % 16 == 0:
+    if printCount == 0:
+      # Print nothing before first pair.
+      pass
+    elif printCount % 16 == 0:
+      # Print a newline after each group of 16.
       print("")
-    elif column % 4 == 0:
+    elif printCount  % 4 == 0:
+      # Print two spaces after each group of 4.
+      print("  ", end="")
+    else:
+      # Print one space after each single pair.
       print(" ", end="")
-      
-  if column % 16 != 0:
+
+    print(("%02X" % n), end="")
+
+    printCount += 1
+
+  if printCount != 0:
+    # Print a final newline.
     print("")
 
   # TODO: Print a "comment" with an offset and ASCII
