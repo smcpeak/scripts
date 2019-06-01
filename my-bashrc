@@ -184,6 +184,9 @@ export MAVEN_OPTS="-XX:MaxPermSize=1024M"
 # does not work well in the emacs compilation output window.
 export GCC_COLORS=
 
+# Disable screwy GTK scrollbars.
+export GTK_OVERLAY_SCROLLING=0
+
 # site-specific (should be last thing in this file)
 if [ -f ~/.bashrc-site ]; then
   . ~/.bashrc-site
