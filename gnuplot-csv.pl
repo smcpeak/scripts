@@ -11,12 +11,14 @@ options:
   -points          Print points instead of lines
   -log             Use logscale for X and Y axes
   -no-legend       Turn off legend
+  -xlabel <label>  Label X axis with <label>, overriding input
   -ylabel <label>  Label Y axis with <label>
   -title <title>   Set graph title
 EOF
 }
 
 my $style = "lines";
+my $xlabel = undef;
 
 # process command line arguments
 while (@ARGV != 0) {
@@ -30,6 +32,9 @@ while (@ARGV != 0) {
   }
   elsif ($opt eq "-no-legend") {
     print("set key off\n");
+  }
+  elsif ($opt eq "-xlabel") {
+    $xlabel = shift(@ARGV);
   }
   elsif ($opt eq "-ylabel") {
     my $arg = shift(@ARGV);
@@ -60,8 +65,13 @@ if (@labels < 2) {
   die("the labels line should have at least two labels, one for X and one for the first Y\n");
 }
 
-# Write a line with the X axis label as the first column header.
-print("set xlabel '$labels[0]'\n");
+if (!$xlabel) {
+  # Use the first column header as the default X axis label.
+  $xlabel = $labels[0]
+}
+
+# Write a line with the X axis label.
+print("set xlabel '$xlabel'\n");
 
 # write the plot line
 print("plot");
