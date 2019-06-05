@@ -3,7 +3,7 @@
 
 use strict 'subs';
 
-sub usage {      
+sub usage {
   print(<<"EOF");
 $0 [options] < file.csv | gnuplot -persist
 
