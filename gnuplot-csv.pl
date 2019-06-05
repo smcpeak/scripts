@@ -40,7 +40,10 @@ $line = <STDIN>;
 if (!defined($line)) {
   die("input is empty\n");
 }
-chomp($line);
+
+# CSV files often use CRLF line endings, so 'chomp' is inadequate.
+$line =~ s/[\r\n]+$//;
+
 @labels = split(',', $line);
 
 if (@labels < 2) {
@@ -59,7 +62,7 @@ print("\n");
 
 # read all the data into memory
 while (defined($line = <STDIN>)) {
-  chomp($line);
+  $line =~ s/[\r\n]+$//;
   push @data, $line;
 }
 
