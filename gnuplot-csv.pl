@@ -50,6 +50,9 @@ if (@labels < 2) {
   die("the labels line should have at least two labels, one for X and one for the first Y\n");
 }
 
+# Write a line with the X axis label as the first column header.
+print("set xlabel '$labels[0]'\n");
+
 # write the plot line
 print("plot");
 for ($col=1; $col < @labels; $col++) {
