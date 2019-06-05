@@ -14,6 +14,8 @@ options:
   -xlabel <label>  Label X axis with <label>, overriding input
   -ylabel <label>  Label Y axis with <label>
   -title <title>   Set graph title
+  -png <X> <Y>     Output as PNG file with size <X>x<Y>; use with -output
+  -output <fname>  Write output to <fname>
 EOF
 }
 
@@ -43,6 +45,15 @@ while (@ARGV != 0) {
   elsif ($opt eq "-title") {
     my $arg = shift(@ARGV);
     print("set title '$arg'\n");
+  }
+  elsif ($opt eq "-png") {
+    my $x = shift(@ARGV);
+    my $y = shift(@ARGV);
+    print("set terminal png size $x,$y\n");
+  }
+  elsif ($opt eq "-output") {
+    my $arg = shift(@ARGV);
+    print("set output '$arg'\n");
   }
   else {
     usage();
