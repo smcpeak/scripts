@@ -12,6 +12,7 @@ options:
   -log             Use logscale for X and Y axes
   -no-legend       Turn off legend
   -ylabel <label>  Label Y axis with <label>
+  -title <title>   Set graph title
 EOF
 }
 
@@ -33,6 +34,10 @@ while (@ARGV != 0) {
   elsif ($opt eq "-ylabel") {
     my $arg = shift(@ARGV);
     print("set ylabel '$arg'\n");
+  }
+  elsif ($opt eq "-title") {
+    my $arg = shift(@ARGV);
+    print("set title '$arg'\n");
   }
   else {
     usage();
