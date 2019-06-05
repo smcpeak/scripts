@@ -8,9 +8,10 @@ sub usage {
 $0 [options] < file.csv | gnuplot -persist
 
 options:
-  -points     Print points instead of lines
-  -log        Use logscale for X and Y axes
-  -no-legend  Turn off legend
+  -points          Print points instead of lines
+  -log             Use logscale for X and Y axes
+  -no-legend       Turn off legend
+  -ylabel <label>  Label Y axis with <label>
 EOF
 }
 
@@ -28,6 +29,10 @@ while (@ARGV != 0) {
   }
   elsif ($opt eq "-no-legend") {
     print("set key off\n");
+  }
+  elsif ($opt eq "-ylabel") {
+    my $arg = shift(@ARGV);
+    print("set ylabel '$arg'\n");
   }
   else {
     usage();
