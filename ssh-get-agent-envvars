@@ -1,0 +1,40 @@
+#!/bin/sh
+# If there is a running SSH agent, print its envvars in a form suitable
+# for evaluating in bash to set them.
+
+uid=`id --user`
+if [ "$?" -ne 0 ]; then
+  echo "'id --user' failed" >&2
+  exit 2
+fi
+
+tmpdir=`find /tmp -maxdepth 1 -user $uid -name 'ssh-*'`
+if [ "$?" -ne 0 ]; then
+  echo "'find /tmp -maxdepth 1 -user $uid -name ssh-*' failed" >&2
+  exit 2
+fi
+
+# Only consider the first name if there is more than one.
+tmpdir=`echo "$tmpdir" | head -1`
+
+if [ -z "$tmpdir" ]; then
+  echo "did not find /tmp/ssh-* directory owned by UID $uid" >&2
+  exit 2
+fi
+
+socket=`echo $tmpdir/agent.*`
+if [ ! -S "$socket" ]; then
+  echo "did not find agent socket in $tmpdir" >&2
+  exit 2
+fi
+
+pid=`pgrep -u $uid ssh-agent`
+if [ "$?" -ne 0 ]; then
+  echo "did not find ssh-agent process owned by UID $uid" >&2
+  exit 2
+fi
+
+echo "export SSH_AUTH_SOCK=$socket"
+echo "export SSH_AGENT_PID=$pid"
+
+# EOF
