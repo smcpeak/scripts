@@ -1,0 +1,7 @@
+#!/bin/sh
+# Set the keyboard repeat rate the way I like it.
+
+xset r rate 250 30
+
+# EOF
+
