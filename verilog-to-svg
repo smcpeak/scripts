@@ -32,8 +32,10 @@ runecho $YOSYS -p "prep -top $ModuleName; write_json $tmpfile" "$@" || exit
 # Then, run 'netlistsvg' to turn that into SVG.
 runecho $NETLISTSVG $tmpfile -o "$ModuleName.svg" || exit
 
-# Clean up the temporary.
-runecho rm "$tmpfile"
+# Clean up the temporary (unless KEEPTMP specified).
+if [ "x$KEEPTMP" = "x" ]; then
+  runecho rm "$tmpfile"
+fi
 
 # Print what happened, since probably a lot scrolled by.
 echo ""
