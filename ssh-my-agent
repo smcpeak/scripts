@@ -1,0 +1,36 @@
+#!/bin/sh
+# substitute for ssh-agent
+
+# Tasks:
+#
+# 1. Find an existng agent if possible.
+#
+# 2. Start an agent if needed.
+#
+# 3. Print the SSH auth sock envvar.  (The PID envvar is not needed
+# for anything except killing the agent process.)
+
+# Check existing envvar.
+if [ "x$SSH_AUTH_SOCK" != "x" ]; then
+  # "ssh-add -l" lists identities that have been saved.  It exits
+  # with code 0 iff there is at least one.
+  if ssh-add -l >/dev/null 2>&1; then
+    echo "Existing agent var has at least one identity." 1>&2
+    echo "export SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+    exit 0
+  fi
+fi
+
+# Look in /tmp.
+for fn in /tmp/ssh-*/agent.*; do
+  if SSH_AUTH_SOCK="$fn" ssh-add -l >/dev/null 2>&1; then
+    echo "Found agent with at least one identity." 1>&2
+    echo "export SSH_AUTH_SOCK=$fn"
+    exit 0
+  fi
+done
+
+echo "Starting new agent." 1>&2
+ssh-agent -s
+
+# EOF
