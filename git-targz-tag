@@ -1,0 +1,28 @@
+#!/bin/sh
+# Create a .tar.gz from a tag.
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 <tag>"
+  exit 2
+fi
+
+if [ ! -d .git ]; then
+  echo "$0: I expect this to be run in a directory with a .git subdirectory."
+  exit 2
+fi
+
+tag="$1"
+
+# Check that the tag exists.
+if git log -n 1 "$tag" >/dev/null 2>&1; then
+  true
+else
+  echo "$0: Tag '$tag' does not seem to exist."
+  exit 2
+fi
+
+# Use 'env' to avoid shell built-in printf.
+env printf "git archive --format=tar --prefix=%q/ %q | gzip > %q.tar.gz\n" "$tag" "$tag" "$tag"
+git archive --format=tar --prefix="$tag"/ "$tag" | gzip > "$tag".tar.gz
+
+# EOF
