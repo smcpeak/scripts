@@ -1,0 +1,33 @@
+#!/bin/bash
+# fake-sudo: Print intended command and wait.
+
+# Some programs contain scripts that invoke sudo on their own.  I do
+# not want to let them do that without auditing the actions.  This
+# script prints what it wants sudo to do, then waits while I run the
+# command in another shell.
+#
+# To use it, I have a directory that contains a symlink to this
+# script called 'sudo', which I prepend to the PATH.
+
+mkdir -p $HOME/log
+
+# Log the command as well in case the program redirects stdout.
+exec 3>>$HOME/log/fake-sudo.log
+now=$(date)
+printf '%s: fake-sudo: sudo' "$now" >&3
+printf ' %q' "$@" >&3
+printf '\n' >&3
+exec 3>&-
+
+if [ "x$1" = "x-V" -o "x$1" = "x--version" ]; then
+  # Program is simply trying to get the version string, so just run it.
+  exec /usr/bin/sudo --version
+fi
+
+# Prompt on stderr.
+printf 'fake-sudo: sudo' >&2
+printf ' %q' "$@" >&2
+printf '\nPress Enter to continue...\n' >&2
+read dummy
+
+# EOF
