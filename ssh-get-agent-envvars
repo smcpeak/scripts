@@ -2,6 +2,13 @@
 # If there is a running SSH agent, print its envvars in a form suitable
 # for evaluating in bash to set them.
 
+if [ "x$SSH_AUTH_SOCK" != "x" ]; then
+  echo "SSH_AUTH_SOCK already set, merely echoing existing variables" >&2
+  echo "export SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+  echo "export SSH_AGENT_PID=$SSH_AGENT_PID"
+  exit 0
+fi
+
 uid=`id --user`
 if [ "$?" -ne 0 ]; then
   echo "'id --user' failed" >&2
