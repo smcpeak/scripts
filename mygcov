@@ -21,7 +21,7 @@ while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
     usage();
     die("unknown option: $ARGV[0]\n");
   }
-  
+
   shift @ARGV;
 }
 
@@ -42,7 +42,7 @@ $nonexec = "xfailure|silence warning|xunimp";
 # not reachable.  There will always be a more relevant statement
 # nearby whose coverage will be what I want to measure.
 #
-# The reason "catch" is in here is there is a bug in gcc/gcov 
+# The reason "catch" is in here is there is a bug in gcc/gcov
 # where a "catch" statement is always marked "######" even when
 # the handler it guards *is* executed.
 $irrelevant = "ASTCASE|ASTNEXT|ASTDEFAULT|ASTENDCASE|gcov-ignore|catch\\s*\\(";
@@ -76,7 +76,7 @@ if (!close(KID)) {
     exit(10);
   }
 }
-               
+
 
 # check for one condition early
 @unexpected = grep {/^Unexpected/} @gcovOutput;
@@ -192,7 +192,7 @@ foreach my $line (@gcovOutput) {
       # print the line (possibly with modified $leading)
       print OUT ($leading, $trailing, "\n");
     }
-    
+
     close(OUT) or die;
 
     # print a report on the statistics for this file
