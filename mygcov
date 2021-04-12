@@ -1,10 +1,55 @@
 #!/usr/bin/perl -w
 # run gcov, but filter its output a bit
 #
-# Mainly, this filters out reports for lines that are not intended to
-# be executed, such as those containing "xfailure".
+# This processes gcov output, filtering out lines that are not
+# interesting for coverage purposes.  Specifically, these sorts of lines
+# are not counted:
+#
+# * Lines containing "gcov-begin-ignore" and "gcov-end-ignore", and
+#   all lines between such a pair.
+#
+# * Lines containing "gcov-ignore".
+#
+# * Lines matching any of the other regular expressions appearing in
+#   the @ignoreRegexps list, below.
 
 use strict 'subs';
+
+@ignoreRegexps = (
+  # Explicit directive to ignore coverage for one line.
+  "gcov-ignore",
+
+  # Functions that abort execution on paths that are "impossible".
+  "xfailure",
+  "xunimp",
+  "abort\\s*\\(",
+  "assert\\s*\\(\\s*!\\s*\"",       # assert(!"impossible")
+
+  # Heuristically, if we are printing to stderr, we are probably
+  # reporting some sort of unusual error.  I will ignore this too,
+  # since most likely there is something else interesting in the
+  # same code block if this should not be ignored.
+  "fprintf\\s*\\(\\s*stderr\\s*,",
+
+  # A comment placed on a line of code present only to silence a
+  # compiler warning, but that is not actually executable.
+  "silence warning",
+
+  # Regexp of lines where it's irrelevant if executed.  These are
+  # for lines that might appear to be not covered simply because
+  # (for example) a macro expands to a 'break' statement that is
+  # not reachable.  There will always be a more relevant statement
+  # nearby whose coverage will be what I want to measure.
+  "ASTCASE",
+  "ASTNEXT",
+  "ASTDEFAULT",
+  "ASTENDCASE",
+
+  # There is (was?) a bug in gcc/gcov where a "catch" statement is
+  # always marked "######" even when the handler it guards *is*
+  # executed.
+  "catch\\s*\\(",
+);
 
 sub usage {
   print("usage: $0 [-q] filename.cc [file2.cc [...]]\n");
@@ -31,21 +76,6 @@ if (@ARGV == 0) {
 }
 
 @filenames = @ARGV;
-
-
-# Regexp of lines that are not expected to executed.
-$nonexec = "xfailure|silence warning|xunimp";
-
-# Regexp of lines where it's irrelevant if executed.  These are
-# for lines that might appear to be not covered simply because
-# (for example) a macro expands to a 'break' statement that is
-# not reachable.  There will always be a more relevant statement
-# nearby whose coverage will be what I want to measure.
-#
-# The reason "catch" is in here is there is a bug in gcc/gcov
-# where a "catch" statement is always marked "######" even when
-# the handler it guards *is* executed.
-$irrelevant = "ASTCASE|ASTNEXT|ASTDEFAULT|ASTENDCASE|gcov-ignore|catch\\s*\\(";
 
 
 $pid = open(KID, "-|");
@@ -87,24 +117,26 @@ if (@unexpected) {
 }
 
 
-# if $leading is the '######' marker, replace it with a zero;
+# if $execCount is the '#####' marker, replace it with a zero;
 # this is so I do not completely lose the count, but the marker
 # is also not present (because it is a false alarm)
 sub killHashes {
-  my ($leading) = @_;
+  my ($execCount) = @_;
 
-  if ($leading =~ m/\#/) {
-    $leading = (" " x 11) . "0    ";
+  if ($execCount =~ m/\#/) {
+    # Replace with a right-aligned 0.
+    return " " x (length($execCount)-1) . "0";
   }
 
-  return $leading;
+  return $execCount;
 }
 
 
 # process the gcov output
 foreach my $line (@gcovOutput) {
-  if ($line =~ m/^Creating (.*)\.$/) {
+  if ($line =~ m/^Creating '(.*)'[\r]?$/) {
     my $fname = $1;
+    print("Processing $fname\n");
 
     # read the whole thing in advance so I can write it anew
     if (!open(IN, "<", $fname)) {
@@ -121,76 +153,59 @@ foreach my $line (@gcovOutput) {
     my $lines = 0;       # total # of executable lines
     my $hit = 0;         # lines that were executed
     my $lineNum = 0;     # line number for complaining
-    my $xfailures = 0;   # lines matching $nonexec that were called
     my $ignoring = 0;    # are we in a gcov-begin/end-ignore section?
 
     foreach my $text (@input) {
       $lineNum++;
 
-      # split off execution count
-      my $leading;
-      my $trailing;
-      ($leading, $trailing) =
-        ($text =~ m/^(\t{2})(.*)$/);       # might be two tabs
-      if (!defined($trailing)) {
-        ($leading, $trailing) =
-          ($text =~ m/^(.{16})(.*)$/);     # or 16 chars
-        if (!defined($trailing)) {
-          die("$fname:$lineNum: not 16 chars?!\n");
-        }
+      # Parse the line.
+      my ($pad1, $execCount, $pad2, $codeLineNumber, $codeLine) =
+        ($text =~ m/^(\s*)([0-9#-]+):(\s*)([0-9]+):(.*)$/);
+      if (!defined($codeLine)) {
+        die("$fname:$lineNum: line not in expected format\n");
       }
-      chomp($trailing);
+      chomp($codeLine);
 
       # ignoring?
       if ($ignoring) {
-        if ($trailing =~ m/gcov-end-ignore/) {
+        if ($codeLine =~ m/gcov-end-ignore/) {
           $ignoring--;
         }
-        $leading = killHashes($leading);
+        $execCount = killHashes($execCount);
       }
 
       # begin ignoring?
-      elsif ($trailing =~ m/gcov-begin-ignore/) {
+      elsif ($codeLine =~ m/gcov-begin-ignore/) {
         $ignoring++;
-        $leading = killHashes($leading);
+        $execCount = killHashes($execCount);
       }
 
-      # is the code non-executable?
-      elsif ($trailing =~ m/$nonexec/) {
-        # was it executed?
-        if ($leading =~ m/\d/) {
-          $xfailures++;            # strange..
-          $leading = substr($leading, 0, 12) . " XX ";
-        }
-        else {
-          $leading = killHashes($leading);
-        }
+      # Ignore just this line?
+      elsif (shouldIgnoreLine($codeLine)) {
+        $execCount = killHashes($execCount);
       }
 
-      # is it irrelevant if the code is executed?
-      elsif ($trailing =~ m/$irrelevant/) {
-        $leading = killHashes($leading);
-      }
-
-      # analyze 'leading'
-      elsif ($leading =~ m/^\s+$/) {
-        # line is not executable
-      }
-      elsif ($leading =~ m/\d/) {
+      # Analyze $execCount.
+      elsif ($execCount =~ m/\d/) {
         # executable and hit
         $lines++;
         $hit++;
       }
-      elsif ($leading =~ m/\#/) {
+      elsif ($execCount =~ m/\#/) {
         # executable but not hit
         $lines++;
       }
+      elsif ($execCount eq "-") {
+        # line is not executable
+      }
       else {
-        warn("$fname:$lineNum: leading text not understood: $leading\n");
+        warn("$fname:$lineNum: execution count not understood: $execCount\n");
       }
 
-      # print the line (possibly with modified $leading)
-      print OUT ($leading, $trailing, "\n");
+      # Print the line, possibly with modified $pad1 and $execCount.
+      print OUT ($pad1, $execCount, ":",
+                 $pad2, $codeLineNumber, ":",
+                 $codeLine, "\n");
     }
 
     close(OUT) or die;
@@ -201,12 +216,26 @@ foreach my $line (@gcovOutput) {
       if ($lines) {
         $pct = $hit / $lines * 100.0;
       }
-      printf("%7.2f%s = %5d of %5d lines: %s%s\n", $pct, "%", $hit, $lines, $fname,
-             ($xfailures? " (and $xfailures xfailures!)" : ""));
+      printf("%7.2f%s = %5d of %5d lines: %s\n",
+             $pct, "%", $hit, $lines, $fname);
     }
   }
 
   # ignore other kind of output
+}
+
+
+# Return true if $codeLine matches any of the @ignoreRegexps.
+sub shouldIgnoreLine {
+  my ($codeLine) = @_;
+
+  for my $regex (@ignoreRegexps) {
+    if ($codeLine =~ m/$regex/) {
+      return 1;
+    }
+  }
+
+  return 0;
 }
 
 
