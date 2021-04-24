@@ -1,0 +1,13 @@
+#!/bin/sh
+# Print the path to a Perl module and its dependencies.
+# http://www.symkat.com/find-a-perl-modules-path
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 <Package>::<Module>"
+  echo "exampple: $0 List::Util"
+  exit 2
+fi
+
+perl -M"$1" -e'print $_ . " => " . $INC{$_} . "\n" for keys %INC'
+
+# EOF
