@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+# Run a program with cygwin path arguments fixed so non-cygwin
+# programs can understand them.
+
+import re;
+import subprocess;
+import sys;
+
+# Name under which this script was invoked.
+myname = sys.argv[0]
+
+beginsWithSlash = re.compile("^/")
+
+if len(sys.argv) < 2:
+  print(f"usage: {myname} command [args...]")
+  sys.exit(2)
+
+# Command to run.  This is not subject to transformation.
+cmd = sys.argv[1]
+
+# Transformed arguments.
+args = []
+
+for i in range(2, len(sys.argv)):
+  orig = sys.argv[i]
+  if beginsWithSlash.match(orig):
+    # Transform to a mixed cygwin path.  This will be understood by
+    # both Windows and Cygwin tools, thankfully.
+    arg = subprocess.check_output(["cygpath", "-m", orig])
+    arg = arg.decode("UTF-8")
+
+    # Remove trailing newline.
+    arg = arg[:-1]
+
+    args.append(arg)
+
+  else:
+    args.append(orig)
+
+# Run the program with transformed arguments.
+result = subprocess.run([cmd] + args)
+
+# Interpret the exit code.
+if result.returncode > 0:
+  # Relay the same exit status.
+  sys.exit(result.returncode)
+elif result.returncode < 0:
+  sig = -result.returncode
+  print(f"{cmd} died by signal {sig}", file=sys.stderr)
+  sys.exit(4)
+else:
+  sys.exit(0)
+fi
+
+# EOF
