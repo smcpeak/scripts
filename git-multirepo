@@ -3,6 +3,11 @@
 
 if [ "x$1" = "x" ]; then
   echo "usage: $0 command [args...]"
+  echo ""
+  echo "Runs 'command' in every subdirectory that has .git,"
+  echo "is not detached, and has a remote."
+  echo ""
+  echo "Hint: Run \"status -s\" to compactly list all changes."
   exit 2
 fi
 
