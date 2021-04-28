@@ -116,6 +116,9 @@ if ($fileListFname) {
 # now process names specified in @ARGV
 foreach $fname (@ARGV) {
   doReplacementsInFile($fname);
+  if ($quit) {
+    last;
+  }
 }
 
 if ($errors) {
