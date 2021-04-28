@@ -177,18 +177,18 @@ sub doReplacementsInFile {
         my $j = $i - $contextLines;
         if ($j < 0) { $j = 0; }
         while ($j < $i) {
-          print(" $lines[$j]");  # has newline already
+          printChangeLine(" $lines[$j]");
           $j++;
         }
 
         # proposed change
-        print("-$lines[$i]");    # old line; has newline in it
-        print("+$tmp");          # replacement; also has newline
+        printChangeLine("-$lines[$i]");    # old line
+        printChangeLine("+$tmp");          # replacement
 
         # context after the change
         $j = $i + 1;
         while ($j < @lines && $j <= $i + $contextLines) {
-          print(" $lines[$j]");  # has newline already
+          printChangeLine(" $lines[$j]");
           $j++;
         }
       }
@@ -322,6 +322,32 @@ sub replacementText {
   }
 
   return $ret;
+}
+
+
+# Print a line of text as part of the proposed change.  Handle
+# non-printing characters.  $line is expected to end with a
+# newline, which we ignore.
+sub printChangeLine {
+  my ($line) = @_;
+
+  my @chars = split("", $line);
+  for (my $i=0; $i < scalar(@chars)-1; $i++) {
+    my $c = ord($chars[$i]);
+    if ($c == 9) {                     # tab
+      print("\\t");
+    }
+    elsif (32 <= $c && $c <= 126) {    # printable
+      print($chars[$i]);
+    }
+    else {
+      printf("\\x%02X", $c);            # non-printable
+    }
+  }
+
+  # Print a final '$' like "cat -tev" does so I can easily see
+  # when there is trailing whitespace.
+  print("\$\n");
 }
 
 
