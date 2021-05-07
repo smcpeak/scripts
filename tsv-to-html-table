@@ -1,28 +1,31 @@
 #!/usr/bin/env python3
 
-"""Convert CSV input into HTML table markup.
+"""Convert TSV input into HTML table markup.
 
 Given input like:
 
-  a,b,c
-  d,e,f
-  g,h,i
+  name<tab>address<tab>pets
+  doug<tab>19 park place<tab>2
+  jim<tab>45 boardwalk avenue<tab>123
 
 Produce output:
 
   <table>
     <tr>
-      <td>a
-      <td>b
-      <td>c
+      <th>name
+      <th>address
+      <th>pets
+
     <tr>
-      <td>d
-      <td>e
-      <td>f
+      <td>doug
+      <td>19 park place
+      <td class="numeric">2
+
     <tr>
-      <td>g
-      <td>h
-      <td>i
+      <td>jim
+      <td>45 boardwalk avenue
+      <td class="numeric">123
+
   </table>
 """
 
@@ -62,7 +65,7 @@ try:
     else:
       raise Error(f"unknown option: {option}")
 
-  reader = csv.reader(sys.stdin)
+  reader = csv.reader(sys.stdin, delimiter="\t")
 
   print("<table>")
 
