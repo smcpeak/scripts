@@ -1,0 +1,12 @@
+#!/bin/sh
+# Get the next commit going forward in time.
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 <branch or tag or commit>"
+  echo "Reports the hash of the next commit toward the specified destination."
+  exit 2
+fi
+
+git rev-list --ancestry-path HEAD.."$1" | tail -1
+
+# EOF
