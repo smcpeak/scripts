@@ -2,6 +2,9 @@
 # run a program, discarding its output, but measuring its
 # excution time; do this 5 times
 
+# Originally written by Scott McPeak and contributed to the
+# public domain.
+
 use strict;
 use Time::HiRes qw( gettimeofday );
 
@@ -13,6 +16,7 @@ options:
   -setup 'command': specify untimed command to run before program
   -iters n        : number of iterations to run (default: 5)
   -hide           : hide program console output
+  -oneline        : only print a single output summary line
 
 EOF
 }
@@ -28,6 +32,9 @@ my $iters = 5;
 # true if we will show the console output of the program
 my $showOutput = 1;
 
+# True to show just one line of output.
+my $oneline = 0;
+
 while (@ARGV && $ARGV[0] =~ m/^-/) {
   my $opt = shift @ARGV;
 
@@ -42,6 +49,10 @@ while (@ARGV && $ARGV[0] =~ m/^-/) {
   }
   elsif ($opt eq "-hide") {
     $showOutput = 0;
+  }
+  elsif ($opt eq "-oneline") {
+    $showOutput = 0;
+    $oneline = 1;
   }
   else {
     usage();
@@ -76,13 +87,15 @@ for (my $i = 1; $i <= $iters; $i++) {
   # run it
   #
   if ($showOutput) {
-    mysystem(@ARGV);
+    # Redirect input from /dev/null to avoid hanging if the program
+    # tries to read stdin.
+    #
+    # It is unfortunate that I cannot easily do redirection w/o using
+    # shell, since that means metacharacters in @ARGV are vulnerable.
+    mysystem("@ARGV </dev/null");
   }
   else {
-    # it is unfortunate that I cannot easily redirect output w/o
-    # using shell, since that means metacharacters in @ARGV are
-    # also vulnerable
-    mysystem("@ARGV >/dev/null 2>&1");
+    mysystem("@ARGV </dev/null >/dev/null 2>&1");
   }
 
   my @after = gettimeofday();
@@ -90,21 +103,31 @@ for (my $i = 1; $i <= $iters; $i++) {
   my $diff = ($after[0] - $before[0]) * 1000 +
              int(($after[1] - $before[1]) / 1000);
 
-  print("median-of-5 run $i: $diff ms\n");
+  if (!$oneline) {
+    print("median-of-5 run $i: $diff ms\n");
+  }
   push @results, ($diff);
 }
 
-# summarize all runs on one line at the end
-print("all   : @results\n");
+
+if (!$oneline && $iters > 1) {
+  # summarize all runs on one line at the end
+  print("all   : @results\n");
+}
+
 
 # sort the results in increasing numeric order
 @results = sort {$a <=> $b} @results;
-#print("sorted results: @results\n");
+#print("sorted: @results\n");
 
-# select middle element
-my $mid = $results[int(scalar(@results) / 2)];
-print("median: $mid ms\n");
+# Select middle, first quartile, and last quartile elements.
+my $n = scalar(@results);
+my $median = $results[int($n / 2)];
+my $firstQuartile = $results[int($n / 4)];
+my $lastQuartile = $results[int($n * 3 / 4)];
 
+# Interquartile dispersion.
+my $interquartile = $lastQuartile - $firstQuartile;
 
 # mean average
 my $sum = 0;
@@ -112,7 +135,6 @@ foreach my $r (@results) {
   $sum += $r;
 }
 my $mean = $sum / scalar(@results);   # yields floating-point
-printf("mean  : %.2f ms\n", $mean);
 
 # variance
 my $distsqsum = 0;
@@ -122,7 +144,21 @@ foreach my $r (@results) {
 my $variance = $distsqsum / scalar(@results);
 
 my $stddev = sqrt($variance);
-printf("stddev: %.2f ms\n", $stddev);
+
+
+if ($oneline) {
+  printf("%10d +/- %4d ms: %s\n",
+         $median,
+         $interquartile,
+         join(' ', @ARGV));
+}
+
+elsif ($iters > 1) {
+  printf("median: %10d    ms\n", $median);
+  printf("iquart: %10d    ms\n", $interquartile);
+  printf("mean  : %13.2f ms\n", $mean);
+  printf("stddev: %13.2f ms\n", $stddev);
+}
 
 
 exit(0);
