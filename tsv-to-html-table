@@ -50,7 +50,8 @@ usageString = f"""\
 usage: {programName} [options] < input.tsv > output.html
 
 options:
-  --coltag:NAME:TAG      Wrap column NAME with <TAG>..</TAG>
+  --appendcol:NAME       Add column NAME after those in input.
+  --coltag:NAME:TAG      Wrap column NAME with <TAG>...</TAG>.
 """
 
 
@@ -61,8 +62,12 @@ colNumToName = {}
 # enclose the cell values.
 colNameToTag = {}
 
-numericPattern = re.compile(r"^[0-9][0-9.,]*$")
-wrapcolPattern = re.compile(r"--coltag:([^:]+):([^:]+)")
+# Columns to append.
+appendColumns = []
+
+numericPattern   = re.compile(r"^[0-9][0-9.,]*$")
+wrapcolPattern   = re.compile(r"--coltag:([^:]+):([^:]+)")
+appendcolPattern = re.compile(r"--appendcol:([^:]+)")
 
 try:
   # Process options.
@@ -85,6 +90,15 @@ try:
       else:
         raise Error(f"invalid --coltag syntax: {option}")
 
+    elif option.startswith("--appendcol"):
+      m = appendcolPattern.match(option)
+      if m:
+        name = m.group(1)
+        appendColumns.append(name)
+
+      else:
+        raise Error(f"invalid --appendcol syntax: {option}")
+
     else:
       raise Error(f"unknown option: {option}; try --help")
 
@@ -92,9 +106,18 @@ try:
   data = []
   numColumns = 0
   reader = csv.reader(sys.stdin, delimiter="\t")
-  for row in reader:
-    data.append(row)
-    numColumns = max(numColumns, len(row))
+  for rowIdx, row in enumerate(reader):
+    dataRow = []
+    for cell in row:
+      dataRow.append(cell)
+
+    # Process 'appendColumns'.
+    if rowIdx == 0:
+      for name in appendColumns:
+        dataRow.append(name)
+
+    data.append(dataRow)
+    numColumns = max(numColumns, len(dataRow))
 
   if len(data) == 0:
     # No data, print nothing.

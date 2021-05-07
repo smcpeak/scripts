@@ -1,0 +1,20 @@
+<table>
+  <tr>
+    <th>name
+    <th>address
+    <th>pets
+    <th>extracol
+
+  <tr>
+    <td>doug
+    <td>19 park place
+    <td class="numeric">2
+    <td>
+
+  <tr>
+    <td>jim
+    <td>45 boardwalk avenue
+    <td class="numeric">123
+    <td>
+
+</table>
