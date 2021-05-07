@@ -1,13 +1,12 @@
-#! /bin/csh -f
+#!/bin/sh
 # just print my arguments
 
-set i = 0
-while ( "$i" <= "$#argv" )
-  if ( "$i" == "0") then
-    # tcsh is broken accessing argv with variable??
-    echo "argv[0] = '$0'"
-  else
-    echo "argv[${i}] = '${argv[$i]}'"
-  endif
-  @ i++
-end
+echo "argv[0] = $0"
+
+i=1
+for arg in "$@"; do
+  echo "argv[$i] = $arg"
+  i=$(expr $i + 1)
+done
+
+# EOF
