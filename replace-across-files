@@ -10,6 +10,7 @@ $fileListFname = "";      # name of file containing file names to modify
 $query = 0;               # when true, print but don't make changes
 $queryLimit = -1;         # when this decrements to 0, stop querying and quit
 $contextLines = 2;        # number of context lines to provide
+$gitLsFiles = 0;          # when true, use "git ls-files" to get the files
 
 # process options
 while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
@@ -52,6 +53,11 @@ while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
     next;
   }
 
+  if ($opt eq "-git-ls-files") {
+    $gitLsFiles = 1;
+    next;
+  }
+
   if ($opt eq "--") {
     last;
   }
@@ -75,6 +81,7 @@ usage: $0 [options] source-regexp replace-string [file [file [...]]]
 
   options:
     -list=<fname>  Use <fname> as list of files (one per line) to modify.
+    -git-ls-files  Use the output of "git ls-files" as the list to modify.
     -f             Replace without asking.
     -F             Same as -f, but do not print the changes.
     -q=<n>         Query mode; print (but do not make) first <n> changes.
@@ -113,6 +120,15 @@ if ($fileListFname) {
   close(LIST) or die;
 }
 
+# Process -git-ls-files next.
+if ($gitLsFiles) {
+  my @files = `git ls-files`;
+  for my $fname (@files) {
+    chomp($fname);
+    doReplacementsInFile($fname);
+  }
+}
+
 # now process names specified in @ARGV
 foreach $fname (@ARGV) {
   doReplacementsInFile($fname);
@@ -140,6 +156,17 @@ sub doReplacementsInFile {
   if (! -f $fname) {
     print("not a file: $fname\n");
     $errors++;
+    return;
+  }
+
+  if (! -T $fname) {
+    print("skipping non-text file: $fname\n");
+    return;
+  }
+
+  # Debug option to print the file names only.
+  if ($ENV{"REPLACE_ACROSS_FILES_PRINT_FILES_ONLY"}) {
+    print("$fname\n");
     return;
   }
 
