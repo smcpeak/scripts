@@ -6,12 +6,12 @@
 
   <tr>
     <td>doug
-    <td>19 park place
+    <td><code>19 park place</code>
     <td class="numeric">2
 
   <tr>
     <td>jim
-    <td>45 boardwalk avenue
+    <td><code>45 boardwalk avenue</code>
     <td class="numeric">123
 
 </table>

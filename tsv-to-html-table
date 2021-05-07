@@ -35,6 +35,7 @@ import html                  # escape
 import re                    # compile
 import sys                   # argv
 
+
 class Error(Exception):
   """A condition to be treated as an error."""
   pass
@@ -43,47 +44,93 @@ def htmlEscape(str):
   return html.escape(str)
 
 
-# If true, make the first row a heading row.
-firstRowHeading = False
+programName = sys.argv[0]
+
+usageString = f"""\
+usage: {programName} [options] < input.tsv > output.html
+
+options:
+  --coltag:NAME:TAG      Wrap column NAME with <TAG>..</TAG>
+"""
+
+
+# Map from column number to its name.
+colNumToName = {}
+
+# Map from column name to an HTML tag (e.g., "code") in which to
+# enclose the cell values.
+colNameToTag = {}
 
 numericPattern = re.compile(r"^[0-9][0-9.,]*$")
-
+wrapcolPattern = re.compile(r"--coltag:([^:]+):([^:]+)")
 
 try:
-
-  programName = sys.argv[0]
-
   # Process options.
   idx = 1
   while idx < len(sys.argv) and sys.argv[idx].startswith("-"):
     option = sys.argv[idx]
     idx += 1
 
-    if option == "--heading":
-      firstRowHeading = True
+    if option == "-h" or option == "--help":
+      print(usageString, end="")
+      sys.exit(0)
+
+    elif option.startswith("--coltag"):
+      m = wrapcolPattern.match(option)
+      if m:
+        name = m.group(1)
+        tag = m.group(2)
+        colNameToTag[name] = tag
+
+      else:
+        raise Error(f"invalid --coltag syntax: {option}")
 
     else:
-      raise Error(f"unknown option: {option}")
+      raise Error(f"unknown option: {option}; try --help")
 
+  # Read the input into a list of lists.
+  data = []
+  numColumns = 0
   reader = csv.reader(sys.stdin, delimiter="\t")
+  for row in reader:
+    data.append(row)
+    numColumns = max(numColumns, len(row))
+
+  if len(data) == 0:
+    # No data, print nothing.
+    sys.exit(0)
+
+  # Gather column name data.
+  for col, name in enumerate(data[0]):
+    colNumToName[col] = name
 
   print("<table>")
 
   # Iterate over rows.
-  for fields in reader:
+  for rowIdx, row in enumerate(data):
     # Begin a new output row.
     print("  <tr>")
 
     # Tag to use for cells in this row.
-    cellTag = "td"
-    if firstRowHeading:
-      cellTag = "th"
-      firstRowHeading = False
+    cellTag = "th" if rowIdx==0 else "td"
 
-    # Iterate over cells.
-    for cell in fields:
+    # Iterate over cells.  We print the same number of columns for
+    # every row, even if some rows were missing cells in the input,
+    # since HTML wants to see that.
+    for col in range(numColumns):
+      cell = row[col] if col < len(row) else ""
+
+      isNumeric = True if numericPattern.match(cell) else False
+
       htmlCell = htmlEscape(cell)
-      if numericPattern.match(htmlCell):
+
+      if (rowIdx > 0 and
+          col in colNumToName and
+          colNumToName[col] in colNameToTag):
+        tag = colNameToTag[colNumToName[col]]
+        htmlCell = f"<{tag}>{htmlCell}</{tag}>"
+
+      if isNumeric:
         print(f'    <{cellTag} class="numeric">{htmlCell}')
       else:
         print(f"    <{cellTag}>{htmlCell}")
@@ -93,14 +140,14 @@ try:
   print("</table>")
 
 except Error as e:
-  print("Error: "+e.args[0])
+  print("Error: "+e.args[0], file=sys.stderr)
   sys.exit(2)
 
 except IOError as e:
   if e.filename:
-    print("Error: "+e.filename+": "+e.strerror)
+    print("Error: "+e.filename+": "+e.strerror, file=sys.stderr)
   else:
-    print("Error: "+e.strerror)
+    print("Error: "+e.strerror, file=sys.stderr)
   sys.exit(2)
 
 

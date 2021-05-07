@@ -5,9 +5,15 @@ set -e
 set -x
 
 for fn in *.in; do
-  expected=`echo $fn | sed 's/in$/out/'`
+  expected=$(echo $fn | sed 's/in$/out/')
 
-  tsv-to-html-table < $fn > tmp.actual
+  args=""
+  argsfile=$(echo $fn | sed 's/in$/args/')
+  if test -f $argsfile; then
+    args=$(cat $argsfile)
+  fi
+
+  tsv-to-html-table $args < $fn > tmp.actual
   diff $expected tmp.actual
 done
 
