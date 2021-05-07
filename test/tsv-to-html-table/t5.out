@@ -1,0 +1,22 @@
+<table>
+  <tr>
+    <th>name
+    <th>address
+    <th>pets
+
+  <tr>
+    <td>doug
+    <td>19 park place
+    <td class="numeric">&plusmn; 2
+
+  <tr>
+    <td>jim
+    <td>45 boardwalk avenue
+    <td class="numeric">&plusmn; 123
+
+  <tr>
+    <td>incomplete
+    <td>row
+    <td>
+
+</table>

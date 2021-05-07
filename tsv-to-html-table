@@ -52,6 +52,7 @@ usage: {programName} [options] < input.tsv > output.html
 options:
   --appendcol:NAME       Add column NAME after those in input.
   --coltag:NAME:TAG      Wrap column NAME with <TAG>...</TAG>.
+  --prefixcol:NAME:PFX   Prepend PFX to every cell in column NAME.
 """
 
 
@@ -65,9 +66,13 @@ colNameToTag = {}
 # Columns to append.
 appendColumns = []
 
+# Map from column name to prefix html
+colNameToPrefixHTML = {}
+
 numericPattern   = re.compile(r"^[0-9][0-9.,]*$")
 wrapcolPattern   = re.compile(r"--coltag:([^:]+):([^:]+)")
 appendcolPattern = re.compile(r"--appendcol:([^:]+)")
+prefixcolPattern = re.compile(r"--prefixcol:([^:]+):(.*)")
 
 try:
   # Process options.
@@ -86,7 +91,6 @@ try:
         name = m.group(1)
         tag = m.group(2)
         colNameToTag[name] = tag
-
       else:
         raise Error(f"invalid --coltag syntax: {option}")
 
@@ -95,9 +99,17 @@ try:
       if m:
         name = m.group(1)
         appendColumns.append(name)
-
       else:
         raise Error(f"invalid --appendcol syntax: {option}")
+
+    elif option.startswith("--prefixcol"):
+      m = prefixcolPattern.match(option)
+      if m:
+        name = m.group(1)
+        prefixHTML = m.group(2)
+        colNameToPrefixHTML[name] = prefixHTML
+      else:
+        raise Error(f"invalid --prefixcol syntax: {option}")
 
     else:
       raise Error(f"unknown option: {option}; try --help")
@@ -147,11 +159,17 @@ try:
 
       htmlCell = htmlEscape(cell)
 
-      if (rowIdx > 0 and
-          col in colNumToName and
-          colNumToName[col] in colNameToTag):
-        tag = colNameToTag[colNumToName[col]]
-        htmlCell = f"<{tag}>{htmlCell}</{tag}>"
+      # Annotate non-empty cells with tags and prefixes.
+      if (rowIdx > 0 and cell != "" and col in colNumToName):
+        name = colNumToName[col]
+
+        if name in colNameToPrefixHTML:
+          prefixHTML = colNameToPrefixHTML[name]
+          htmlCell = prefixHTML + htmlCell
+
+        if name in colNameToTag:
+          tag = colNameToTag[name]
+          htmlCell = f"<{tag}>{htmlCell}</{tag}>"
 
       if isNumeric:
         print(f'    <{cellTag} class="numeric">{htmlCell}')

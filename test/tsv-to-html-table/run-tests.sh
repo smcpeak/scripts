@@ -11,9 +11,12 @@ for fn in *.in; do
   argsfile=$(echo $fn | sed 's/in$/args/')
   if test -f $argsfile; then
     args=$(cat $argsfile)
+    # t5.args has an argument with a space in it, so I need the quotes.
+    tsv-to-html-table "$args" < $fn > tmp.actual
+  else
+    tsv-to-html-table < $fn > tmp.actual
   fi
 
-  tsv-to-html-table $args < $fn > tmp.actual
   diff $expected tmp.actual
 done
 
