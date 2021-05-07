@@ -4,10 +4,15 @@
 MAKE="${MAKE:-make}"
 
 if [ "$1" = "" ]; then
-  echo "usage: $0 file [file2 [...]]"
+  echo "usage: $0 [VAR=VALUE] file [file2 [...]]"
   echo "  removes the given files, then invokes '$MAKE' on them"
   exit 0
 fi
+
+# Skip over the variable assignments.
+while echo "$1" | grep -q = ; do
+  shift
+done
 
 echo rm -f "$@"
 rm -f "$@" || exit
