@@ -27,7 +27,9 @@ like this:
   BEGIN: example fragment
   END: example fragment
 
-and what is between those two must match what is in the document.
+and what is between those two must match what is in the document.  The
+"END: example fragment" line is optional; without it, the fragment goes
+to the end of the file.
 
 Additionally, the example in the document may be indented more than the
 test file.  In that case, the "BEGIN example" line in the document must
@@ -223,12 +225,6 @@ try:
               indicates that only a fragment of the that file is used.
               However, the test does not contain any lines with the
               required "BEGIN: example fragment" text.""")
-            continue
-
-          if withinFragment:
-            complain(f"""\
-              Test file "{testFileName}" is missing the required
-              "END: example fragment" line.""")
             continue
 
         # Check that it the right number of lines.
