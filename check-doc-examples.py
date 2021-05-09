@@ -227,22 +227,6 @@ try:
               required "BEGIN: example fragment" text.""")
             continue
 
-        # Check that it the right number of lines.
-        if len(testLines) != len(exampleLines):
-          if fragmentOnly:
-            complain(f"""\
-              Lines {beginLineIndex+2} to {endLineIndex} of {documentName},
-              which is {len(exampleLines)} lines in total,
-              contain an example referring to "{testFileName}",
-              but its fragment has {len(testLines)} in it.""")
-          else:
-            complain(f"""\
-              Lines {beginLineIndex+2} to {endLineIndex} of {documentName},
-              which is {len(exampleLines)} lines in total,
-              contain an example referring to "{testFileName}",
-              but that file has {len(testLines)} in it.""")
-          continue
-
         # The example has been collected in 'exampleLines', and the
         # corresponding test in 'testLines'.  Both lists have the same
         # number of elements and (ostensibly) matching indentation.
