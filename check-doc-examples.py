@@ -131,8 +131,8 @@ try:
   exampleLines = []          # Example lines from the document.
 
 
-  # Pattern for recognizing BEGIN markers.
-  beginPattern = re.compile(r'BEGIN example: "([^"]+)"')
+  # Pattern for recognizing BEGIN example markers.
+  beginExamplePattern = re.compile(r'BEGIN example: "([^"]+)"')
 
   # Recognize the "fragment" indicator.
   fragmentPattern = re.compile(r'fragment=true')
@@ -140,8 +140,8 @@ try:
   # Recognize the "indent" indicator.
   indentPattern = re.compile(r'indent=([0-9]+)')
 
-  # Pattern for END.
-  endPattern = re.compile(r'END example')
+  # Pattern for END example.
+  endExamplePattern = re.compile(r'END example')
 
   # Pattern for "BEGIN: example fragment", which appears inside tests.
   beginFragmentPattern = re.compile(r'BEGIN: example fragment')
@@ -155,7 +155,12 @@ try:
     documentLine = chomp(documentLine)
 
     if not scanningForEnd:
-      m = beginPattern.search(documentLine)
+      if endExamplePattern.search(documentLine):
+        complain(f"""\
+          Line {documentLineIndex+1} of {documentName} contains an END marker,
+          but there is no matching BEGIN marker.""")
+
+      m = beginExamplePattern.search(documentLine)
       if m:
         numExamples += 1
         testFileName = m.group(1)
@@ -170,7 +175,7 @@ try:
           indentNumber = int(im.group(1))
 
     else:
-      m = endPattern.search(documentLine)
+      m = endExamplePattern.search(documentLine)
       if m:
         scanningForEnd = False
         endLineIndex = documentLineIndex
