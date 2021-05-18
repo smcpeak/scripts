@@ -1,0 +1,8 @@
+#!/bin/sh
+# Change 'ticks' to <code>ticks</code>,
+# and `backticks` to <a href="#backticks"><code>backticks</code></a>.
+
+exec sed -e "s,'\([^']*\)',<code>\1</code>,g" \
+         -e 's,`\([^`]*\)`,<a href="#\1"><code>\1</code></a>,g'
+
+# EOF
