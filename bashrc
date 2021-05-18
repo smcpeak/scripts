@@ -58,6 +58,9 @@ prepath() {
   fi
 }
 
+# Do not beep during tab completion.
+bind 'set bell-style none'
+
 if [ -e ~/.bashrc-site ]; then
   . ~/.bashrc-site
 fi
