@@ -12,6 +12,6 @@
 # See also:
 #   https://git-scm.com/docs/pretty-formats
 
-exec git log --graph --pretty=format:'%h %ad %an %s'
+exec git log --graph --pretty=format:'%h %ad %an %s' "$@"
 
 # EOF

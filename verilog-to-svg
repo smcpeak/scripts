@@ -1,0 +1,44 @@
+#!/bin/sh
+# Convert Verilog circut to SVG for visualization.
+
+if [ "x$2" = "x" ]; then
+  echo "usage: $0 ModuleName Input.v [other inputs.v]"
+  echo "Writes ModuleName.svg as output."
+  exit 2
+fi
+
+YOSYS="$HOME/opt/yosys-0.9/bin/yosys"
+if [ ! -x "$YOSYS" ]; then
+  echo "Not executable: $YOSYS"
+  echo "Need yosys: https://github.com/YosysHQ/yosys"
+  exit 2
+fi
+
+NETLISTSVG="$HOME/opt/node-v10.15.3/bin/netlistsvg"
+if [ ! -x "$NETLISTSVG" ]; then
+  echo "Not executable: $NETLISTSVG"
+  echo "Need netlistsvg: https://github.com/nturley/netlistsvg"
+  exit 2
+fi
+
+ModuleName="$1"
+shift
+
+# First we run the 'yosys' tool to generate a JSON description of
+# the circuit.
+tmpfile="yosys-output.$$.json"
+runecho $YOSYS -p "prep -top $ModuleName; write_json $tmpfile" "$@" || exit
+
+# Then, run 'netlistsvg' to turn that into SVG.
+runecho $NETLISTSVG $tmpfile -o "$ModuleName.svg" || exit
+
+# Clean up the temporary (unless KEEPTMP specified).
+if [ "x$KEEPTMP" = "x" ]; then
+  runecho rm "$tmpfile"
+fi
+
+# Print what happened, since probably a lot scrolled by.
+echo ""
+echo "verilog-to-svg: wrote $ModuleName.svg"
+
+# EOF

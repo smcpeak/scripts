@@ -1,0 +1,14 @@
+#!/bin/sh
+# Change video mode to 1800x900 when running under VMware
+# https://wiki.ubuntu.com/X/Config/Resolution#Adding_undetected_resolutions
+
+# This modeline came from running "cvt 1800 900 60".
+runecho xrandr --newmode "1800x900_60"  133.00  1800 1904 2088 2376  900 903 913 934 -hsync +vsync || exit
+
+# Assign it to the VMware virtual adapter.
+runecho xrandr --addmode Virtual1 "1800x900_60" || exit
+
+# Change the resolution.  This relies on the mode added above.
+runecho xrandr --size 1800x900 || exit
+
+# EOF
