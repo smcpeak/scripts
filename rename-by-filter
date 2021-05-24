@@ -4,8 +4,17 @@
 
 # check usage
 if [ "$2" = "" ]; then
-  echo "usage: $0 filter-program files..."
+  echo "usage: $0 [-n] filter-program files..."
+  echo "Option '-n' means to only print the commands without running them."
   exit
+fi
+
+# True if we are only printing the commands.
+dryRun=false
+if [ "x$1" = "x-n" ]; then
+  dryRun=true
+  echo "Dry run mode active; printing commands only."
+  shift
 fi
 
 # grab program name
@@ -21,10 +30,14 @@ for fname in "$@" ; do
   if [ "$newname" = "$fname" ]; then
     echo "skipping $fname -- new name is identical"
   else
-    # rename and try not to clobber anything
-    # if it fails, stop immediately
-    echo "renaming $fname to $newname"
-    mv -i "$fname" "$newname" || exit
+    echo mv -i "$fname" "$newname"
+    if $dryRun; then
+      true
+    else
+      # rename and try not to clobber anything
+      # if it fails, stop immediately
+      mv -i "$fname" "$newname" || exit
+    fi
   fi
 done
 
