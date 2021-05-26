@@ -45,14 +45,14 @@ while (defined($line = <STDIN>)) {
 
       # increment the last element
       $nums[scalar(@nums)-1]++;
-      
+
       # form the dotted section number
       my $secNum = join('.', @nums);
 
       # emit the heading with its new number
       print("<h$level>$secNum. $label</h$level>\n");
     }
-    
+
     else {
       print($line);
     }
