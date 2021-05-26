@@ -21,7 +21,7 @@ Then, in your HTML code, use anchor and heading tags like so:
 When you run:
 
   $ perl insert-html-toc your-file.html
-  
+
 this script will insert a table of contents between the special
 comments above that looks something like this:
 
@@ -110,7 +110,7 @@ for ($i = 0; $i < @lines; $i++) {
   ($n, $str, $m) =
     ($line =~ m|<h(\d)>(.*)</h(\d)>|);
   if (defined($m)) {
-    if (!$beginContentsLine) {                             
+    if (!$beginContentsLine) {
       # have not yet seen BEGIN CONTENTS; assume that everything
       # before that is not a header that should go in the TOC (since
       # TOCs normally come *before* the headers they refer to)
