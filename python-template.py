@@ -15,6 +15,19 @@ import traceback             # traceback.print_exc
 # These are things I add at the start of every Python program to
 # allow better error reporting.
 
+# Positive if debug is enabled, with higher values enabling more printing.
+debugLevel = 0
+if (os.getenv("DEBUG")):
+  debugLevel = int(os.getenv("DEBUG"))
+
+def debugPrint(str):
+  """Debug printout when DEBUG >= 2."""
+  if debugLevel >= 2:
+    print(str)
+
+# Ctrl-C: interrupt the interpreter instead of raising an exception.
+signal.signal(signal.SIGINT, signal.SIG_DFL)
+
 class Error(Exception):
   """A condition to be treated as an error."""
   pass
@@ -23,8 +36,14 @@ def die(message):
   """Throw a fatal Error with message."""
   raise Error(message)
 
-# Ctrl-C: interrupt the interpreter instead of raising an exception.
-signal.signal(signal.SIGINT, signal.SIG_DFL)
+def exceptionMessage(e):
+  """Turn exception 'e' into a human-readable message."""
+  t = type(e).__name__
+  s = str(e)
+  if s:
+    return f"{t}: {s}"
+  else:
+    return f"{t}"
 
 def call_main():
   """Call main() and catch exceptions."""
@@ -35,8 +54,8 @@ def call_main():
     raise      # Let this one go, otherwise sys.exit gets "caught".
 
   except BaseException as e:
-    print(f"{type(e).__name__}: {str(e)}", file=sys.stderr)
-    if (os.getenv("DEBUG")):
+    print(f"{exceptionMessage(e)}", file=sys.stderr)
+    if (debugLevel >= 1):
       traceback.print_exc(file=sys.stderr)
     sys.exit(2)
 # --------------- END: boilerplate --------------
