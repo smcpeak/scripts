@@ -24,9 +24,8 @@ while (defined($line = <STDIN>)) {
   }
 
   eval {
-    my $level;      # heading level
-    my $label;      # heading label
-    ($level, $label) = ($line =~ m,^<h(\d)>(?:[0-9.]+ )?(.+)</h\1>$,);
+    my ($level, $attrs, $label) =
+      ($line =~ m,^<h(\d)([^>]*)>(?:[0-9.]+ )?(.+)</h\1>$,);
     if (defined($label)) {
       if (!( 1 <= $level && $level <= 6 )) {
         die("invalid heading level: $level\n");
@@ -50,7 +49,7 @@ while (defined($line = <STDIN>)) {
       my $secNum = join('.', @nums);
 
       # emit the heading with its new number
-      print("<h$level>$secNum. $label</h$level>\n");
+      print("<h$level$attrs>$secNum. $label</h$level>\n");
     }
 
     else {
