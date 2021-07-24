@@ -170,21 +170,45 @@ foreach my $line (@gcovOutput) {
       die("cannot write $fname: $!\n");
     }
 
-    my $lines = 0;       # total # of executable lines
-    my $hit = 0;         # lines that were executed
-    my $lineNum = 0;     # line number for complaining
-    my $ignoring = 0;    # are we in a gcov-begin/end-ignore section?
+    my $lines = 0;           # total # of executable lines
+    my $hit = 0;             # lines that were executed
+    my $outputLineNum = 0;   # line number for complaining
+    my $ignoring = 0;        # are we in a gcov-begin/end-ignore section?
+    my $sourceLineNum = -1;  # last seen source line number
 
     foreach my $text (@input) {
-      $lineNum++;
+      $outputLineNum++;
+      chomp($text);
+
+      if ($text =~ m/^---/ ||
+          $text =~ m/^\S+:$/) {
+        # These are lines showing additional detail about a line that
+        # generates different functions, like a macro or a C++ template.
+        # Ignore them; I will just look at the overall info, which
+        # comes first.
+        next;
+      }
 
       # Parse the line.
-      my ($pad1, $execCount, $pad2, $codeLineNumber, $codeLine) =
-        ($text =~ m/^(\s*)([0-9#-]+):(\s*)([0-9]+):(.*)$/);
+      my ($pad1, $execCount, $unexecBB, $pad2, $codeLineNumber, $codeLine) =
+        ($text =~ m/^(\s*)([0-9#-]+)(\*?):(\s*)([0-9]+):(.*)$/);
       if (!defined($codeLine)) {
-        die("$fname:$lineNum: line not in expected format\n");
+        die("mygcov: $fname:$outputLineNum: line not in expected format: \"$text\"\n");
       }
       chomp($codeLine);
+
+      if ($codeLineNumber <= $sourceLineNum) {
+        # We are still in the "additional detail" section; skip.
+        next;
+      }
+      elsif ($codeLineNumber == $sourceLineNum+1) {
+        # We have moved onto the next real line.
+        $sourceLineNum = $codeLineNumber;
+      }
+      else {
+        die("mygcov: $fname:$outputLineNum: was expecting to see info about ".
+            "line " . ($sourceLineNum+1) . ": \"$text\"\n");
+      }
 
       # ignoring?
       if ($ignoring) {
@@ -219,11 +243,11 @@ foreach my $line (@gcovOutput) {
         # line is not executable
       }
       else {
-        warn("$fname:$lineNum: execution count not understood: $execCount\n");
+        warn("$fname:$outputLineNum: execution count not understood: $execCount\n");
       }
 
       # Print the line, possibly with modified $pad1 and $execCount.
-      print OUT ($pad1, $execCount, ":",
+      print OUT ($pad1, $execCount, $unexecBB, ":",
                  $pad2, $codeLineNumber, ":",
                  $codeLine, "\n");
     }
