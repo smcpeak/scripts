@@ -55,15 +55,24 @@ use strict 'subs';
 );
 
 sub usage {
-  print("usage: $0 [-q] filename.cc [file2.cc [...]]\n");
+  print("usage: $0 [options] filename.cc [file2.cc [...]]\n");
+  print("\n");
+  print("options:\n");
   print("  -q: only print stats for explicitly named filenames\n");
+  print("  --object-directory dir: look for gcno/gcda files in 'dir'\n");
 }
 
 $quiet = 0;
+$objectDirectory = "";
 
 while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
   if ($ARGV[0] eq "-q") {
     $quiet++;
+  }
+  elsif ($ARGV[0] eq "--object-directory") {
+    shift @ARGV;
+    die if @ARGV == 0;
+    $objectDirectory = $ARGV[0];
   }
   else {
     usage();
@@ -81,13 +90,21 @@ if (@ARGV == 0) {
 @filenames = @ARGV;
 
 
+my @gcovCommand = ("gcov");
+if ($objectDirectory ne "") {
+  push @gcovCommand, ("--object-directory", $objectDirectory);
+}
+push @gcovCommand, @filenames;
+print(join(" ", @gcovCommand), "\n");
+
+
 $pid = open(KID, "-|");
 if (!defined($pid)) {
   die("fork: $!\n");
 }
 
 if (!$pid) {  # child
-  exec("gcov", @ARGV)
+  exec(@gcovCommand)
     || die("can't exec gcov: $!\n");
 }
 
