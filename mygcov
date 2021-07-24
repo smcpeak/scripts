@@ -24,6 +24,8 @@ use strict 'subs';
   "xunimp",
   "abort\\s*\\(",
   "assert\\s*\\(\\s*!\\s*\"",       # assert(!"impossible")
+  "av_failure",
+  "av_abort",
 
   # Heuristically, if we are printing to stderr, we are probably
   # reporting some sort of unusual error.  I will ignore this too,
@@ -34,6 +36,7 @@ use strict 'subs';
   # A comment placed on a line of code present only to silence a
   # compiler warning, but that is not actually executable.
   "silence warning",
+  "[nN]ot reached",
 
   # Regexp of lines where it's irrelevant if executed.  These are
   # for lines that might appear to be not covered simply because
