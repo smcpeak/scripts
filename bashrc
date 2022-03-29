@@ -59,7 +59,8 @@ prepath() {
 }
 
 # Do not beep during tab completion.
-bind 'set bell-style none'
+# Discard errors because otherwise I get complaints when sshing in.
+bind 'set bell-style none' 2>/dev/null
 
 if [ -e ~/.bashrc-site ]; then
   . ~/.bashrc-site
