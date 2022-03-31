@@ -191,7 +191,7 @@ foreach my $line (@gcovOutput) {
 
       # Parse the line.
       my ($pad1, $execCount, $unexecBB, $pad2, $codeLineNumber, $codeLine) =
-        ($text =~ m/^(\s*)([0-9#-]+)(\*?):(\s*)([0-9]+):(.*)$/);
+        ($text =~ m/^(\s*)([0-9#=-]+)(\*?):(\s*)([0-9]+):(.*)$/);
       if (!defined($codeLine)) {
         die("mygcov: $fname:$outputLineNum: line not in expected format: \"$text\"\n");
       }
@@ -237,6 +237,11 @@ foreach my $line (@gcovOutput) {
       }
       elsif ($execCount =~ m/\#/) {
         # executable but not hit
+        $lines++;
+      }
+      elsif ($execCount =~ m/=/) {
+        # I do not know what "=====" means.  I see it for
+        # /usr/include/c++/9/bits/stl_tree.h, in a '__catch' block.
         $lines++;
       }
       elsif ($execCount eq "-") {
