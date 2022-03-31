@@ -1,0 +1,8 @@
+#!/bin/sh
+# Wrap a word in an href, for example:
+#   input:  foo
+#   output: <a href="#foo">foo</a>
+
+exec sed -e 's,\(.*\),<a href="#\1">\1</a>,'
+
+# EOF
