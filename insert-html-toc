@@ -13,10 +13,9 @@ document where you want the TOC to go:
   <!-- BEGIN CONTENTS -->
   <!-- END CONTENTS -->
 
-Then, in your HTML code, use anchor and heading tags like so:
+Then, in your HTML code, use heading tags with 'id' attributes like so:
 
-  <a name="intro"></a>
-  <h1>Introduction</h1>
+  <h1 id="intro">Introduction</h1>
 
 When you run:
 
