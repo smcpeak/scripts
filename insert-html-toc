@@ -125,7 +125,7 @@ for ($i = 0; $i < @lines; $i++) {
     # indent
     if ($n > $indent) {
       if ($n != $indent+1) {
-        die("line $lineNo: indenting more than one level");
+        die("$fname:$lineNo: heading level $n exceeds previous level $indent by more than one\n");
       }
       $toc .= "  " x $indent . "<ul>\n";
       $indent++;
