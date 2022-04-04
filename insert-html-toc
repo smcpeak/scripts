@@ -91,13 +91,15 @@ for ($i = 0; $i < @lines; $i++) {
 
   # Heading?
   my ($n, $anchor, $title, $m) =
-    ($line =~ m|<h(\d) id=\"([^"]+)\">(.*)</h(\d)>|);
+    ($line =~ m|<h(\d)(?: id=\"([^"]+)\")?>(.*)</h(\d)>|);
   if (defined($m)) {
-    # already used?
-    if (grep($_ eq $anchor, @anchorNameSet)) {
-      die("line $lineNo: duplicate use of anchor name '$anchor'\n");
+    if (defined($anchor)) {
+      # already used?
+      if (grep($_ eq $anchor, @anchorNameSet)) {
+        die("line $lineNo: duplicate use of anchor name '$anchor'\n");
+      }
+      push @anchorNameSet, ($anchor);
     }
-    push @anchorNameSet, ($anchor);
 
     if (!$beginContentsLine) {
       # have not yet seen BEGIN CONTENTS; assume that everything
@@ -133,9 +135,13 @@ for ($i = 0; $i < @lines; $i++) {
 
     # TOC entry
     $toc .= "  " x $indent . "<li>";
-    $toc .= "<a class=\"toc\" href=\"#$anchor\">";
+    if (defined($anchor)) {
+      $toc .= "<a class=\"toc\" href=\"#$anchor\">";
+    }
     $toc .= $title;      # section label
-    $toc .= "</a>";
+    if (defined($anchor)) {
+      $toc .= "</a>";
+    }
     $toc .= "\n";
 
     next;
