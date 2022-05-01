@@ -1,0 +1,11 @@
+#!/bin/sh
+# Run GCC to check a C/C++ source file for syntax errors.
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 [gcc-opts] file.c"
+  exit 2
+fi
+
+exec gcc -c -o /dev/null -Wall "$@"
+
+# EOF
