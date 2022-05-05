@@ -1,0 +1,12 @@
+#!/bin/sh
+# Run 'make check -j4 -k || make check'.
+
+# The purpose here is to run tests in parallel, letting as many as
+# possible succeed, then do a second pass in serial if necessary.
+# This is meant for use with my run-compare-expect.py script, which
+# will prompt to update expected output, but only when 'make' is
+# running serially.
+
+make check -j4 -k || make check
+
+# EOF
