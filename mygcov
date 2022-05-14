@@ -52,6 +52,14 @@ use strict 'subs';
   # always marked "######" even when the handler it guards *is*
   # executed.
   "catch\\s*\\(",
+
+  # Similarly, GCC-9.3.0, sometimes flags uses of 'xassert' as
+  # uncovered even though they are executed.
+  #
+  # Actually, that only happens if optimization is enabled, in which
+  # case other FPs happen as well that I can't filter, so I'll assume
+  # that optimization is disabled and remove this rule.
+  #"xassert",
 );
 
 sub usage {
