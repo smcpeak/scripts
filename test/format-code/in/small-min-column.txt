@@ -1,0 +1,9 @@
+small-min-column.txt
+Mininum column number that is small, so ineffective.
+
+  // Columns: \{ \S+ \S+ @3:\S+ \}
+  { a, bronze, bar },
+  some other line, will be "ignored"
+  { eleven, nine, twenty },
+
+EOF

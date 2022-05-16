@@ -1,0 +1,13 @@
+adjacent-tables.txt
+Immediately adjacent tables.
+
+    // Columns: \S+ \S+ \S+
+    one twenty-two three
+    four five six
+    seven eight nine
+  // Columns: \{ \S+ \S+ @30:\S+ \}
+  { a, bronze, bar },
+  some other line, will be "ignored"
+  { eleven, nine, twenty },
+
+EOF

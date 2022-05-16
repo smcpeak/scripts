@@ -1,0 +1,9 @@
+escaped-re-space.txt
+A regex contains an escaped space.
+
+  // Columns: \S+ b+\ c+ \S+
+  one bbbb cccc three
+  four b c six
+  seven b cc nine
+
+End of table.
