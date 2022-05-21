@@ -99,11 +99,11 @@ def main():
             print(f"{htmlfile}:{lineNumber}: Anchor '{anchor}' not found.")
             numErrors += 1
 
-        elif "." not in link:
-          # Real links to other files or hosts almost always have a dot.
-          # A missing dot likely means this was intended to be an
-          # intra-file link, but the '#' was forgotten.
-          print(f"{htmlfile}:{lineNumber}: Link '{link}' does not have a dot.")
+        elif "." not in link and "/" not in link:
+          # Real links to other files or hosts almost always have a dot
+          # or slash.  A missing dot likely means this was intended to
+          # be an intra-file link, but the '#' was forgotten.
+          print(f"{htmlfile}:{lineNumber}: Link '{link}' does not have a dot or slash.")
           numErrors += 1
 
   print(f"link problems found: {numErrors}")
