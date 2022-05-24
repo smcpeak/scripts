@@ -1,0 +1,9 @@
+---- stdout ----
+#define mymacro(a,b,c)                \
+  lines                               \
+  of code that are                    \
+  ragged and maybe inconsistent about \
+  existing backslashes
+---- stderr ----
+---- exit status ----
+Exit 0
