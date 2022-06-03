@@ -23,7 +23,8 @@ else {
 
 # The MIT server seems to usually be down lately.
 #my $keyserver = "pgpkeys.mit.edu";
-my $keyserver = "keys.gnupg.net";
+#my $keyserver = "keys.gnupg.net";
+my $keyserver = "pgp.mit.edu";
 
 my $cmd = "gpg --verify '$sigfile' '$mainfile'";
 my $output;
@@ -35,8 +36,12 @@ if ($code == 0) {
 
 my ($keyID) = ($output =~ m/key ID ([0-9A-Z]+)(.|\n)*public key not found/);
 if (!defined($keyID)) {
-  print("verify failed, I do not see the key ID in the output\n");
-  exit(2);
+  # Try the "using RSA key" format.
+  ($keyID) = ($output =~ m/using RSA key ([0-9A-Z]+)/);
+  if (!defined($keyID)) {
+    print("verify failed, I do not see the key ID in the output\n");
+    exit(2);
+  }
 }
 $cmd = "gpg --keyserver $keyserver --recv-key $keyID";
 runCmd();
