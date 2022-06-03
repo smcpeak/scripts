@@ -1,0 +1,24 @@
+#!/bin/sh
+# Compile and run a C/C++ file using clang.
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 file.c [args...]"
+  exit 2
+fi
+
+src="$1"
+shift
+
+exe="$HOME/tmp/clang-run-$$.exe"
+mkdir -p "$HOME/tmp" || exit
+
+clang -o "$exe" "$src" || exit
+
+"$exe" "$@"
+code=$?
+
+rm "$exe"
+
+exit $code
+
+# EOF
