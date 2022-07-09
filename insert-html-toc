@@ -13,10 +13,9 @@ document where you want the TOC to go:
   <!-- BEGIN CONTENTS -->
   <!-- END CONTENTS -->
 
-Then, in your HTML code, use anchor and heading tags like so:
+Then, in your HTML code, use heading tags with 'id' attributes like so:
 
-  <a name="intro"></a>
-  <h1>Introduction</h1>
+  <h1 id="intro">Introduction</h1>
 
 When you run:
 
@@ -92,13 +91,15 @@ for ($i = 0; $i < @lines; $i++) {
 
   # Heading?
   my ($n, $anchor, $title, $m) =
-    ($line =~ m|<h(\d) id=\"([^"]+)\">(.*)</h(\d)>|);
+    ($line =~ m|<h(\d)(?: id=\"([^"]+)\")?>(.*)</h(\d)>|);
   if (defined($m)) {
-    # already used?
-    if (grep($_ eq $anchor, @anchorNameSet)) {
-      die("line $lineNo: duplicate use of anchor name '$anchor'\n");
+    if (defined($anchor)) {
+      # already used?
+      if (grep($_ eq $anchor, @anchorNameSet)) {
+        die("line $lineNo: duplicate use of anchor name '$anchor'\n");
+      }
+      push @anchorNameSet, ($anchor);
     }
-    push @anchorNameSet, ($anchor);
 
     if (!$beginContentsLine) {
       # have not yet seen BEGIN CONTENTS; assume that everything
@@ -126,7 +127,7 @@ for ($i = 0; $i < @lines; $i++) {
     # indent
     if ($n > $indent) {
       if ($n != $indent+1) {
-        die("line $lineNo: indenting more than one level");
+        die("$fname:$lineNo: heading level $n exceeds previous level $indent by more than one\n");
       }
       $toc .= "  " x $indent . "<ul>\n";
       $indent++;
@@ -134,9 +135,13 @@ for ($i = 0; $i < @lines; $i++) {
 
     # TOC entry
     $toc .= "  " x $indent . "<li>";
-    $toc .= "<a class=\"toc\" href=\"#$anchor\">";
+    if (defined($anchor)) {
+      $toc .= "<a class=\"toc\" href=\"#$anchor\">";
+    }
     $toc .= $title;      # section label
-    $toc .= "</a>";
+    if (defined($anchor)) {
+      $toc .= "</a>";
+    }
     $toc .= "\n";
 
     next;

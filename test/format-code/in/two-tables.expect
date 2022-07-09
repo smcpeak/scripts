@@ -1,0 +1,22 @@
+---- stdout ----
+two-tables.txt
+Two tables with different formatting.
+
+One:
+
+  // Columns: \S+ \S+ \S+
+  one   twenty-two three
+  four  five       six
+  seven eight      nine
+
+Two:
+
+  // Columns: \{ \S+ \S+ @30:\S+ \}
+  { a,      bronze,          bar    },
+  some other line, will be "ignored"
+  { eleven, nine,            twenty },
+
+EOF
+---- stderr ----
+---- exit status ----
+Exit 0

@@ -81,10 +81,14 @@ def main():
   parser = argparse.ArgumentParser()
 
   # Flag option (no argument).
-  parser.add_argument("--die", action="store_true", help="Call die().")
+  parser.add_argument("--die", action="store_true",
+    help="Call die().")
+  parser.add_argument("--cat", action="store_true",
+    help="Act like 'cat', echoing lines of stdin to stdout.")
 
   # Option with an integer argument.
-  parser.add_argument("--sleep", metavar="N", type=int, help="Call sleep(N).")
+  parser.add_argument("--sleep", metavar="N", type=int,
+    help="Call sleep(N).")
 
   # Positional arguments.
   parser.add_argument("args", nargs="*", help="Positional arguments.")
@@ -112,6 +116,13 @@ def main():
     print(f"Sleeping for {seconds} seconds due to --sleep.")
     time.sleep(seconds)
     print("Done sleeping.")
+
+  if opts.cat:
+    # Read and print lines of stdin.
+    for line in sys.stdin:
+      line = line.rstrip("\n")
+      print(line)
+
 
 call_main()
 

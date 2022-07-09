@@ -1,0 +1,12 @@
+#!/bin/sh
+# Wrap a word in an href, for example:
+#   input:  foo
+#   output: <a href="#foo">foo</a>
+
+if [ "x$1" = "x-code" ]; then
+  exec sed -e 's,\(.*\),<code><a href="#\1">\1</a></code>,'
+else
+  exec sed -e 's,\(.*\),<a href="#\1">\1</a>,'
+fi
+
+# EOF

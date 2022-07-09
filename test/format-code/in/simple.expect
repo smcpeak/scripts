@@ -1,0 +1,13 @@
+---- stdout ----
+simple.txt
+Just a simple test
+
+  // Columns: \S+ \S+ \S+
+  one   twenty-two three
+  four  five       six
+  seven eight      nine
+
+End of table.
+---- stderr ----
+---- exit status ----
+Exit 0

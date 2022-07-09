@@ -24,6 +24,8 @@ use strict 'subs';
   "xunimp",
   "abort\\s*\\(",
   "assert\\s*\\(\\s*!\\s*\"",       # assert(!"impossible")
+  "av_failure",
+  "av_abort",
 
   # Heuristically, if we are printing to stderr, we are probably
   # reporting some sort of unusual error.  I will ignore this too,
@@ -34,6 +36,7 @@ use strict 'subs';
   # A comment placed on a line of code present only to silence a
   # compiler warning, but that is not actually executable.
   "silence warning",
+  "[nN]ot reached",
 
   # Regexp of lines where it's irrelevant if executed.  These are
   # for lines that might appear to be not covered simply because
@@ -49,18 +52,35 @@ use strict 'subs';
   # always marked "######" even when the handler it guards *is*
   # executed.
   "catch\\s*\\(",
+
+  # Similarly, GCC-9.3.0, sometimes flags uses of 'xassert' as
+  # uncovered even though they are executed.
+  #
+  # Actually, that only happens if optimization is enabled, in which
+  # case other FPs happen as well that I can't filter, so I'll assume
+  # that optimization is disabled and remove this rule.
+  #"xassert",
 );
 
 sub usage {
-  print("usage: $0 [-q] filename.cc [file2.cc [...]]\n");
+  print("usage: $0 [options] filename.cc [file2.cc [...]]\n");
+  print("\n");
+  print("options:\n");
   print("  -q: only print stats for explicitly named filenames\n");
+  print("  --object-directory dir: look for gcno/gcda files in 'dir'\n");
 }
 
 $quiet = 0;
+$objectDirectory = "";
 
 while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
   if ($ARGV[0] eq "-q") {
     $quiet++;
+  }
+  elsif ($ARGV[0] eq "--object-directory") {
+    shift @ARGV;
+    die if @ARGV == 0;
+    $objectDirectory = $ARGV[0];
   }
   else {
     usage();
@@ -78,13 +98,21 @@ if (@ARGV == 0) {
 @filenames = @ARGV;
 
 
+my @gcovCommand = ("gcov");
+if ($objectDirectory ne "") {
+  push @gcovCommand, ("--object-directory", $objectDirectory);
+}
+push @gcovCommand, @filenames;
+print(join(" ", @gcovCommand), "\n");
+
+
 $pid = open(KID, "-|");
 if (!defined($pid)) {
   die("fork: $!\n");
 }
 
 if (!$pid) {  # child
-  exec("gcov", @ARGV)
+  exec(@gcovCommand)
     || die("can't exec gcov: $!\n");
 }
 
@@ -150,21 +178,45 @@ foreach my $line (@gcovOutput) {
       die("cannot write $fname: $!\n");
     }
 
-    my $lines = 0;       # total # of executable lines
-    my $hit = 0;         # lines that were executed
-    my $lineNum = 0;     # line number for complaining
-    my $ignoring = 0;    # are we in a gcov-begin/end-ignore section?
+    my $lines = 0;           # total # of executable lines
+    my $hit = 0;             # lines that were executed
+    my $outputLineNum = 0;   # line number for complaining
+    my $ignoring = 0;        # are we in a gcov-begin/end-ignore section?
+    my $sourceLineNum = -1;  # last seen source line number
 
     foreach my $text (@input) {
-      $lineNum++;
+      $outputLineNum++;
+      chomp($text);
+
+      if ($text =~ m/^---/ ||
+          $text =~ m/^\S+:$/) {
+        # These are lines showing additional detail about a line that
+        # generates different functions, like a macro or a C++ template.
+        # Ignore them; I will just look at the overall info, which
+        # comes first.
+        next;
+      }
 
       # Parse the line.
-      my ($pad1, $execCount, $pad2, $codeLineNumber, $codeLine) =
-        ($text =~ m/^(\s*)([0-9#-]+):(\s*)([0-9]+):(.*)$/);
+      my ($pad1, $execCount, $unexecBB, $pad2, $codeLineNumber, $codeLine) =
+        ($text =~ m/^(\s*)([0-9#=-]+)(\*?):(\s*)([0-9]+):(.*)$/);
       if (!defined($codeLine)) {
-        die("$fname:$lineNum: line not in expected format\n");
+        die("mygcov: $fname:$outputLineNum: line not in expected format: \"$text\"\n");
       }
       chomp($codeLine);
+
+      if ($codeLineNumber <= $sourceLineNum) {
+        # We are still in the "additional detail" section; skip.
+        next;
+      }
+      elsif ($codeLineNumber == $sourceLineNum+1) {
+        # We have moved onto the next real line.
+        $sourceLineNum = $codeLineNumber;
+      }
+      else {
+        die("mygcov: $fname:$outputLineNum: was expecting to see info about ".
+            "line " . ($sourceLineNum+1) . ": \"$text\"\n");
+      }
 
       # ignoring?
       if ($ignoring) {
@@ -195,15 +247,20 @@ foreach my $line (@gcovOutput) {
         # executable but not hit
         $lines++;
       }
+      elsif ($execCount =~ m/=/) {
+        # I do not know what "=====" means.  I see it for
+        # /usr/include/c++/9/bits/stl_tree.h, in a '__catch' block.
+        $lines++;
+      }
       elsif ($execCount eq "-") {
         # line is not executable
       }
       else {
-        warn("$fname:$lineNum: execution count not understood: $execCount\n");
+        warn("$fname:$outputLineNum: execution count not understood: $execCount\n");
       }
 
       # Print the line, possibly with modified $pad1 and $execCount.
-      print OUT ($pad1, $execCount, ":",
+      print OUT ($pad1, $execCount, $unexecBB, ":",
                  $pad2, $codeLineNumber, ":",
                  $codeLine, "\n");
     }

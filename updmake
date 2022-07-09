@@ -1,0 +1,9 @@
+#!/bin/sh
+# Run 'make' with UPDATE_EXPECT=prompt.
+
+# This activates the mechanism in smbase/run-compare-expect.py that
+# prompts for updates of the expected output of a test.
+
+exec env UPDATE_EXPECT=prompt make "$@"
+
+# EOF

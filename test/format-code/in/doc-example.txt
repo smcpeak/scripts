@@ -1,0 +1,4 @@
+  // Columns: \{ \S+ \S+ @30:\S+ \}
+  { a, bronze, bar },
+  some other line, will be "ignored"
+  { eleven, nine, twenty },

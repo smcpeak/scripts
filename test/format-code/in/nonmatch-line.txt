@@ -1,0 +1,9 @@
+nonmatch-line.txt
+A line has the right indentation but does not match the first RE.
+
+  // Columns: [a-z]+ \S+ \S+
+  one twenty-two three
+  Four five six
+  seven eight nine
+
+EOF

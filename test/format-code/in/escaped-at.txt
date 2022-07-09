@@ -1,0 +1,9 @@
+escaped-at.txt
+Column descriptor begins with an escaped at-sign.txt
+
+  // Columns: \S+ \@100:\S+ \S+
+  one @100:crunchy three
+  four @100:toasty six
+  seven @100:oats nine
+
+EOF

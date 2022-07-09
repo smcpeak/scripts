@@ -1,0 +1,9 @@
+nonmatch-entry.txt
+A line has an entry that does not match the second RE.
+
+  // Columns: [a-z]+ [a-z]+ \S+
+  one twenty-two three
+  four Five six
+  seven eight nine
+
+EOF

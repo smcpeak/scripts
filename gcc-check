@@ -1,0 +1,19 @@
+#!/bin/sh
+# Run GCC to check a C/C++ source file for syntax errors.
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 [gcc-opts] file.c"
+  exit 2
+fi
+
+if [ "x$1" = "x-S" ]; then
+  # Do not try to assemble.  This is useful for the case where the code
+  # has inline assembly that may not be valid for the target platform
+  # but I just want the syntax checked.
+  shift
+  exec gcc -S -o /dev/null -Wall "$@"
+else
+  exec gcc -c -o /dev/null -Wall "$@"
+fi
+
+# EOF
