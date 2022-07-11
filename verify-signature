@@ -37,7 +37,7 @@ if ($code == 0) {
 my ($keyID) = ($output =~ m/key ID ([0-9A-Z]+)(.|\n)*public key not found/);
 if (!defined($keyID)) {
   # Try the "using RSA key" format.
-  ($keyID) = ($output =~ m/using RSA key ([0-9A-Z]+)/);
+  ($keyID) = ($output =~ m/using [DR]SA key ([0-9A-Z]+)/);
   if (!defined($keyID)) {
     print("verify failed, I do not see the key ID in the output\n");
     exit(2);
