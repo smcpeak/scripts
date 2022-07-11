@@ -21,10 +21,11 @@ else {
   $mainfile = $ARGV[1];
 }
 
-# The MIT server seems to usually be down lately.
+# Is there a reliable keyserver?
 #my $keyserver = "pgpkeys.mit.edu";
 #my $keyserver = "keys.gnupg.net";
-my $keyserver = "pgp.mit.edu";
+#my $keyserver = "pgp.mit.edu";
+my $keyserver = "keyserver.ubuntu.com";
 
 my $cmd = "gpg --verify '$sigfile' '$mainfile'";
 my $output;
