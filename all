@@ -3,26 +3,14 @@
 
 use strict 'subs';
 
-%map = ( 0 => "\\0",
-         8 => "\\b",
-         10 => "\\n",
-         13 => "\\r",
-         15 => "\\v" );
-
-
-print("   00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n");
+print("    00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n");
 for ($i=0; $i<16; $i++) {
-  printf("%02X ", $i * 16);
+  printf("%02X", $i * 16);
 
   for ($j=0; $j<16; $j++) {
     $c = $i*16 + $j;
-    if (defined($map{$c})) {
-      print($map{$c} . " ");
-    }
-    else {
-      printf("%c  ", $c);
-    }          
+    printf("  %c", $c);
   }
-  
+
   print("\n");
 }
