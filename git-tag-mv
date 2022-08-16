@@ -1,0 +1,15 @@
+#!/bin/sh
+# Rename a git tag.
+
+if [ "x$2" = "x" ]; then
+  echo "usage: $0 oldtag newtag"
+  exit 2
+fi
+
+oldtag="$1"
+newtag="$2"
+
+runecho git tag "$newtag" "$oldtag" || exit
+runecho git tag -d "$oldtag"
+
+# EOF
