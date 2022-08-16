@@ -1,8 +1,0 @@
-#! /bin/csh -f
-
-foreach d ($path)
-  if (-e ${d}/${1}) then
-    echo ${d}/${1}
-  endif
-end
-
