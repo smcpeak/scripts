@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+# trim-path
+"""Trim redundant PATH entries, and more."""
+
+import argparse              # argparse
+import os                    # os.getenv
+import re                    # re.compile
+import shlex                 # quote
+import signal                # signal.signal
+import sys                   # sys.argv, sys.stderr, sys.stdin
+import traceback             # traceback.print_exc
+
+from typing import List
+from typing import NoReturn
+from typing import Set
+
+
+# -------------- BEGIN: boilerplate -------------
+# These are things I add at the start of every Python program to
+# allow better error reporting.
+
+# Positive if debug is enabled, with higher values enabling more printing.
+debugLevel = 0
+if (os.getenv("DEBUG")):
+  debugLevel = int(os.getenv("DEBUG")) # type: ignore
+
+def debugPrint(s: str) -> None:
+  """Debug printout when DEBUG >= 2."""
+  if debugLevel >= 2:
+    print(s)
+
+# Ctrl-C: interrupt the interpreter instead of raising an exception.
+#signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+class Error(Exception):
+  """A condition to be treated as an error."""
+  pass
+
+def die(message: str) -> NoReturn:
+  """Throw a fatal Error with message."""
+  raise Error(message)
+
+def exceptionMessage(e: BaseException) -> str:
+  """Turn exception 'e' into a human-readable message."""
+  t = type(e).__name__
+  s = str(e)
+  if s:
+    return f"{t}: {s}"
+  else:
+    return f"{t}"
+
+def call_main() -> None:
+  """Call main() and catch exceptions."""
+  try:
+    main()
+
+  except SystemExit as e:
+    raise      # Let this one go, otherwise sys.exit gets "caught".
+
+  except BaseException as e:
+    print(f"{exceptionMessage(e)}", file=sys.stderr)
+    if (debugLevel >= 1):
+      traceback.print_exc(file=sys.stderr)
+    sys.exit(2)
+# --------------- END: boilerplate --------------
+
+
+def hasAnySubstring(s: str, subs: List[str], insens: bool) -> bool:
+  """True if any element of 'subs' is a substring of 's'."""
+  for sub in subs:
+    if insens:
+      if sub.lower() in s.lower():
+        return True
+    else:
+      if sub in s:
+        return True
+  return False
+
+
+def main() -> None:
+  """Entry point."""
+  # Parse command line.
+  parser = argparse.ArgumentParser(
+    allow_abbrev=False,
+    description="Print a trimmed PATH.")
+  parser.add_argument("--sh", action="store_true",
+    help="Print in shell syntax.  Default is one per line.")
+  parser.add_argument("--rm", action="append", metavar="SUBSTRING",
+    help="Remove all entries that contain SUBSTRING.")
+  parser.add_argument("--rmi", action="append", metavar="SUBSTRING",
+    help="Remove all entries that contain SUBSTRING, case-insensitively.")
+  parser.add_argument("--verbose", "-v", action="store_true",
+    help="Print removed entries to stderr.")
+  opts = parser.parse_args()
+
+  rmSubstrings = [] if opts.rm is None else opts.rm
+  rmiSubstrings = [] if opts.rmi is None else opts.rmi
+
+  initPath = os.getenv("PATH")
+  if initPath is None:
+    die("No PATH is set!")
+
+  debugPrint(f"PATH: {initPath}")
+
+  # Divide the entries at ':'.
+  origElementList = initPath.split(":")
+  debugPrint("original:")
+  for e in origElementList:
+    debugPrint(f"  {e}")
+
+  # Trimmed elements.
+  trimmedElementList : List[str] = []
+
+  # Set of elements seen so far.
+  elementSet : Set[str] = set()
+  for e in origElementList:
+    if e in elementSet:
+      # Duplicate, ignore
+      continue
+
+    # Add it to the set now so that if we remove it, we only print the
+    # "REMOVED" line once.
+    elementSet.add(e)
+
+    if hasAnySubstring(e, rmSubstrings, False) or \
+       hasAnySubstring(e, rmiSubstrings, True):
+      # We do not want this one.
+      if opts.verbose:
+        print(f"REMOVED: {e}", file=sys.stderr)
+    else:
+      trimmedElementList.append(e)
+
+  if opts.sh:
+    joined = ":".join(trimmedElementList)
+    quoted = shlex.quote(joined)
+    print(f"export PATH={quoted}")
+
+  else:
+    # Default output is one per line for easy review.
+    for e in trimmedElementList:
+      print(f"{e}")
+
+
+
+call_main()
+
+
+# EOF
