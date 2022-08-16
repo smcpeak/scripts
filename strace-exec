@@ -1,0 +1,14 @@
+#!/bin/sh
+# strace a program, capturing just the execve calls
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 cmd [args...]"
+  echo "Writes trace output to the file called 'trace'."
+  exit 2
+fi
+
+# The -s option specifies the maximum string length and is intended to
+# ensure we have the full arguments in almost all cases.
+exec strace -o trace -f -e execve -s 1024 "$@"
+
+# EOF
