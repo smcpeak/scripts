@@ -1,0 +1,6 @@
+#!/bin/sh
+# Find regular files, excluding .git.
+
+find . -name .git -prune -o -type f -print
+
+# EOF
