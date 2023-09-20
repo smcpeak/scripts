@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+"""Check some source file rules and optionally fix issues.
+
+Rules:
+
+* fileTitle: For C/C++ source files, the first line should be a comment
+  that is the name of the file.
+
+"""
+
+import argparse              # argparse
+import json                  # json.dumps
+import os                    # os.getenv
+import re                    # re.compile
+import shutil                # shutil.copyfile
+import signal                # signal.signal
+import sys                   # sys.argv, sys.stderr, sys.stdin
+import traceback             # traceback.print_exc
+
+
+# -------------- BEGIN: boilerplate -------------
+# These are things I add at the start of every Python program to
+# allow better error reporting.
+
+# Positive if debug is enabled, with higher values enabling more printing.
+debugLevel: int = 0
+if debugLevelStr := os.getenv("DEBUG"):
+  debugLevel = int(debugLevelStr)
+
+def debugPrint(s: str) -> None:
+  """Debug printout when DEBUG >= 2."""
+  if debugLevel >= 2:
+    print(s)
+
+# Ctrl-C: interrupt the interpreter instead of raising an exception.
+#signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+class Error(Exception):
+  """A condition to be treated as an error."""
+  pass
+
+def die(message: str) -> None:
+  """Throw a fatal Error with message."""
+  raise Error(message)
+
+def exceptionMessage(e: BaseException) -> str:
+  """Turn exception 'e' into a human-readable message."""
+  t = type(e).__name__
+  s = str(e)
+  if s:
+    return f"{t}: {s}"
+  else:
+    return f"{t}"
+
+def call_main() -> None:
+  """Call main() and catch exceptions."""
+  try:
+    main()
+
+  except SystemExit as e:
+    raise      # Let this one go, otherwise sys.exit gets "caught".
+
+  except BaseException as e:
+    print(f"{exceptionMessage(e)}", file=sys.stderr)
+    if (debugLevel >= 1):
+      traceback.print_exc(file=sys.stderr)
+    sys.exit(2)
+# --------------- END: boilerplate --------------
+
+
+# Number of issues detected and not fixed.
+unfixedIssueCount: int = 0
+
+# Number of issues detected and successfully fixed.
+fixedIssueCount: int = 0
+
+# True to fix issues.
+fixIssues: bool = False
+
+# True to make backups before overwriting files.
+makeBackups: bool = True
+
+# Set of enabled rules.
+fileTitleEnabled: bool = True
+
+
+def readFileLines(fname: str) -> list[str]:
+  """Read the lines of 'fname', returning them as a list of strings.
+
+  All lines end with a newline character except, possibly, the last.
+
+  This assumes the input is encoded as UTF-8."""
+
+  with open(fname, "rb") as fp:
+    return list(map(lambda b: b.decode("UTF-8"), fp.readlines()))
+
+
+def writeFileLines(fname: str, lines: list[str]) -> None:
+  """Write 'fname' to contain 'lines'.
+
+  The output is simply the concatenation of the lines, which all should
+  end with a newline, except possibly the last.
+
+  The output is encoded as UTF-8."""
+
+  with open(fname, "wb") as fp:
+    for line in lines:
+      fp.write(line.encode("UTF-8"))
+
+
+def createBackup(fname: str) -> None:
+  """Copy 'fname' to 'fname'.bak unless the latter already exists.
+
+  If the backup already exists, this does nothing."""
+
+  bakFname = f"{fname}.bak"
+  if not os.path.isfile(bakFname):
+    shutil.copyfile(fname, bakFname)
+
+
+c_or_cpp_re = re.compile(r"^.*\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$", re.IGNORECASE)
+
+def fname_is_c_or_cpp(fname: str) -> bool:
+  """Return true if 'fname' has a C or C++ extension."""
+
+  if c_or_cpp_re.match(fname):
+    return True
+  else:
+    return False
+
+
+def reportIssue(fname: str, line: int, rule: str, msg: str) -> None:
+  """Report an unfixed issue."""
+
+  print(f"{fname}:{line}: {rule}: {msg}")
+  global unfixedIssueCount
+  unfixedIssueCount += 1
+
+
+def reportTentativeFix(fname: str, line: int, rule: str, msg: str) -> None:
+  """Report a tentative fix.
+
+  Fixes are "tentative" initially because they are only applied if there
+  are no unfixable issues elsewhere in the file."""
+
+  # Because it is tentative, all we do here is print.
+  print(f"{fname}:{line}: {rule}: {msg}")
+
+
+def doubleQuote(s: str) -> str:
+  """Return 's' enclosed in double-quotes and special characters escaped."""
+
+  return json.dumps(s)
+
+
+def processFile(fname: str) -> None:
+  """Process one input files."""
+
+  # Original file contents.
+  lines: list[str] = readFileLines(fname);
+
+  # Number of locally fixed and unfixed issues.
+  localFixCount: int = 0
+  localUnfixedCount: int = 0
+
+  # Fixed file contents.
+  fixedLines: list[str] = lines[:]
+
+  if fileTitleEnabled:
+    if fname_is_c_or_cpp(fname):
+      expect = f"// {fname}\n";
+      if len(lines) < 1:
+        reportIssue(fname, 1, "fileTitle", "File is empty")
+      else:
+        actual = lines[0];
+        if actual != expect:
+          if fixIssues:
+            reportTentativeFix(fname, 1, "fileTitle",
+              f"Changing first line to {doubleQuote(expect)}.");
+
+            fixedLines[0] = expect
+            localFixCount += 1
+
+          else:
+            reportIssue(fname, 1, "fileTitle",
+              f"Expected title line {doubleQuote(expect)}, " +
+              f"but was {doubleQuote(actual)}.")
+            localUnfixedCount += 1
+
+  if localFixCount > 0:
+    if localUnfixedCount > 0:
+      print(f"{fname}: There were {localFixCount} fixable issues, but "+
+            f"also {localUnfixedCount} unfixable issues, so no fixes "+
+            f"were applied.")
+
+      global unfixedIssueCount
+      unfixedIssueCount += localFixCount
+
+    else:
+      # Write out an updated file.
+      print(f"{fname}: Writing new file to fix {localFixCount} isses.")
+
+      if makeBackups:
+        createBackup(fname)
+
+      writeFileLines(fname, fixedLines)
+
+      global fixedIssueCount
+      fixedIssueCount += localFixCount
+
+
+def main() -> None:
+  # Parse command line.
+  parser = argparse.ArgumentParser(
+    description="Check various source file rules.")
+  parser.add_argument("--fix", action="store_true",
+    help="Fix issues found if possible.  Originals will be copied to .bak.")
+  parser.add_argument("--nobak", action="store_true",
+    help="Do not write .bak files with --fix.")
+  parser.add_argument("files", nargs="+",
+    help="Files to check.")
+  opts = parser.parse_args()
+
+  # Process parsed options.
+  if opts.fix:
+    global fixIssues
+    fixIssues = True
+  if opts.nobak:
+    global makeBackups
+    makeBackups = False
+
+  # Process all files.
+  for fname in opts.files:
+    processFile(fname)
+
+  # Report results.
+  if unfixedIssueCount > 0:
+    print(f"Unfixed issues: {unfixedIssueCount}")
+    sys.exit(1)
+  if fixedIssueCount > 0:
+    print(f"Total fixed issues: {fixedIssueCount}")
+
+
+call_main()
+
+
+# EOF

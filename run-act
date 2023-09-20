@@ -1,0 +1,9 @@
+#!/bin/bash
+# run act with tee, etc.
+
+act --artifact-server-path $HOME/tmp/gh-artifacts "$@" 2>&1 | tee act.out
+
+# Only bash knows about PIPESTATUS.
+exit "${PIPESTATUS[0]}"
+
+# EOF

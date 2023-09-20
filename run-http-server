@@ -1,0 +1,11 @@
+#!/bin/sh
+# Run a web server in current directory on port 8080.
+
+port=8080
+if [ "x$1" != "x" ]; then
+  port="$1"
+fi
+
+exec runecho python3 -m http.server "$port"
+
+# EOF

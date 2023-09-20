@@ -1,0 +1,28 @@
+#!/bin/sh
+# Rename a bunch of files using an external editor.
+
+if [ "$1" = "" ]; then
+  echo "usage: $0 files..."
+  exit
+fi
+
+# generate file list (use "$@" so we maintain delimiters despite embedded spaces)
+tmp=/tmp/batch-rename.$$
+ls -d "$@" >$tmp || exit 2
+
+# edit it
+cat <<EOF
+Now use an editor program to edit the file:
+
+  $tmp
+
+Press Enter here when done.
+EOF
+
+read dummy
+
+# apply it
+batch-rename $tmp "$@" || exit 2
+
+# remove the file list
+rm $tmp

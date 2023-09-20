@@ -1,0 +1,12 @@
+#!/bin/sh
+# Run a Python program, but scan with mypy first.
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 program.py [args...]"
+  exit 2
+fi
+
+mypy --strict "$1" || exit
+exec python3 "$@"
+
+# EOF

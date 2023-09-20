@@ -1,13 +1,17 @@
 #!/bin/sh
 # Run 'make' from the editor.
 
-if [ -e personal-make-cmd.sh ]; then
-  exec ./personal-make-cmd.sh
+if [ -e make-from-editor.sh ]; then
+  exec sh make-from-editor.sh
+
 elif [ -e Makefile ]; then
+  #exec runecho env LANG=C make -j4
   exec runecho env LANG=C make
+
 else
-  echo "No Makefile in $(pwd)."
+  echo "No Makefile or make-from-editor.sh in $(pwd)."
   exit 2
+
 fi
 
 # EOF
