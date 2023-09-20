@@ -1,0 +1,24 @@
+#!/bin/sh
+# Like 'cp', but with the argument order reversed.
+
+# The idea is if I have a Makefile-based test that has a line like:
+#
+#   diff -u expect actual
+#
+# then, when it fails, I can type "revcp", then copy+paste the
+# "expect actual" part to form the command line:
+#
+#   revcp expect actual
+#
+# which will then copy 'actual' over 'expect' in order to indicate that
+# the current actual output is what I want to expect going forward.
+
+if [ "x$2" = "x" -o "x$3" != "x" ]; then
+  echo "Expected exactly two arguments." >&2
+  echo "Usage: revcp <destination> <source>" >&2
+  exit 2
+fi
+
+runecho cp "$2" "$1"
+
+# EOF
