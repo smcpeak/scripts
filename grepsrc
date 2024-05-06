@@ -21,6 +21,6 @@ fi
 # grep options:
 #   -n: Print line numbers.
 #   -H: Print file name even if only one passed.
-git ls-files $(git rev-parse --show-toplevel) | xargsn grep -n -H "$@"
+git ls-files --recurse-submodules $(git rev-parse --show-toplevel) | xargsn grep -n -H "$@"
 
 # EOF
