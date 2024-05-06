@@ -153,6 +153,13 @@ exit(0);
 sub doReplacementsInFile {
   ($fname) = (@_);
 
+  if (-d $fname) {
+    # Assume that a directory got into the list because of -git-ls-files
+    # and it is a submodule.  Do not produce an error.
+    print("skipping directory: $fname\n");
+    return;
+  }
+
   if (! -f $fname) {
     print("not a file: $fname\n");
     $errors++;
