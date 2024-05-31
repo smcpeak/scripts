@@ -60,6 +60,11 @@ use strict 'subs';
   # case other FPs happen as well that I can't filter, so I'll assume
   # that optimization is disabled and remove this rule.
   #"xassert",
+
+  # If the only thing on a line is `default:`, do not report it.  There
+  # should be later statements that are more interesting.  Without this
+  # rule, I get FPs when I put `xfailure` on the next line.
+  "^\\s*default:\$",
 );
 
 sub usage {
