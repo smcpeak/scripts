@@ -150,13 +150,13 @@ if (@unexpected) {
 }
 
 
-# if $execCount is the '#####' marker, replace it with a zero;
+# if $execCount is the '#####' or '=====' marker, replace it with a zero;
 # this is so I do not completely lose the count, but the marker
 # is also not present (because it is a false alarm)
 sub killHashes {
   my ($execCount) = @_;
 
-  if ($execCount =~ m/\#/) {
+  if ($execCount =~ m/\#/ || $execCount =~ m/=/) {
     # Replace with a right-aligned 0.
     return " " x (length($execCount)-1) . "0";
   }
@@ -188,6 +188,7 @@ foreach my $line (@gcovOutput) {
     my $outputLineNum = 0;   # line number for complaining
     my $ignoring = 0;        # are we in a gcov-begin/end-ignore section?
     my $sourceLineNum = -1;  # last seen source line number
+    my $ignoreExnLines = 0;  # whether to ignore exception-only lines
 
     foreach my $text (@input) {
       $outputLineNum++;
@@ -242,6 +243,11 @@ foreach my $line (@gcovOutput) {
         $execCount = killHashes($execCount);
       }
 
+      # Disable complains in exception-only code?
+      elsif ($codeLine =~ m/gcov-exception-lines-ignore/) {
+        $ignoreExnLines = 1;
+      }
+
       # Analyze $execCount.
       elsif ($execCount =~ m/\d/) {
         # executable and hit
@@ -253,9 +259,16 @@ foreach my $line (@gcovOutput) {
         $lines++;
       }
       elsif ($execCount =~ m/=/) {
-        # I do not know what "=====" means.  I see it for
-        # /usr/include/c++/9/bits/stl_tree.h, in a '__catch' block.
-        $lines++;
+        # According to the documentation at
+        # https://gcc.gnu.org/onlinedocs/gcc/Invoking-Gcov.html, a count
+        # of "=====" means the line is not executed but is only
+        # reachable as a result of exception handlers.
+        if ($ignoreExnLines) {
+          $execCount = killHashes($execCount);
+        }
+        else {
+          $lines++;
+        }
       }
       elsif ($execCount eq "-") {
         # line is not executable
