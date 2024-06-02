@@ -73,19 +73,29 @@ sub usage {
   print("options:\n");
   print("  -q: only print stats for explicitly named filenames\n");
   print("  --object-directory dir: look for gcno/gcda files in 'dir'\n");
+  print("  --require100: require 100% coverage of listed files\n");
 }
 
 $quiet = 0;
 $objectDirectory = "";
 
+# If true, we require 100% coverage from all files explicitly listed
+# on the command line.
+$require100 = 0;
+
 while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
-  if ($ARGV[0] eq "-q") {
-    $quiet++;
+  my $opt = $ARGV[0];
+
+  if ($opt eq "-q") {
+    $quiet = 1;
   }
-  elsif ($ARGV[0] eq "--object-directory") {
+  elsif ($opt eq "--object-directory") {
     shift @ARGV;
     die if @ARGV == 0;
     $objectDirectory = $ARGV[0];
+  }
+  elsif ($opt eq "--require100") {
+    $require100 = 1;
   }
   else {
     usage();
@@ -101,6 +111,16 @@ if (@ARGV == 0) {
 }
 
 @filenames = @ARGV;
+
+# Make a table of explicitly listed file names, where the names have the
+# ".gcov" extension appended.
+my %filenameTable = ();
+foreach my $f (@filenames) {
+  $filenameTable{$f . ".gcov"} = 1;
+}
+
+# List of files that were missing coverage, when $require100.
+my @filesMissingCoverage = ();
 
 
 my @gcovCommand = ("gcov");
@@ -169,7 +189,7 @@ sub killHashes {
 foreach my $line (@gcovOutput) {
   if ($line =~ m/^Creating '(.*)'[\r]?$/) {
     my $fname = $1;
-    print("Processing $fname\n");
+    #print("Processing $fname\n");
 
     # read the whole thing in advance so I can write it anew
     if (!open(IN, "<", $fname)) {
@@ -293,10 +313,25 @@ foreach my $line (@gcovOutput) {
       }
       printf("%7.2f%s = %5d of %5d lines: %s\n",
              $pct, "%", $hit, $lines, $fname);
+
+      if (isExplicitFilename($fname) &&
+          $require100 &&
+          ($hit < $lines)) {
+        push @filesMissingCoverage, ($fname);
+      }
     }
   }
 
   # ignore other kind of output
+}
+
+
+if (scalar(@filesMissingCoverage) > 0) {
+  print("The following files do not have 100% coverage:\n");
+  foreach my $fname (@filesMissingCoverage) {
+    print("  $fname\n");
+  }
+  exit(2);
 }
 
 
@@ -314,6 +349,14 @@ sub shouldIgnoreLine {
 }
 
 
+# True if `fname` is among the explicitly specified file names.
+sub isExplicitFilename {
+  my ($fname) = @_;
+
+  return exists $filenameTable{$fname};
+}
+
+
 sub shouldShowReport {
   my ($fname) = @_;
 
@@ -321,10 +364,8 @@ sub shouldShowReport {
     return 1;
   }
 
-  foreach $fn (@filenames) {
-    if ($fname =~ m/$fn/) {
-      return 1;
-    }
+  if (isExplicitFilename($fname)) {
+    return 1;
   }
 
   return 0;
