@@ -72,6 +72,14 @@ def call_main() -> None:
 # --------------- END: boilerplate --------------
 
 def main() -> None:
+  # Parse command line.
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--width", type=int, default=72,
+    help="Target width in columns [72].")
+  opts = parser.parse_args()
+
+  targetWidth: int = opts.width
+
   existingRE = re.compile(r"^(\s*)(\S+\s+)(.+)$")
     #                        1    2       3
     #
@@ -91,7 +99,8 @@ def main() -> None:
       text = f" {text} "
 
       # Target width minus everything known.
-      numDashes = 72 - (len(prefix) + len(commentStart) + len(text))
+      numDashes = targetWidth - (
+                    len(prefix) + len(commentStart) + len(text))
       if numDashes <= 0:
         print(line)
 
