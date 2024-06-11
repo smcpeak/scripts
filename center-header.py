@@ -72,16 +72,26 @@ def call_main() -> None:
 # --------------- END: boilerplate --------------
 
 def main() -> None:
-  existingRE = re.compile(r"^(\s*)(\S.*)$")
+  existingRE = re.compile(r"^(\s*)(\S+\s+)(.+)$")
+    #                        1    2       3
+    #
+    # 1: Indentation.
+    #
+    # 2: Comment syntax and following space.
+    #
+    # 3: Text to center, possibly with existing dashes to remove.
 
   for line in sys.stdin:
     line = line.rstrip("\n")
     if m := existingRE.match(line):
       prefix = m.group(1)
-      text = m.group(2)
-      text = text.strip(" -/")
+      commentStart = m.group(2)
+      text = m.group(3)
+      text = text.strip(" -")
+      text = f" {text} "
 
-      numDashes = 72 - len(prefix) - len(text) - len("//   ")
+      # Target width minus everything known.
+      numDashes = 72 - (len(prefix) + len(commentStart) + len(text))
       if numDashes <= 0:
         print(line)
 
@@ -92,7 +102,7 @@ def main() -> None:
         leftDashes = "-" * numLeftDashes
         rightDashes = "-" * numRightDashes
 
-        print(f"{prefix}// {leftDashes} {text} {rightDashes}")
+        print(f"{prefix}{commentStart}{leftDashes}{text}{rightDashes}")
 
     else:
       print(line)

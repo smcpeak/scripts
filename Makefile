@@ -22,6 +22,7 @@ CREATE_OUTPUT_DIRECTORY = @mkdir -p $(dir $@)
 
 # Python scripts to pass to mypy, in alphabetical order.
 MYPY_SRCS :=
+MYPY_SRCS += center-header.py
 MYPY_SRCS += trim-path
 
 out/mypy.ok: $(MYPY_SRCS)
