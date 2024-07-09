@@ -153,6 +153,13 @@ exit(0);
 sub doReplacementsInFile {
   ($fname) = (@_);
 
+  if (-d $fname) {
+    # Assume that a directory got into the list because of -git-ls-files
+    # and it is a submodule.  Do not produce an error.
+    print("skipping directory: $fname\n");
+    return;
+  }
+
   if (! -f $fname) {
     print("not a file: $fname\n");
     $errors++;
@@ -161,6 +168,11 @@ sub doReplacementsInFile {
 
   if (! -T $fname) {
     print("skipping non-text file: $fname\n");
+    return;
+  }
+
+  if (! -w $fname) {
+    print("skipping non-writable file: $fname\n");
     return;
   }
 
@@ -302,24 +314,6 @@ EOF
   if ($replacements == 0) {
     # no matches, or the user didn't want to do any replacements
     return;
-  }
-
-  if (! -w $fname) {
-    # not writable; try to check it out from bk
-    if (0!=system("bk", "edit", $fname)) {
-      die("failed to bk edit $fname\n");
-    }
-
-    # make sure it's writable now
-    if (! -w $fname) {
-      die("what?  even after successful bk edit,\n",
-          "$fname is still not writable!\n");
-    }
-
-    # The above commands 'die' rather than continuing because we
-    # are losing some of the user's data (namely, their yes/no
-    # replies), so we don't want to just continue.  They should
-    # deal with the problem and then try again.
   }
 
   # write @lines to the file
