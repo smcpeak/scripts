@@ -19,6 +19,6 @@ esac
 
 HandBrakeCLI.exe \
   --preset-import-file $(cygpath -m $HOME/scripts/data/handbrake-720p-30fps.json) \
-  -i "$base.mp4" -o "$base fixed.mp4"
+  -i "$base.mp4" -o "$base-30fps.mp4"
 
 # EOF
