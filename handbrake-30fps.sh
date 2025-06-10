@@ -17,6 +17,11 @@ case "$1" in
     ;;
 esac
 
+if [ -e "$base-30fps.mp4" ]; then
+  echo "$base-30fps.mp4 already exists, doing nothing"
+  exit 0
+fi
+
 HandBrakeCLI.exe \
   --preset-import-file $(cygpath -m $HOME/scripts/data/handbrake-720p-30fps.json) \
   -i "$base.mp4" -o "$base-30fps.mp4"
