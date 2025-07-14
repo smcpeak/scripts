@@ -1,15 +1,34 @@
 #!/usr/bin/env python3
+"""
+Given a filename, write an empty header file with multiple-include
+guards like:
+
+  // foo.h
+  // (description goes here)
+
+  #ifndef DIR_FOO_H
+  #define DIR_FOO_H
+
+
+  #endif // DIR_FOO_H
+
+where DIR is the name of the current directory without path info.  Both
+the directory and file name are uppercased, and all non-alphanumeric
+characters converted to underscores.
+"""
+
 
 import os
 import sys
 import re
 
+from boilerplate import *
+
+
 def make_guard_symbol(directory: str, filename: str) -> str:
   """
   Construct a multiple-include header guard symbol for `filename` in
-  `directory` by discarding path components for `directory`, converting
-  both to uppercase, converting non-alphanumeric characters to
-  underscores, then combining them with a separating underscore.
+  `directory`.
   """
 
   dir_name: str = os.path.basename(directory)
@@ -34,4 +53,7 @@ def main() -> None:
   print(f"#endif // {guard_symbol}")
 
 if __name__ == "__main__":
-  main()
+  call_main(main)
+
+
+# EOF
