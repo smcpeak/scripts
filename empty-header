@@ -1,30 +1,37 @@
-#!/usr/bin/perl -w
-# write to stdout my usual C++ header template
+#!/usr/bin/env python3
 
-use strict 'subs';
+import os
+import sys
+import re
 
-if (@ARGV != 1) {
-  print(<<"EOF");
-usage: $0 <header-name>
-EOF
-  exit(2);
-}
+def make_guard_symbol(directory: str, filename: str) -> str:
+  """
+  Construct a multiple-include header guard symbol for `filename` in
+  `directory` by discarding path components for `directory`, converting
+  both to uppercase, converting non-alphanumeric characters to
+  underscores, then combining them with a separating underscore.
+  """
 
-$filename = $ARGV[0];
+  dir_name: str = os.path.basename(directory)
+  dir_part: str = re.sub(r'[^A-Za-z0-9]', '_', dir_name).upper()
+  file_part: str = re.sub(r'[^A-Za-z0-9]', '_', filename).upper()
+  return f"{dir_part}_{file_part}"
 
-# version suitable for use as inclusion guard symbol
-$symbol = $filename;
-$symbol =~ tr|-a-z/.|_A-Z__|;
+def main() -> None:
+  if len(sys.argv) != 2:
+    print(f"Usage: {sys.argv[0]} <header-file-name>")
+    sys.exit(2)
 
-print(<<"EOF")
-// $filename
-// (description goes here)
+  filename: str = sys.argv[1]
+  cwd: str = os.getcwd()
+  guard_symbol: str = make_guard_symbol(cwd, filename)
 
-#ifndef $symbol
-#define $symbol
+  print(f"// {filename}")
+  print("// (description goes here)\n")
+  print(f"#ifndef {guard_symbol}")
+  print(f"#define {guard_symbol}\n")
+  print("\n")
+  print(f"#endif // {guard_symbol}")
 
-
-#endif // $symbol
-EOF
-
-# EOF
+if __name__ == "__main__":
+  main()
