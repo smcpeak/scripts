@@ -45,11 +45,27 @@ def main() -> None:
   cwd: str = os.getcwd()
   guard_symbol: str = make_guard_symbol(cwd, filename)
 
+  # Placeholder description.
+  description = "(description goes here)"
+
+  # Is the name a "-fwd.h" file name?
+  fwdHeaderRE = re.compile(r'^(.*)-fwd(\.h.*)$')
+  m = fwdHeaderRE.match(filename)
+  if m:
+    leftSide = m.group(1)
+    extension = m.group(2)
+    description = f"Forward decls for `{leftSide}{extension}`."
+
   print(f"// {filename}")
-  print("// (description goes here)\n")
+  print(f"// {description}")
+  if os.path.exists("license.txt"):
+    print(f"")
+    print(f"// See license.txt for copyright and terms of use.")
+  print(f"")
   print(f"#ifndef {guard_symbol}")
-  print(f"#define {guard_symbol}\n")
-  print("\n")
+  print(f"#define {guard_symbol}")
+  print("")
+  print("")
   print(f"#endif // {guard_symbol}")
 
 if __name__ == "__main__":
