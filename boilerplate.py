@@ -36,7 +36,7 @@ import signal                # signal
 import sys                   # argv, stderr, stdin, exc_info
 import traceback             # print_exc
 
-from typing import Callable
+from typing import Callable, NoReturn
 
 
 # Positive if debug is enabled, with higher values enabling more printing.
@@ -59,7 +59,7 @@ class Error(Exception):
   pass
 
 
-def die(message: str) -> None:
+def die(message: str) -> NoReturn:
   """Throw a fatal Error with message."""
   raise Error(message)
 

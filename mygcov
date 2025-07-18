@@ -1,53 +1,147 @@
 #!/usr/bin/env python3
+"""
+Run gcov, but filter its output a bit.
 
-import argparse
-import subprocess
-import re
-import sys
-from typing import List, Dict
+This processes gcov output, filtering out lines that are not
+interesting for coverage purposes.  Specifically, these sorts of lines
+are not counted:
 
-# Regex patterns to ignore
-IGNORE_REGEXPS: List[str] = [
+* Lines containing "gcov-begin-ignore" and "gcov-end-ignore", and
+  all lines between such a pair.
+
+* Lines containing "gcov-ignore".
+
+* Lines matching any of the other regular expressions appearing in
+  the @ignoreRegexps list, below.
+"""
+
+# This script was translated from Perl to Python using ChatGPT, then
+# further edted by me.
+
+import argparse                        # ArgumentParser
+import subprocess                      # run
+import re                              # match, search
+import sys                             # exit, stderr
+
+from boilerplate import *
+from typing import List, Dict, Pattern
+
+# Regex patterns to ignore.
+ignore_regexes_src: List[str] = [
+  # Explicit directive to ignore coverage for one line.
   r"gcov-ignore",
+
+  # Functions that abort execution on paths that are "impossible".
   r"xfailure",
   r"xunimp",
   r"abort\s*\(",
-  r"assert\s*\(\s*!\s*\"",
+  r"assert\s*\(\s*!\s*\"",             # assert(!"impossible")
   r"av_failure",
   r"av_abort",
+
+  # Heuristically, if we are printing to stderr, we are probably
+  # reporting some sort of unusual error.  I will ignore this too,
+  # since most likely there is something else interesting in the
+  # same code block if this should not be ignored.
   r"fprintf\s*\(\s*stderr\s*,",
+
+  # A comment placed on a line of code present only to silence a
+  # compiler warning, but that is not actually executable.
   r"silence warning",
   r"[nN]ot reached",
+
+  # Regexp of lines where it's irrelevant if executed.  These are
+  # for lines that might appear to be not covered simply because
+  # (for example) a macro expands to a 'break' statement that is
+  # not reachable.  There will always be a more relevant statement
+  # nearby whose coverage will be what I want to measure.
   r"ASTCASE",
   r"ASTNEXT",
   r"ASTDEFAULT",
   r"ASTENDCASE",
+
+  # There is (was?) a bug in gcc/gcov where a "catch" statement is
+  # always marked "######" even when the handler it guards *is*
+  # executed.
   r"catch\s*\(",
+
+  # Similarly, GCC-9.3.0, sometimes flags uses of 'xassert' as
+  # uncovered even though they are executed.
+  #
+  # Actually, that only happens if optimization is enabled, in which
+  # case other FPs happen as well that I can't filter, so I'll assume
+  # that optimization is disabled and remove this rule.
+  #"xassert",
+
+  # If the only thing on a line is `default:`, do not report it.  There
+  # should be later statements that are more interesting.  Without this
+  # rule, I get FPs when I put `xfailure` on the next line.
   r"^\s*default:$",
 ]
 
-
-def kill_hashes(exec_count: str) -> str:
-  if "#" in exec_count or "=" in exec_count:
-    return " " * (len(exec_count) - 1) + "0"
-  return exec_count
+# Compile everything in the list.
+ignore_regexes: List[Pattern[str]] = (
+  [re.compile(elt) for elt in ignore_regexes_src]
+)
 
 
 def should_ignore_line(code_line: str) -> bool:
-  return any(re.search(regex, code_line) for regex in IGNORE_REGEXPS)
+  """True if `code_line` matches anything in `ignore_regexes`."""
+
+  return any(r.search(code_line) for r in ignore_regexes)
 
 
-def is_explicit_filename(fname: str, filename_table: Dict[str, bool]) -> bool:
+def kill_hashes(exec_count: str) -> str:
+  """
+  If `execCount` is the '#####' or '=====' marker, replace it with a
+  zero; this is so I do not completely lose the count, but the marker is
+  also not present (because it is a false alarm).
+  """
+
+  if "#" in exec_count or "=" in exec_count:
+    # Replace with a right-aligned 0.
+    return " " * (len(exec_count) - 1) + "0"
+
+  return exec_count
+
+
+def read_file_lines(fname: str) -> List[str]:
+  """Read `fname` as a list of lines."""
+
+  try:
+    with open(fname, "r") as f:
+      return f.readlines()
+  except Exception as e:
+    die(f"cannot read {fname}: {e}")
+
+
+def warn(msg: str) -> None:
+  """Print a warning to stderr."""
+
+  print(msg, file=sys.stderr)
+
+
+# Set (map to True) of explicitly listed file names, where the names
+# have the ".gcov" extension appended.
+filename_table: Dict[str, bool] = {}
+
+
+def is_explicit_filename(fname: str) -> bool:
+  """True if `fname` is in `filename_table`."""
+
+  global filename_table
   return fname in filename_table
 
 
-def should_show_report(fname: str, quiet: bool, filename_table: Dict[str, bool]) -> bool:
-  return not quiet or is_explicit_filename(fname, filename_table)
+def should_show_report(fname: str, quiet: bool) -> bool:
+  """True if we should show a report for `fname`."""
+
+  return not quiet or is_explicit_filename(fname)
 
 
-def main() -> int:
+def main() -> None:
   parser = argparse.ArgumentParser(
-    description="Run gcov and filter its output to remove ignorable lines."
+    description="Run gcov and filter its output to remove uninteresting lines."
   )
   parser.add_argument(
     "-q",
@@ -67,6 +161,7 @@ def main() -> int:
   )
   parser.add_argument(
     "filenames",
+    metavar="filename.cc",
     nargs="+",
     help="source files to run gcov on",
   )
@@ -78,9 +173,15 @@ def main() -> int:
   require100: bool = args.require100
   filenames: List[str] = args.filenames
 
-  filename_table: Dict[str, bool] = {f + ".gcov": True for f in filenames}
+  # Make a set (map to True) of explicitly listed file names, where the
+  # names have the ".gcov" extension appended.
+  global filename_table
+  filename_table = {f + ".gcov": True for f in filenames}
+
+  # List of files that were missing coverage, when `require100`.
   files_missing_coverage: List[str] = []
 
+  # Build the `gcov` invocation command.
   gcov_command: List[str] = ["gcov"]
   if object_directory:
     gcov_command.extend(["--object-directory", object_directory])
@@ -95,108 +196,144 @@ def main() -> int:
   except Exception as e:
     sys.exit(f"cannot exec gcov: {e}")
 
+  # Read all of gcov's output before doing anything, because when it
+  # says "Creating ..." it is *not* finished creating that file, hence I
+  # will have a race condition if I try to do it online.
   gcov_output: List[str] = proc.stdout.splitlines()
 
   if proc.returncode != 0:
-    return proc.returncode
+    sys.exit(proc.returncode)
 
-  unexpected: List[str] = [line for line in gcov_output if line.startswith("Unexpected")]
+  # Check for one condition early.
+  unexpected: List[str] = (
+    [line for line in gcov_output if line.startswith("Unexpected")])
   if unexpected:
     print("\n".join(unexpected))
     print("(perhaps you need to recompile?)")
-    return 4
+    sys.exit(2)
 
-  for line in gcov_output:
-    m = re.match(r"^Creating '(.*)'", line)
+  creatingRE = re.compile(r"^Creating '(.*)'")
+  wordThenColonRE = re.compile(r"^\S+:$")
+  coverageLineRE = re.compile(
+    r"^(\s*)([0-9#=-]+)(\*?):(\s*)([0-9]+):(.*)$")
+    #  ^    ^          ^     ^    ^        ^
+    #  pad1 |          |     pad2 |        code_line
+    #       exec_count unexec_bb  code_line_number_str
+  digitRE = re.compile(r"\d")
+
+  # Process the gcov output.
+  for gcov_output_line in gcov_output:
+    gcov_output_line = gcov_output_line.rstrip("\n")
+
+    # We only react to the gcov stdout that indicates it was processed
+    # a particular source file.
+    m = creatingRE.match(gcov_output_line)
     if m:
       fname: str = m.group(1)
+      debugPrint(f"Processing {fname}");
 
-      try:
-        with open(fname, "r") as f:
-          input_lines: List[str] = f.readlines()
-      except Exception as e:
-        sys.exit(f"cannot read {fname}: {e}")
+      lines: int = 0                   # total # of executable lines
+      hit: int = 0                     # lines that were executed
+      output_line_num: int = 0         # line number for complaining
+      ignoring: int = 0                # are we in a gcov-begin/end-ignore section?
+      source_line_num: int = -1        # last seen source line number
+      ignore_exn_lines: bool = False   # whether to ignore exception-only lines
 
-      lines: int = 0
-      hit: int = 0
-      output_line_num: int = 0
-      ignoring: int = 0
-      source_line_num: int = -1
-      ignore_exn_lines: bool = False
-
+      # Lines of rewritten gcov output.
       output: List[str] = []
 
+      # Read the original gcov output for `fname`.
+      input_lines: List[str] = read_file_lines(fname)
       for text in input_lines:
         output_line_num += 1
         text = text.rstrip("\n")
 
-        if text.startswith("---") or re.match(r"^\S+:$", text):
+        if text.startswith("---") or wordThenColonRE.match(text):
+          # These are lines showing additional detail about a line that
+          # generates different functions, like a macro or a C++
+          # template.  Ignore them; I will just look at the overall
+          # info, which comes first.
           continue
 
-        m = re.match(
-          r"^(\s*)([0-9#=-]+)(\*?):(\s*)([0-9]+):(.*)$", text
-        )
+        # Parse the line.
+        m = coverageLineRE.match(text)
         if not m:
-          sys.exit(
-            f"mygcov: {fname}:{output_line_num}: line not in expected format: \"{text}\""
-          )
-
+          die(f"mygcov: {fname}:{output_line_num}: line not in expected format: {text!r}")
         pad1, exec_count, unexec_bb, pad2, code_line_number_str, code_line = m.groups()
         code_line_number: int = int(code_line_number_str)
 
         if code_line_number <= source_line_num:
+          # We are still in the "additional detail" section; skip.
           continue
         elif code_line_number == source_line_num + 1:
+          # We have moved onto the next real line.
           source_line_num = code_line_number
         else:
-          sys.exit(
-            f"mygcov: {fname}:{output_line_num}: was expecting to see info about "
-            f"line {source_line_num + 1}: \"{text}\""
-          )
+          die(f"mygcov: {fname}:{output_line_num}: was expecting to " +
+              f"see info about line {source_line_num + 1}: {text!r}")
 
+        # ignoring?
         if ignoring:
           if "gcov-end-ignore" in code_line:
             ignoring -= 1
           exec_count = kill_hashes(exec_count)
+
+        # begin ignoring?
         elif "gcov-begin-ignore" in code_line:
           ignoring += 1
           exec_count = kill_hashes(exec_count)
+
+        # Ignore just this line?
         elif should_ignore_line(code_line):
           exec_count = kill_hashes(exec_count)
+
+        # Disable complains in exception-only code?
         elif "gcov-exception-lines-ignore" in code_line:
           ignore_exn_lines = True
-        elif re.search(r"\d", exec_count):
+
+        # Analyze `exec_count`.
+        elif digitRE.search(exec_count):
           lines += 1
           hit += 1
         elif "#" in exec_count:
+          # executable but not hit
           lines += 1
         elif "=" in exec_count:
+          # According to the documentation at
+          # https://gcc.gnu.org/onlinedocs/gcc/Invoking-Gcov.html, a
+          # count of "=====" means the line is not executed but is only
+          # reachable as a result of exception handlers.
           if ignore_exn_lines:
             exec_count = kill_hashes(exec_count)
           else:
             lines += 1
         elif exec_count == "-":
+          # line is not executable
           pass
         else:
-          print(
-            f"{fname}:{output_line_num}: execution count not understood: {exec_count}",
-            file=sys.stderr,
-          )
+          warn(f"{fname}:{output_line_num}: execution count not understood: {exec_count}")
 
+        # Print the line, possibly with modified `pad1` and
+        # `exec_count`.
         output.append(
           f"{pad1}{exec_count}{unexec_bb}:{pad2}{code_line_number}:{code_line}"
         )
 
+      # We don't actually write the new file until the end so if there
+      # is a problem with the input, it will still be on disk when we
+      # exit, so the user can look at the file to compare to the error
+      # message we printed.
       with open(fname, "w") as f:
         for line_out in output:
           f.write(line_out + "\n")
 
-      if should_show_report(fname, quiet, filename_table):
+      # Print a report on the statistics for this file.
+      if should_show_report(fname, quiet):
         pct: float = (hit / lines * 100.0) if lines else 0.0
         print(f"{pct:7.2f}% = {hit:5d} of {lines:5d} lines: {fname}")
 
         if (
-          is_explicit_filename(fname, filename_table)
+          is_explicit_filename(fname)
           and require100
           and hit < lines
         ):
@@ -206,10 +343,11 @@ def main() -> int:
     print("The following files do not have 100% coverage:")
     for fname in files_missing_coverage:
       print(f"  {fname}")
-    return 2
-
-  return 0
+    sys.exit(2)
 
 
 if __name__ == "__main__":
-  sys.exit(main())
+  call_main(main)
+
+
+# EOF
