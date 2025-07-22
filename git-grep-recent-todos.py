@@ -58,18 +58,35 @@ def find_candidate_files(days: int, substring: str) -> Set[str]:
   return files_with_substring
 
 
-# A typical `git blame --date=short` output line looks like:
+# A typical `git blame --show-name --date=short` output line looks like:
 #
-#   a1b2c3d4 (Alice Smith 2024-06-01  42)     int foo = 42;
+#   a1b2c3d4 filename.cc (Alice Smith 2024-06-01  42)     int foo = 42;
 #
-# The regex matches these elements:
+# The reason for `--show-name` is, without that, the file name will
+# appear if and only if git detects renames in the file's history, which
+# makes the format inconsistent.  There is no way to disable that
+# output, so instead we force it to always be present.
 #
-#                        + commit hash
-#                        |       + author (group 1)
-#                        |       |       + date as YYYY-MM-DD (group 2)
-#                        |       |       |                     + line number
-#                        V       V       V                     V     V line contents (group 3)
-blame_re = re.compile(r'^[^ ]+ \((.+?)\s+(\d{4}-\d{2}-\d{2})\s+\d+\) (.*)$')
+blame_re = re.compile(r"""
+  ^\S+\s                     #    commit hash
+  [^(]+\s                    #    filename, due to --show-name
+  \(                         #    open paren beginning author and date
+    [^)]*                    #    author
+    (\d{4}-\d{2}-\d{2})\s+   # 1: date as YYYY-MM-DD
+    \d+                      #    line number (right aligned)
+  \)\s                       #    close paren ending author and date
+  (.*)$                      # 2: line contents
+""", re.VERBOSE)
+
+
+def test_blame_re() -> None:
+  m = blame_re.match("a1b2c3d4 filename.cc (Alice Smith 2024-06-01  42)     int foo = 42;")
+  assert(m is not None)
+  assert(m.group(1) == "2024-06-01")
+  assert(m.group(2) == "    int foo = 42;")
+
+test_blame_re()
+
 
 def blame_file(file: str, cutoff: datetime, substring: str) -> Iterator[Tuple[int, str]]:
   """
@@ -78,20 +95,22 @@ def blame_file(file: str, cutoff: datetime, substring: str) -> Iterator[Tuple[in
   """
   try:
     proc = subprocess.run(
-      ["git", "blame", "--date=short", file],
+      ["git", "blame", "--show-name", "--date=short", file],
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE,
       encoding="utf-8",
       check=True
     )
-  except subprocess.CalledProcessError:
+  except subprocess.CalledProcessError as e:
+    vbprint(f"error running git blame: {e}")
     return
 
   for i, line in enumerate(proc.stdout.splitlines(), start=1):
     m = blame_re.match(line)
     if not m:
+      vbprint(f"unrecognized blame output: {line!r}")
       continue
-    author, date_str, content = m.groups()
+    date_str, content = m.groups()
     date = datetime.strptime(date_str, "%Y-%m-%d")
     if date >= cutoff and substring in content:
       yield i, content
@@ -118,15 +137,25 @@ def main() -> None:
     default="TODO",
     help="Substring to search for (default: 'TODO')"
   )
+  parser.add_argument(
+    "--file",
+    type=str,
+    help="Name of single file to check"
+  )
   args = parser.parse_args()
 
   global verbose
   verbose = args.verbose
 
   cutoff: datetime = datetime.now() - timedelta(days=args.days)
+  vbprint(f"Cutoff: {cutoff}")
 
-  vbprint("Running 'git log' ...")
-  files: Set[str] = find_candidate_files(args.days, args.substring)
+  files: Set[str] = set()
+  if args.file:
+    files = {args.file}
+  else:
+    vbprint("Running 'git log' ...")
+    files = find_candidate_files(args.days, args.substring)
   vbprint(f"Candidate files: {files!r}")
 
   if not files:
