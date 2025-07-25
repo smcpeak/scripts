@@ -56,6 +56,15 @@ def main() -> None:
     extension = m.group(2)
     description = f"Forward decls for `{leftSide}{extension}`."
 
+  # Is it an "-ops.h"?
+  isOpsFile = False
+  m = re.match(r'^(.*)-ops(\.h.*)$', filename)
+  if m:
+    leftSide = m.group(1)
+    extension = m.group(2)
+    description = f"Operations for `{leftSide}` module."
+    isOpsFile = True
+
   print(f"// {filename}")
   print(f"// {description}")
   if os.path.exists("license.txt"):
@@ -65,6 +74,10 @@ def main() -> None:
   print(f"#ifndef {guard_symbol}")
   print(f"#define {guard_symbol}")
   print("")
+  if isOpsFile:
+    print(f"#include \"{leftSide}{extension}\"".ljust(39) +
+          f"// decls for this module")
+    print("")
   print("")
   print(f"#endif // {guard_symbol}")
 
