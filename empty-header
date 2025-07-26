@@ -57,41 +57,62 @@ def find_and_use_skeleton(filename: str) -> bool:
   string ("foo" in the example).  Write the substituted contents to
   stdout and return True.
 
+  If a match is not find, look for `skeleton` in successive ancestor
+  directories, stopping at $HOME or the file system root.
+
   If `skeleton` does not exist or no match is found, return False.
   """
 
-  skeleton_dir = 'skeleton'
+  # $HOME.
+  home_dir = os.path.expanduser("~")
 
-  if not os.path.isdir(skeleton_dir):
-    return False
+  # Directory to search in next.
+  search_dir = os.getcwd()
 
-  for entry in os.listdir(skeleton_dir):
-    entry_path = os.path.join(skeleton_dir, entry)
+  # Loop to search successive ancestors.
+  while True:
+    # Skeleton directory to inspect at this level.
+    skeleton_dir = os.path.join(search_dir, "skeleton");
+    debugPrint(f"Looking for skeleton in {skeleton_dir}.");
 
-    if not os.path.isfile(entry_path):
-      continue
+    if os.path.isdir(skeleton_dir):
+      for entry in os.listdir(skeleton_dir):
+        entry_path = os.path.join(skeleton_dir, entry)
 
-    # Look for "module" in the entry name.
-    idx = entry.find("module")
-    if idx == -1:
-      continue
+        if not os.path.isfile(entry_path):
+          continue
 
-    # Extract the strings before and after "module".
-    prefix = entry[:idx]
-    suffix = entry[idx + len("module"):]
+        # Look for "module" in the entry name.
+        idx = entry.find("module")
+        if idx == -1:
+          continue
 
-    # Check if `filename` matches the `entry` pattern.
-    if filename.startswith(prefix) and filename.endswith(suffix):
-      # Extract the binding in the middle.
-      binding = filename[len(prefix) : len(filename) - len(suffix)]
+        # Extract the strings before and after "module".
+        prefix = entry[:idx]
+        suffix = entry[idx + len("module"):]
 
-      # Read, substitute, write to stdout.
-      with open(entry_path, 'r') as f:
-        contents = f.read()
+        # Check if `filename` matches the `entry` pattern.
+        if filename.startswith(prefix) and filename.endswith(suffix):
+          # Extract the binding in the middle.
+          binding = filename[len(prefix) : len(filename) - len(suffix)]
 
-      substituted = contents.replace("{module}", binding)
-      sys.stdout.write(substituted)
-      return True
+          # Read, substitute, write to stdout.
+          with open(entry_path, 'r') as f:
+            contents = f.read()
+
+          substituted = contents.replace("{module}", binding)
+          sys.stdout.write(substituted)
+          return True
+
+    # Stop at $HOME.
+    if search_dir == home_dir:
+      break
+
+    # Move up, stopping at file system root.
+    parent_dir = os.path.dirname(search_dir)
+    if parent_dir == search_dir:
+      break
+    search_dir = parent_dir
 
   return False
 
