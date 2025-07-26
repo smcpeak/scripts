@@ -32,6 +32,17 @@ from boilerplate import *
 from typing import Optional, Tuple
 
 
+re_non_alphanumeric = re.compile(r'[^A-Za-z0-9]');
+
+
+def with_underscores(s: str) -> str:
+  """Replace non-alphanumerics in `s` with underscores."""
+
+  return re_non_alphanumeric.sub('_', s)
+
+assert(with_underscores("foo-bar.h") == "foo_bar_h")
+
+
 def make_guard_symbol(directory: str, filename: str) -> str:
   """
   Construct a multiple-include header guard symbol for `filename` in
@@ -39,8 +50,8 @@ def make_guard_symbol(directory: str, filename: str) -> str:
   """
 
   dir_name: str = os.path.basename(directory)
-  dir_part: str = re.sub(r'[^A-Za-z0-9]', '_', dir_name).upper()
-  file_part: str = re.sub(r'[^A-Za-z0-9]', '_', filename).upper()
+  dir_part: str = with_underscores(dir_name).upper()
+  file_part: str = with_underscores(filename).upper()
   return f"{dir_part}_{file_part}"
 
 
@@ -121,13 +132,20 @@ def find_and_use_skeleton(filename: str) -> bool:
 
       res = search_dir_for_match(skeleton_dir, filename)
       if res is not None:
-        skeleton_file, binding = res
+        skeleton_file, module = res
 
         # Read, substitute, write to stdout.
         with open(skeleton_file, 'r') as f:
           contents = f.read()
 
-        substituted = contents.replace("{module}", binding)
+        substituted = contents.replace(
+          "{module}",
+          module)
+
+        substituted = substituted.replace(
+          "{module_with_underscores}",
+          with_underscores(module))
+
         sys.stdout.write(substituted)
         return True
 
