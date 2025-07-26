@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+"""
+Query and print the Windows Update scheduled restart time.
+
+If run with "-warn N", and the restart is within N hours, then also pop
+up a message box saying so.
+
+Warning: The specific registry key holds the restart time on my Windows
+10 system.  I have no idea how general it is.
+
+NOTE: This only works with Windows Python, not cygwin Python.
+"""
+
 import winreg
 import struct
 import datetime
