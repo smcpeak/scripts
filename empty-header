@@ -15,6 +15,12 @@ guards like:
 where DIR is the name of the current directory without path info.  Both
 the directory and file name are uppercased, and all non-alphanumeric
 characters converted to underscores.
+
+However, if the current directory has a subdirectory called "skeleton",
+and there is a file in it whose name matches the specified file name
+when the literal string "module" is treated as a match variable, then
+use the skeleton file instead, substituting each literal occurrence of
+"{module}" for the matching portion of the input file name.
 """
 
 
@@ -36,12 +42,71 @@ def make_guard_symbol(directory: str, filename: str) -> str:
   file_part: str = re.sub(r'[^A-Za-z0-9]', '_', filename).upper()
   return f"{dir_part}_{file_part}"
 
+
+# ChatGPT helped write this function.
+def find_and_use_skeleton(filename: str) -> bool:
+  """
+  Look in the `skeleton` subdirectory (if it exists) to find a file
+  whose name matches `filename` when the literal string "module" is
+  treated as a match variable.  For example, if `filename` is "foo.h",
+  then a file called "skeleton/module.h" matches, with "foo" then being
+  the binding for the match variable.
+
+  If such a match is found, then read the contents of the skeleton file
+  and replace all occurrences within it of "{module}" with the binding
+  string ("foo" in the example).  Write the substituted contents to
+  stdout and return True.
+
+  If `skeleton` does not exist or no match is found, return False.
+  """
+
+  skeleton_dir = 'skeleton'
+
+  if not os.path.isdir(skeleton_dir):
+    return False
+
+  for entry in os.listdir(skeleton_dir):
+    entry_path = os.path.join(skeleton_dir, entry)
+
+    if not os.path.isfile(entry_path):
+      continue
+
+    # Look for "module" in the entry name.
+    idx = entry.find("module")
+    if idx == -1:
+      continue
+
+    # Extract the strings before and after "module".
+    prefix = entry[:idx]
+    suffix = entry[idx + len("module"):]
+
+    # Check if `filename` matches the `entry` pattern.
+    if filename.startswith(prefix) and filename.endswith(suffix):
+      # Extract the binding in the middle.
+      binding = filename[len(prefix) : len(filename) - len(suffix)]
+
+      # Read, substitute, write to stdout.
+      with open(entry_path, 'r') as f:
+        contents = f.read()
+
+      substituted = contents.replace("{module}", binding)
+      sys.stdout.write(substituted)
+      return True
+
+  return False
+
+
 def main() -> None:
   if len(sys.argv) != 2:
     print(f"Usage: {sys.argv[0]} <header-file-name>")
     sys.exit(2)
 
   filename: str = sys.argv[1]
+
+  # See if we can find a skeleton file to use.
+  if find_and_use_skeleton(filename):
+    return
+
   cwd: str = os.getcwd()
   guard_symbol: str = make_guard_symbol(cwd, filename)
 
