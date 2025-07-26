@@ -17,7 +17,7 @@ hours="$3"
 monitor=$(cygpath -m $(which windows-restart-monitor.py))
 
 while true; do
-  echo "$python" "$monitor" -warn "$hours"
+  #echo "$python" "$monitor" -warn "$hours"
   "$python" "$monitor" -warn "$hours"
   sleep "$seconds"
 done
