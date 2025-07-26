@@ -29,6 +29,7 @@ import sys
 import re
 
 from boilerplate import *
+from typing import Optional, Tuple
 
 
 def make_guard_symbol(directory: str, filename: str) -> str:
@@ -41,6 +42,47 @@ def make_guard_symbol(directory: str, filename: str) -> str:
   dir_part: str = re.sub(r'[^A-Za-z0-9]', '_', dir_name).upper()
   file_part: str = re.sub(r'[^A-Za-z0-9]', '_', filename).upper()
   return f"{dir_part}_{file_part}"
+
+
+def search_dir_for_match(skeleton_dir: str, filename: str) -> Optional[Tuple[str, str]]:
+  """
+  Search in `skeleton_dir` for a file whose name matches `filename` when
+  "module" is treated as a match variable.  If one is found, return a
+  (`path`, `binding`) tuple where `path` is the full path to the
+  matching file in `skeleton_dir` and `binding` is the portion of
+  `filename` that matched the "module" substring.  Otherwise return
+  None.
+  """
+
+  res = None
+
+  for entry in os.listdir(skeleton_dir):
+    entry_path = os.path.join(skeleton_dir, entry)
+
+    if not os.path.isfile(entry_path):
+      continue
+
+    # Look for "module" in the entry name.
+    idx = entry.find("module")
+    if idx == -1:
+      continue
+
+    # Extract the strings before and after "module".
+    prefix = entry[:idx]
+    suffix = entry[idx + len("module"):]
+
+    # Check if `filename` matches the `entry` pattern.
+    if filename.startswith(prefix) and filename.endswith(suffix):
+      # Extract the binding in the middle.
+      binding = filename[len(prefix) : len(filename) - len(suffix)]
+
+      # Prefer shorter bindings since they correspond to more precise
+      # matches.
+      if (res is None or
+          len(binding) < len(res[1])):
+        res = (entry_path, binding)
+
+  return res
 
 
 # ChatGPT helped write this function.
@@ -76,33 +118,18 @@ def find_and_use_skeleton(filename: str) -> bool:
     debugPrint(f"Looking for skeleton in {skeleton_dir}.");
 
     if os.path.isdir(skeleton_dir):
-      for entry in os.listdir(skeleton_dir):
-        entry_path = os.path.join(skeleton_dir, entry)
 
-        if not os.path.isfile(entry_path):
-          continue
+      res = search_dir_for_match(skeleton_dir, filename)
+      if res is not None:
+        skeleton_file, binding = res
 
-        # Look for "module" in the entry name.
-        idx = entry.find("module")
-        if idx == -1:
-          continue
+        # Read, substitute, write to stdout.
+        with open(skeleton_file, 'r') as f:
+          contents = f.read()
 
-        # Extract the strings before and after "module".
-        prefix = entry[:idx]
-        suffix = entry[idx + len("module"):]
-
-        # Check if `filename` matches the `entry` pattern.
-        if filename.startswith(prefix) and filename.endswith(suffix):
-          # Extract the binding in the middle.
-          binding = filename[len(prefix) : len(filename) - len(suffix)]
-
-          # Read, substitute, write to stdout.
-          with open(entry_path, 'r') as f:
-            contents = f.read()
-
-          substituted = contents.replace("{module}", binding)
-          sys.stdout.write(substituted)
-          return True
+        substituted = contents.replace("{module}", binding)
+        sys.stdout.write(substituted)
+        return True
 
     # Stop at $HOME.
     if search_dir == home_dir:
