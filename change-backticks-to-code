@@ -1,0 +1,6 @@
+#!/bin/sh
+# Change `backticks` to <code>ticks</code>.
+
+exec sed -e 's,`\([^`]*\)`,<code>\1</code>,g'
+
+# EOF
