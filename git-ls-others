@@ -1,0 +1,9 @@
+#!/bin/sh
+# List the files that are not known to git, with some exclusions.
+
+exec git ls-files --others \
+  --exclude=.mypy_cache \
+  --exclude=.cache \
+  --exclude=smcpeak-hide
+
+# EOF
