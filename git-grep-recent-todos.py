@@ -8,7 +8,7 @@ be configured with command line options.
 import subprocess
 import re
 from datetime import datetime, timedelta
-from typing import Optional, Set, Iterator, Tuple
+from typing import List, Optional, Set, Iterator, Tuple
 import argparse
 
 
@@ -88,10 +88,10 @@ def test_blame_re() -> None:
 test_blame_re()
 
 
-def blame_file(file: str, cutoff: datetime, substring: str) -> Iterator[Tuple[int, str]]:
+def blame_file(file: str, cutoff: datetime, substring: str) -> Iterator[Tuple[str, str, int, str]]:
   """
-  Blame `file`, and yield (line_no, content) for lines that contain
-  `substring` and were added since `cutoff`.
+  Blame `file`, and yield (date_added, file, line_no, content) for lines that
+  contain `substring` and were added since `cutoff`.
   """
   try:
     proc = subprocess.run(
@@ -113,7 +113,7 @@ def blame_file(file: str, cutoff: datetime, substring: str) -> Iterator[Tuple[in
     date_str, content = m.groups()
     date = datetime.strptime(date_str, "%Y-%m-%d")
     if date >= cutoff and substring in content:
-      yield i, content
+      yield date_str, file, i, content
 
 
 def main() -> None:
@@ -162,10 +162,15 @@ def main() -> None:
     print(f"No files with {args.substring!r} added in the last {args.days} days.")
     return
 
+  matching_lines: List[Tuple[str, str, int, str]] = []
+
   for file in sorted(files):
     vbprint(f"Running `git blame` on {file!r} ...")
-    for line_no, content in blame_file(file, cutoff, args.substring):
-      print(f"{file}:{line_no}: {content.strip()}")
+    matching_lines.extend(blame_file(file, cutoff, args.substring))
+
+  matching_lines.sort(reverse=True)
+  for date_str, file, line_no, content in matching_lines:
+    print(f"{date_str} {file}:{line_no}: {content.strip()}")
 
 
 if __name__ == "__main__":
