@@ -42,10 +42,11 @@ def generate_includes(headers: List[str]) -> str:
   return "".join(f"#include <{hdr}>\n" for hdr in headers)
 
 
-def run_preprocessor(include_text: str) -> int:
+def run_preprocessor(include_text: str) -> Tuple[int, int]:
   """
-  Run `g++ -E -xc++ -` with the given include directives and return the
-  number of lines of output.
+  Run `g++ -E -xc++ -` with the given include directives and return a
+  tuple: (number of lines of output, number of lines containing the
+  substring "template").
   """
   try:
     proc = subprocess.run(
@@ -56,7 +57,11 @@ def run_preprocessor(include_text: str) -> int:
       stderr=subprocess.PIPE,
       check=True
     )
-    return len(proc.stdout.splitlines())
+    lines = proc.stdout.splitlines()
+    total_lines = len(lines)
+    template_lines = sum(1 for line in lines if "template" in line)
+    return total_lines, template_lines
+
   except subprocess.CalledProcessError as e:
     print("Error invoking g++ with input:", file=sys.stderr)
     print("-----------------------------", file=sys.stderr)
@@ -67,34 +72,42 @@ def run_preprocessor(include_text: str) -> int:
     raise
 
 
-def measure_line_counts(headers: List[str]) -> List[Tuple[str, int, int]]:
+def measure_line_counts(headers: List[str]) -> List[Tuple[str, int, int, int, int]]:
   """
   For each prefix of the header list, measure the number of lines of
-  preprocessor output.  Return a list of (header name, added lines,
-  total lines) tuples.
+  preprocessor output and number of lines containing "template".
+  Return a list of (header name, added lines, total lines,
+  added templates, total templates) tuples.
   """
-  result: List[Tuple[str, int, int]] = []
-  previous_total = 0
+  result: List[Tuple[str, int, int, int, int]] = []
+  prev_total_lines = 0
+  prev_total_templates = 0
 
   for i in range(1, len(headers) + 1):
     prefix = headers[:i]
     include_text = generate_includes(prefix)
-    total_lines = run_preprocessor(include_text)
-    added_lines = total_lines - previous_total
-    result.append((headers[i - 1], added_lines, total_lines))
-    previous_total = total_lines
+    total_lines, total_templates = run_preprocessor(include_text)
+
+    added_lines = total_lines - prev_total_lines
+    added_templates = total_templates - prev_total_templates
+    result.append((headers[i - 1],
+                   added_lines, total_lines,
+                   added_templates, total_templates))
+
+    prev_total_lines = total_lines
+    prev_total_templates = total_templates
 
   return result
 
 
-def print_report(measurements: List[Tuple[str, int, int]]) -> None:
+def print_report(measurements: List[Tuple[str, int, int, int, int]]) -> None:
   """
   Print the formatted summary table of header file measurements.
   """
-  print("file name          added lines  total lines")
-  print("-----------------  -----------  -----------")
-  for name, added, total in measurements:
-    print(f"{name:<17}  {added:11}  {total:11}")
+  print("file name           +lines  t.lines  +templates  t.templates")
+  print("-----------------  -------  -------  ----------  -----------")
+  for name, added, total, added_tpl, total_tpl in measurements:
+    print(f"{name:<17}  {added:7}  {total:7}  {added_tpl:10}  {total_tpl:11}")
 
 
 def main() -> None:
