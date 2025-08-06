@@ -2,14 +2,21 @@
 # grep all source code
 
 if [ "x$1" = "x" ]; then
-  echo "usage: $0 [--local] [<grep options>] <grep-style regexp>"
+  echo "usage: $0 [--local] [--recurse] [<grep options>] <grep-style regexp>"
   exit 2
 fi
 
-local=false
+# 2025-08-05: Changed default `local` to true.
+local=true
+
 if [ "x$1" = "x--local" ]; then
   shift
   local=true
+fi
+
+if [ "x$1" = "x--recurse" ]; then
+  shift
+  local=false
 fi
 
 if [ -d .svn ]; then
