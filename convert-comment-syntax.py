@@ -1,132 +1,180 @@
 #!/usr/bin/env python3
 """
-Convert consecutive single-line C/C++ '//' comment blocks into
-'/* ... */' blocks.
+This program converts blocks of C/C++ comments that use the single-line
+"//" syntax into the block "/*...*/" syntax.  The program reads from
+stdin and writes to stdout.
 
-Reads from stdin and writes to stdout.
+To recognize a block of comments, it looks for a maximal number of
+consecutive lines (minimum of two) that all start with the same string
+of whitespace, followed by "//".
+
+For each block of comments, it does the following:
+
+* Replace the first "//" with "/*", preserving the leading whitespace.
+
+* Replace all intermediate "//" with two spaces (again preserving
+  leading whitespace), unless the "//" is not followed by anything else
+  on that line, in which case output a completely blank line (without
+  any whitespace).
+
+* For the last "//", if it is not followed by anything on that line,
+  replace it with "*/" (preserving leading whitespace).  Otherwise,
+  insert a new line below what was the last line, containing just "*/"
+  indented by the same amount of whitespace as the elements of the
+  block were.
+
+Any text outside a comment block is copied unchanged to the ouptut.
+Existing "/*...*/" comments are ignored (preserved unchanged).
 """
 
+import re
 import sys
 
 from boilerplate import *
-from typing import List
+from typing import List, Tuple, Union
 
 
 def get_lines() -> List[str]:
   """
-  Read all lines from standard input and return them as a list of strings,
-  preserving line endings.
+  Read all lines from standard input and return them as a list of
+  strings, discarding line endings.
   """
-  return sys.stdin.read().splitlines(keepends=True)
+  return sys.stdin.read().splitlines()
 
 
 def write_lines(lines: List[str]) -> None:
   """
   Write the given list of lines to standard output.
   """
-  sys.stdout.write(''.join(lines))
+  sys.stdout.write(''.join(line+'\n' for line in lines))
 
 
-def is_comment_with_prefix(line: str) -> bool:
+# A parsed line is either a pair of the leading whitespace and the text
+# that followed the "//", or it is just the entire line for a line that
+# does not match the comment line regex.
+ParsedLine = Union[Tuple[str, str], str]
+
+
+def parse_lines(input_lines: List[str]) -> List[ParsedLine]:
   """
-  Return True if the line starts with some whitespace (possibly empty)
-  followed immediately by '//' (no other characters between the whitespace
-  and the slashes).
+  Parse all input lines depending on whether they are single-line
+  comments.
   """
-  # find first non-whitespace
-  idx = 0
-  while idx < len(line) and line[idx].isspace() and line[idx] not in '\r\n':
-    idx += 1
-  # line may have newline characters after whitespace; ensure we don't index past end
-  return idx + 1 < len(line) and line[idx:idx + 2] == '//'
+
+  comment_line_re = re.compile(r"""
+    ^(\s*)                   # 1: leading whitespace
+    //                       # comment start
+    (.*)$                    # 2: text after comment start
+  """, re.VERBOSE)
+
+  output: List[ParsedLine] = []
+
+  for line in input_lines:
+    m = comment_line_re.match(line)
+    if m:
+      output.append((m.group(1), m.group(2)))
+    else:
+      output.append(line)
+
+  return output
 
 
-def leading_whitespace_of_comment(line: str) -> str:
+def has_leading_ws(parsed_line: ParsedLine, leading_ws: str) -> bool:
   """
-  Given a line that satisfies is_comment_with_prefix(line), return the leading
-  whitespace string (may be empty) that appears before the '//' on that line.
+  True if `parsed_line` is a tuple whose first element is `leading_ws`.
   """
-  idx = 0
-  while idx < len(line) and line[idx].isspace() and line[idx] not in '\r\n':
-    idx += 1
-  return line[:idx]
+  if isinstance(parsed_line, tuple):
+    return parsed_line[0] == leading_ws
+  else:
+    return False
 
 
-def process_lines(lines: List[str]) -> List[str]:
+def process_lines(input_lines: List[str]) -> List[str]:
   """
-  Process the input lines and return a new list of lines with the comment-block
-  transformations applied.
+  Process the input lines and return a new list of lines with the
+  comment-block transformations applied.
 
-  The algorithm finds maximal runs of consecutive lines (length >= 2) that all
-  start with the identical leading-whitespace string followed by '//'. Each
-  such run is converted according to the rules described in the prompt.
+  The algorithm finds maximal runs of consecutive lines (length >= 2)
+  that all start with the identical leading-whitespace string followed
+  by '//'. Each such run is converted according to the rules described
+  in the script description above.
   """
-  out: List[str] = []
-  i = 0
-  n = len(lines)
+  output_lines: List[str] = []
+  block_start_index = 0
+  num_input_lines = len(input_lines)
 
-  while i < n:
-    line = lines[i]
-    # If this line starts with some ws then '//' consider possible block
-    if is_comment_with_prefix(line):
-      lead = leading_whitespace_of_comment(line)
-      # attempt to gather maximal run that have same lead and start with '//'
-      j = i
-      while j < n and lines[j].startswith(lead) and lines[j][len(lead):].startswith('//'):
-        j += 1
-      run_len = j - i
-      # Only treat as block if at least two consecutive matching lines
-      if run_len >= 2:
-        # process block from i..j-1
-        for k in range(i, j):
-          cur = lines[k]
-          # rest_after_slashes includes everything after the two slashes, including any spaces and the line ending
-          rest_after_slashes = cur[len(lead) + 2:]
-          # Determine whether "not followed by anything else on that line"
-          # i.e., after the '//' there is nothing except optional whitespace and newline
-          rest_stripped = rest_after_slashes.strip('\r\n')
-          if rest_stripped.strip() == '':
-            # rest contains no non-space characters (only spaces and newline)
-            empty_after = True
-          else:
-            empty_after = False
+  # First parse all the lines.
+  parsed_lines: List[ParsedLine] = parse_lines(input_lines)
+  assert(len(parsed_lines) == num_input_lines)
 
-          # first line
-          if k == i:
-            # Replace first '//' with '/*' preserving leading whitespace and the rest exactly
-            out.append(f"{lead}/*{rest_after_slashes}")
-          # intermediate lines (not first and not last)
-          elif k < j - 1:
+  # Process the parsed lines.
+  while block_start_index < num_input_lines:
+    parsed_line = parsed_lines[block_start_index]
+
+    if isinstance(parsed_line, tuple):
+      leading_ws, after_text = parsed_line
+
+      # Gather a maximal run of lines that have the same `leading_ws`.
+      block_end_index = block_start_index
+      while (block_end_index < num_input_lines and
+             has_leading_ws(parsed_lines[block_end_index], leading_ws)):
+        block_end_index += 1
+
+      # Only treat this as a block if there are at least two consecutive
+      # matching lines.
+      if block_end_index - block_start_index >= 2:
+
+        # Process every line in the block.
+        for block_line_index in range(block_start_index, block_end_index):
+          after_text = parsed_lines[block_line_index][1]
+
+          # True if there was nothing after the slashes.
+          empty_after: bool = (after_text == '')
+
+          # First, middle, or last line?
+          if block_line_index == block_start_index:
+            # First line: replace '//' with '/*'.
+            output_lines.append(f"{leading_ws}/*{after_text}")
+
+          elif block_line_index < block_end_index - 1:
+            # Middle line.
             if empty_after:
-              # produce a completely blank line (no whitespace)
-              out.append('\n')
-            else:
-              # replace '//' with two spaces, preserving the rest
-              out.append(f"{lead}  {rest_after_slashes}")
-          else:
-            # k == j-1 : last line of the run
-            if empty_after:
-              # replace '//' with '*/' preserving leading whitespace
-              # ensure it ends with a newline
-              if rest_after_slashes.endswith('\n') or rest_after_slashes.endswith('\r'):
-                weird = rest_after_slashes[len(rest_after_slashes.rstrip('\r\n')):]
-                out.append(f"{lead}*/{weird}")
-              else:
-                out.append(f"{lead}*/\n")
-            else:
-              # replace '//' with two spaces on the last line, then append a new line
-              out.append(f"{lead}  {rest_after_slashes}")
-              # add a separate closing '*/' line indented by the same leading whitespace
-              out.append(f"{lead}*/\n")
-        # advance past the run
-        i = j
-        continue
-      # else: run length < 2 ; fallthrough and copy single line unchanged
-    # default: copy line unchanged
-    out.append(line)
-    i += 1
+              # This was a line separating paragraphs.  Within the
+              # /*...*/ syntax we are creating, such a line becomes
+              # completely blank.
+              output_lines.append('')
 
-  return out
+            else:
+              # Replace '//' with two spaces.
+              output_lines.append(f"{leading_ws}  {after_text}")
+
+          else:
+            # Last line.
+            if empty_after:
+              # Replace '//' with '*/'.
+              output_lines.append(f"{leading_ws}*/")
+
+            else:
+              # First, replace '//' with two spaces.
+              output_lines.append(f"{leading_ws}  {after_text}")
+
+              # Then insert a new line with just "*/".
+              output_lines.append(f"{leading_ws}*/")
+
+        # Advance past the run.
+        block_start_index = block_end_index
+
+      else:
+        # Isolated comment line: preserve as-is.
+        output_lines.append(f"{leading_ws}//{after_text}")
+        block_start_index += 1
+
+    else:
+      # Not a comment: preserve as-is.
+      output_lines.append(parsed_line)
+      block_start_index += 1
+
+  return output_lines
 
 
 example_input: str = """
@@ -199,11 +247,12 @@ def run_unit_test() -> None:
   """
   Simple unit test.
   """
-  lines = example_input.splitlines(keepends=True)
+  lines = example_input.splitlines()
   actual = process_lines(lines)
-  expected = expected_output.splitlines(keepends=True)
-  print(f"Lengths: actual={len(actual)} expected={len(expected)}")
-  #write_lines(actual)
+  expected = expected_output.splitlines()
+  debugPrint(f"Lengths: actual={len(actual)} expected={len(expected)}")
+  if debugLevel >= 2:
+    write_lines(actual)
   assert(len(actual) == len(expected))
   i = 0
   while i < len(actual):
