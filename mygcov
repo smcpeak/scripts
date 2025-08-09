@@ -21,6 +21,7 @@ are not counted:
 import argparse                        # ArgumentParser
 import subprocess                      # run
 import re                              # match, search
+import shlex                           # quote
 import sys                             # exit, stderr
 
 from boilerplate import *
@@ -139,6 +140,14 @@ def should_show_report(fname: str, quiet: bool) -> bool:
   return not quiet or is_explicit_filename(fname)
 
 
+def quote_command_line(words: List[str]) -> str:
+  """
+  Return a single string that will be interpreted by the shell as the
+  given sequence of words in a command line context.
+  """
+  return " ".join(shlex.quote(word) for word in words)
+
+
 def main() -> None:
   parser = argparse.ArgumentParser(
     description="Run gcov and filter its output to remove uninteresting lines."
@@ -202,7 +211,10 @@ def main() -> None:
   gcov_output: List[str] = proc.stdout.splitlines()
 
   if proc.returncode != 0:
-    sys.exit(proc.returncode)
+    print(f"Command failed with code {proc.returncode}:")
+    print(f"  {quote_command_line(gcov_command)}")
+    sys.stdout.write(proc.stderr);
+    sys.exit(2)
 
   # Check for one condition early.
   unexpected: List[str] = (
