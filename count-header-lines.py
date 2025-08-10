@@ -49,7 +49,10 @@ def generate_includes(headers: List[str]) -> str:
   return "".join(f'#include "{hdr}"\n' for hdr in headers)
 
 
-def run_preprocessor(include_text: str, include_dirs: List[str]) -> Tuple[int, int]:
+def run_preprocessor(
+  include_text: str,
+  include_dirs: List[str]
+) -> Tuple[int, int]:
   """
   Run `g++ -E -xc++ -` with the given include directives and return a
   tuple: (number of lines of output, number of lines containing the
@@ -83,7 +86,10 @@ def run_preprocessor(include_text: str, include_dirs: List[str]) -> Tuple[int, i
     raise
 
 
-def measure_line_counts(headers: List[str], include_dirs: List[str]) -> List[Tuple[str, int, int, int, int]]:
+def measure_line_counts(
+  headers: List[str],
+  include_dirs: List[str]
+) -> List[Tuple[str, int, int, int, int]]:
   """
   For each prefix of the header list, measure the number of lines of
   preprocessor output and number of lines containing "template".
@@ -111,7 +117,9 @@ def measure_line_counts(headers: List[str], include_dirs: List[str]) -> List[Tup
   return result
 
 
-def print_report(measurements: List[Tuple[str, int, int, int, int]]) -> None:
+def print_report(
+  measurements: List[Tuple[str, int, int, int, int]]
+) -> None:
   """
   Print the formatted summary table of header file measurements.
   """
