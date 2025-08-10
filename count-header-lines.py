@@ -25,6 +25,13 @@ def parse_args() -> argparse.Namespace:
       "Measure preprocessor output line counts for header file prefixes."
   )
   parser.add_argument(
+    "-I",
+    dest="includes",
+    action="append",
+    metavar="INCDIR",
+    default=[],
+    help="Add INCDIR to the include path.")
+  parser.add_argument(
     "headers",
     metavar="header",
     type=str,
@@ -36,21 +43,25 @@ def parse_args() -> argparse.Namespace:
 
 def generate_includes(headers: List[str]) -> str:
   """
-  Return a string containing `#include <...>` directives for each header
+  Return a string containing `#include "..."` directives for each header
   in the list.
   """
-  return "".join(f"#include <{hdr}>\n" for hdr in headers)
+  return "".join(f'#include "{hdr}"\n' for hdr in headers)
 
 
-def run_preprocessor(include_text: str) -> Tuple[int, int]:
+def run_preprocessor(include_text: str, include_dirs: List[str]) -> Tuple[int, int]:
   """
   Run `g++ -E -xc++ -` with the given include directives and return a
   tuple: (number of lines of output, number of lines containing the
   substring "template").
   """
   try:
+    command: List[str] = ["g++", "-E", "-xc++", "-"];
+    for dir in include_dirs:
+      command.append(f"-I{dir}")
+
     proc = subprocess.run(
-      ["g++", "-E", "-xc++", "-"],
+      command,
       input=include_text,
       text=True,
       stdout=subprocess.PIPE,
@@ -72,7 +83,7 @@ def run_preprocessor(include_text: str) -> Tuple[int, int]:
     raise
 
 
-def measure_line_counts(headers: List[str]) -> List[Tuple[str, int, int, int, int]]:
+def measure_line_counts(headers: List[str], include_dirs: List[str]) -> List[Tuple[str, int, int, int, int]]:
   """
   For each prefix of the header list, measure the number of lines of
   preprocessor output and number of lines containing "template".
@@ -86,7 +97,7 @@ def measure_line_counts(headers: List[str]) -> List[Tuple[str, int, int, int, in
   for i in range(1, len(headers) + 1):
     prefix = headers[:i]
     include_text = generate_includes(prefix)
-    total_lines, total_templates = run_preprocessor(include_text)
+    total_lines, total_templates = run_preprocessor(include_text, include_dirs)
 
     added_lines = total_lines - prev_total_lines
     added_templates = total_templates - prev_total_templates
@@ -112,7 +123,8 @@ def print_report(measurements: List[Tuple[str, int, int, int, int]]) -> None:
 
 def main() -> None:
   args = parse_args()
-  measurements = measure_line_counts(args.headers)
+
+  measurements = measure_line_counts(args.headers, args.includes)
   print_report(measurements)
 
 

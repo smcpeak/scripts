@@ -23,6 +23,7 @@ CREATE_OUTPUT_DIRECTORY = @mkdir -p $(dir $@)
 # Python scripts to pass to mypy, in alphabetical order.
 MYPY_SRCS :=
 MYPY_SRCS += convert-comment-syntax.py
+MYPY_SRCS += count-header-lines.py
 MYPY_SRCS += center-header.py
 MYPY_SRCS += mygcov
 MYPY_SRCS += trim-path
