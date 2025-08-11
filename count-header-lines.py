@@ -11,6 +11,7 @@ header.
 import argparse
 import subprocess
 import sys
+import re
 
 from boilerplate import *
 from typing import List, Tuple
@@ -24,6 +25,10 @@ def parse_args() -> argparse.Namespace:
     description=
       "Measure preprocessor output line counts for header file prefixes."
   )
+  parser.add_argument(
+    "--expand",
+    action="store_true",
+    help="Read the contents of the files to get the list of headers.")
   parser.add_argument(
     "-I",
     dest="includes",
@@ -117,6 +122,34 @@ def measure_line_counts(
   return result
 
 
+include_re = re.compile("""
+  ^\s*\#\s*include\s*           # "#include "
+  ["<]                          # opening delimiter
+  ([^">]+)                      # 1: file name
+  [">]                          # closing delimiter
+  .*$                           # ignored remainder of line
+""", re.VERBOSE)
+
+
+def expand_files(files: List[str]) -> List[str]:
+  """
+  Read each file in `files`, looking for #include lines.  Return the
+  sequence of file names that were #included.
+  """
+  ret: List[str] = []
+
+  for file_name in files:
+    with open(file_name, "r") as file:
+      for line in file:
+        m = include_re.match(line)
+        if m:
+          target = m.group(1)
+          debugPrint(f"Got {target} from {file_name}")
+          ret.append(target)
+
+  return ret
+
+
 def print_report(
   measurements: List[Tuple[str, int, int, int, int]]
 ) -> None:
@@ -132,7 +165,11 @@ def print_report(
 def main() -> None:
   args = parse_args()
 
-  measurements = measure_line_counts(args.headers, args.includes)
+  files = args.headers
+  if args.expand:
+    files = expand_files(files)
+
+  measurements = measure_line_counts(files, args.includes)
   print_report(measurements)
 
 
