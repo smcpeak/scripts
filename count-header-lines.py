@@ -156,10 +156,16 @@ def print_report(
   """
   Print the formatted summary table of header file measurements.
   """
-  print("file name           +lines  t.lines  +templates  t.templates")
-  print("-----------------  -------  -------  ----------  -----------")
+  # Compute width of "file name" column based on maximum `name` length.
+  name_width = max(17, *(len(name) for name, *_ in measurements))
+
+  name_header = f"{'file name':<{name_width}}"
+  name_separa = "-" * name_width
+
+  print(f"{name_header}   +lines  t.lines  +templates  t.templates")
+  print(f"{name_separa}  -------  -------  ----------  -----------")
   for name, added, total, added_tpl, total_tpl in measurements:
-    print(f"{name:<17}  {added:7}  {total:7}  {added_tpl:10}  {total_tpl:11}")
+    print(f"{name:<{name_width}}  {added:7}  {total:7}  {added_tpl:10}  {total_tpl:11}")
 
 
 def main() -> None:
