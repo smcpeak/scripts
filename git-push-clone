@@ -1,0 +1,65 @@
+#!/bin/sh
+# Clone the current repo on a remote machine.
+
+# This script uses ssh and git to create a non-bare clone of the current
+# repo on a remote machine.  Normally the destination directory does not
+# exist, but the script will check for and tolerate some of the creation
+# steps having already been performed, up to and including the case of
+# the destination having been created by this script previously and now
+# needs to be updated.
+
+set -e
+
+if [ "x$1" = "x" ]; then
+  echo "usage: $0 remote-machine" 1>&2
+  exit 2
+fi
+
+# For now, always echo.
+verbose_echo() {
+  echo "$@"
+}
+
+remote_machine="$1"
+verbose_echo "Remote machine: $remote_machine"
+
+local_machine=$(hostname)
+verbose_echo "Local machine: $local_machine"
+
+current_branch=$(git branch --show-current)
+verbose_echo "Current branch: $current_branch"
+
+# Get current directory relative to $HOME.
+rel_path=$(realpath --relative-base="$HOME" .)
+case "$rel_path" in
+  /*)
+    echo "Path $rel_path is not in $HOME." 1>&2
+    exit 2
+esac
+verbose_echo "Path: $rel_path"
+
+# See if the path already exists on the remote machine.
+verbose_echo "Checking remote path existence..."
+if ssh "$remote_machine" test -e "$rel_path"; then
+  verbose_echo "On $remote_machine, $rel_path already exists."
+else
+  verbose_echo "Creating remote repo..."
+  ssh "$remote_machine" git init -b "$current_branch" "$rel_path" || exit
+fi
+
+verbose_echo "Checking if remote is already configured..."
+if git remote show "$remote_machine" >/dev/null 2>&1; then
+  verbose_echo "Remote exists."
+else
+  verbose_echo "Adding remote..."
+  git remote add "$remote_machine" "$remote_machine:$rel_path" || exit
+fi
+
+verbose_echo "Pushing..."
+git push "$remote_machine" "$current_branch:from-$local_machine" || exit
+
+verbose_echo "Updating remote files..."
+ssh "$remote_machine" "cd $rel_path && git merge --ff-only from-$local_machine"
+
+
+# EOF

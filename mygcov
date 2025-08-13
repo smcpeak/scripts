@@ -1,57 +1,70 @@
-#!/usr/bin/perl -w
-# run gcov, but filter its output a bit
-#
-# This processes gcov output, filtering out lines that are not
-# interesting for coverage purposes.  Specifically, these sorts of lines
-# are not counted:
-#
-# * Lines containing "gcov-begin-ignore" and "gcov-end-ignore", and
-#   all lines between such a pair.
-#
-# * Lines containing "gcov-ignore".
-#
-# * Lines matching any of the other regular expressions appearing in
-#   the @ignoreRegexps list, below.
+#!/usr/bin/env python3
+"""
+Run gcov, but filter its output a bit.
 
-use strict 'subs';
+This processes gcov output, filtering out lines that are not
+interesting for coverage purposes.  Specifically, these sorts of lines
+are not counted:
 
-@ignoreRegexps = (
+* Lines containing "gcov-begin-ignore" and "gcov-end-ignore", and
+  all lines between such a pair.
+
+* Lines containing "gcov-ignore".
+
+* Lines matching any of the other regular expressions appearing in
+  the @ignoreRegexps list, below.
+"""
+
+# This script was translated from Perl to Python using ChatGPT, then
+# further edted by me.
+
+import argparse                        # ArgumentParser
+import subprocess                      # run
+import re                              # match, search
+import shlex                           # quote
+import sys                             # exit, stderr
+
+from boilerplate import *
+from typing import List, Dict, Pattern
+
+# Regex patterns to ignore.
+ignore_regexes_src: List[str] = [
   # Explicit directive to ignore coverage for one line.
-  "gcov-ignore",
+  r"gcov-ignore",
 
   # Functions that abort execution on paths that are "impossible".
-  "xfailure",
-  "xunimp",
-  "abort\\s*\\(",
-  "assert\\s*\\(\\s*!\\s*\"",       # assert(!"impossible")
-  "av_failure",
-  "av_abort",
+  r"xfailure",
+  r"xunimp",
+  r"abort\s*\(",
+  r"assert\s*\(\s*!\s*\"",             # assert(!"impossible")
+  r"av_failure",
+  r"av_abort",
 
   # Heuristically, if we are printing to stderr, we are probably
   # reporting some sort of unusual error.  I will ignore this too,
   # since most likely there is something else interesting in the
   # same code block if this should not be ignored.
-  "fprintf\\s*\\(\\s*stderr\\s*,",
+  r"fprintf\s*\(\s*stderr\s*,",
 
   # A comment placed on a line of code present only to silence a
   # compiler warning, but that is not actually executable.
-  "silence warning",
-  "[nN]ot reached",
+  r"silence warning",
+  r"[nN]ot reached",
 
   # Regexp of lines where it's irrelevant if executed.  These are
   # for lines that might appear to be not covered simply because
   # (for example) a macro expands to a 'break' statement that is
   # not reachable.  There will always be a more relevant statement
   # nearby whose coverage will be what I want to measure.
-  "ASTCASE",
-  "ASTNEXT",
-  "ASTDEFAULT",
-  "ASTENDCASE",
+  r"ASTCASE",
+  r"ASTNEXT",
+  r"ASTDEFAULT",
+  r"ASTENDCASE",
 
   # There is (was?) a bug in gcc/gcov where a "catch" statement is
   # always marked "######" even when the handler it guards *is*
   # executed.
-  "catch\\s*\\(",
+  r"catch\s*\(",
 
   # Similarly, GCC-9.3.0, sometimes flags uses of 'xassert' as
   # uncovered even though they are executed.
@@ -64,312 +77,289 @@ use strict 'subs';
   # If the only thing on a line is `default:`, do not report it.  There
   # should be later statements that are more interesting.  Without this
   # rule, I get FPs when I put `xfailure` on the next line.
-  "^\\s*default:\$",
-);
+  r"^\s*default:$",
+]
 
-sub usage {
-  print("usage: $0 [options] filename.cc [file2.cc [...]]\n");
-  print("\n");
-  print("options:\n");
-  print("  -q: only print stats for explicitly named filenames\n");
-  print("  --object-directory dir: look for gcno/gcda files in 'dir'\n");
-  print("  --require100: require 100% coverage of listed files\n");
-}
-
-$quiet = 0;
-$objectDirectory = "";
-
-# If true, we require 100% coverage from all files explicitly listed
-# on the command line.
-$require100 = 0;
-
-while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
-  my $opt = $ARGV[0];
-
-  if ($opt eq "-q") {
-    $quiet = 1;
-  }
-  elsif ($opt eq "--object-directory") {
-    shift @ARGV;
-    die if @ARGV == 0;
-    $objectDirectory = $ARGV[0];
-  }
-  elsif ($opt eq "--require100") {
-    $require100 = 1;
-  }
-  else {
-    usage();
-    die("unknown option: $ARGV[0]\n");
-  }
-
-  shift @ARGV;
-}
-
-if (@ARGV == 0) {
-  usage();
-  exit(0);
-}
-
-@filenames = @ARGV;
-
-# Make a table of explicitly listed file names, where the names have the
-# ".gcov" extension appended.
-my %filenameTable = ();
-foreach my $f (@filenames) {
-  $filenameTable{$f . ".gcov"} = 1;
-}
-
-# List of files that were missing coverage, when $require100.
-my @filesMissingCoverage = ();
+# Compile everything in the list.
+ignore_regexes: List[Pattern[str]] = (
+  [re.compile(elt) for elt in ignore_regexes_src]
+)
 
 
-my @gcovCommand = ("gcov");
-if ($objectDirectory ne "") {
-  push @gcovCommand, ("--object-directory", $objectDirectory);
-}
-push @gcovCommand, @filenames;
-print(join(" ", @gcovCommand), "\n");
+def should_ignore_line(code_line: str) -> bool:
+  """True if `code_line` matches anything in `ignore_regexes`."""
+
+  return any(r.search(code_line) for r in ignore_regexes)
 
 
-$pid = open(KID, "-|");
-if (!defined($pid)) {
-  die("fork: $!\n");
-}
+def kill_hashes(exec_count: str) -> str:
+  """
+  If `execCount` is the '#####' or '=====' marker, replace it with a
+  zero; this is so I do not completely lose the count, but the marker is
+  also not present (because it is a false alarm).
+  """
 
-if (!$pid) {  # child
-  exec(@gcovCommand)
-    || die("can't exec gcov: $!\n");
-}
-
-# read all of gcov's output before doing anything, because
-# when it says "Creating ..." it is *not* finished creating
-# that file, hence I will have a race condition if I try
-# to do it online
-@gcovOutput = <KID>;
-
-if (!close(KID)) {
-  # exit with same status
-  $exit_value  = $? >> 8;
-  $signal_num  = $? & 127;
-  if ($exit_value) {
-    exit($exit_value);
-  }
-  else {
-    warn("gcov died with signal $signal_num\n");
-    exit(10);
-  }
-}
-
-
-# check for one condition early
-@unexpected = grep {/^Unexpected/} @gcovOutput;
-if (@unexpected) {
-  print(join('\n', @unexpected));
-  print("(perhaps you need to recompile?)\n");
-  exit(4);
-}
-
-
-# if $execCount is the '#####' or '=====' marker, replace it with a zero;
-# this is so I do not completely lose the count, but the marker
-# is also not present (because it is a false alarm)
-sub killHashes {
-  my ($execCount) = @_;
-
-  if ($execCount =~ m/\#/ || $execCount =~ m/=/) {
+  if "#" in exec_count or "=" in exec_count:
     # Replace with a right-aligned 0.
-    return " " x (length($execCount)-1) . "0";
-  }
+    return " " * (len(exec_count) - 1) + "0"
 
-  return $execCount;
-}
+  return exec_count
 
 
-# process the gcov output
-foreach my $line (@gcovOutput) {
-  if ($line =~ m/^Creating '(.*)'[\r]?$/) {
-    my $fname = $1;
-    #print("Processing $fname\n");
+def read_file_lines(fname: str) -> List[str]:
+  """Read `fname` as a list of lines."""
 
-    # read the whole thing in advance so I can write it anew
-    if (!open(IN, "<", $fname)) {
-      die("cannot read $fname: $!\n");
-    }
-    my @input = <IN>;
-    close(IN) or die;
-
-    # begin writing it
-    if (!open(OUT, ">", $fname)) {
-      die("cannot write $fname: $!\n");
-    }
-
-    my $lines = 0;           # total # of executable lines
-    my $hit = 0;             # lines that were executed
-    my $outputLineNum = 0;   # line number for complaining
-    my $ignoring = 0;        # are we in a gcov-begin/end-ignore section?
-    my $sourceLineNum = -1;  # last seen source line number
-    my $ignoreExnLines = 0;  # whether to ignore exception-only lines
-
-    foreach my $text (@input) {
-      $outputLineNum++;
-      chomp($text);
-
-      if ($text =~ m/^---/ ||
-          $text =~ m/^\S+:$/) {
-        # These are lines showing additional detail about a line that
-        # generates different functions, like a macro or a C++ template.
-        # Ignore them; I will just look at the overall info, which
-        # comes first.
-        next;
-      }
-
-      # Parse the line.
-      my ($pad1, $execCount, $unexecBB, $pad2, $codeLineNumber, $codeLine) =
-        ($text =~ m/^(\s*)([0-9#=-]+)(\*?):(\s*)([0-9]+):(.*)$/);
-      if (!defined($codeLine)) {
-        die("mygcov: $fname:$outputLineNum: line not in expected format: \"$text\"\n");
-      }
-      chomp($codeLine);
-
-      if ($codeLineNumber <= $sourceLineNum) {
-        # We are still in the "additional detail" section; skip.
-        next;
-      }
-      elsif ($codeLineNumber == $sourceLineNum+1) {
-        # We have moved onto the next real line.
-        $sourceLineNum = $codeLineNumber;
-      }
-      else {
-        die("mygcov: $fname:$outputLineNum: was expecting to see info about ".
-            "line " . ($sourceLineNum+1) . ": \"$text\"\n");
-      }
-
-      # ignoring?
-      if ($ignoring) {
-        if ($codeLine =~ m/gcov-end-ignore/) {
-          $ignoring--;
-        }
-        $execCount = killHashes($execCount);
-      }
-
-      # begin ignoring?
-      elsif ($codeLine =~ m/gcov-begin-ignore/) {
-        $ignoring++;
-        $execCount = killHashes($execCount);
-      }
-
-      # Ignore just this line?
-      elsif (shouldIgnoreLine($codeLine)) {
-        $execCount = killHashes($execCount);
-      }
-
-      # Disable complains in exception-only code?
-      elsif ($codeLine =~ m/gcov-exception-lines-ignore/) {
-        $ignoreExnLines = 1;
-      }
-
-      # Analyze $execCount.
-      elsif ($execCount =~ m/\d/) {
-        # executable and hit
-        $lines++;
-        $hit++;
-      }
-      elsif ($execCount =~ m/\#/) {
-        # executable but not hit
-        $lines++;
-      }
-      elsif ($execCount =~ m/=/) {
-        # According to the documentation at
-        # https://gcc.gnu.org/onlinedocs/gcc/Invoking-Gcov.html, a count
-        # of "=====" means the line is not executed but is only
-        # reachable as a result of exception handlers.
-        if ($ignoreExnLines) {
-          $execCount = killHashes($execCount);
-        }
-        else {
-          $lines++;
-        }
-      }
-      elsif ($execCount eq "-") {
-        # line is not executable
-      }
-      else {
-        warn("$fname:$outputLineNum: execution count not understood: $execCount\n");
-      }
-
-      # Print the line, possibly with modified $pad1 and $execCount.
-      print OUT ($pad1, $execCount, $unexecBB, ":",
-                 $pad2, $codeLineNumber, ":",
-                 $codeLine, "\n");
-    }
-
-    close(OUT) or die;
-
-    # print a report on the statistics for this file
-    if (shouldShowReport($fname)) {
-      my $pct = 0;
-      if ($lines) {
-        $pct = $hit / $lines * 100.0;
-      }
-      printf("%7.2f%s = %5d of %5d lines: %s\n",
-             $pct, "%", $hit, $lines, $fname);
-
-      if (isExplicitFilename($fname) &&
-          $require100 &&
-          ($hit < $lines)) {
-        push @filesMissingCoverage, ($fname);
-      }
-    }
-  }
-
-  # ignore other kind of output
-}
+  try:
+    with open(fname, "r") as f:
+      return f.readlines()
+  except Exception as e:
+    die(f"cannot read {fname}: {e}")
 
 
-if (scalar(@filesMissingCoverage) > 0) {
-  print("The following files do not have 100% coverage:\n");
-  foreach my $fname (@filesMissingCoverage) {
-    print("  $fname\n");
-  }
-  exit(2);
-}
+def warn(msg: str) -> None:
+  """Print a warning to stderr."""
+
+  print(msg, file=sys.stderr)
 
 
-# Return true if $codeLine matches any of the @ignoreRegexps.
-sub shouldIgnoreLine {
-  my ($codeLine) = @_;
-
-  for my $regex (@ignoreRegexps) {
-    if ($codeLine =~ m/$regex/) {
-      return 1;
-    }
-  }
-
-  return 0;
-}
+# Set (map to True) of explicitly listed file names, where the names
+# have the ".gcov" extension appended.
+filename_table: Dict[str, bool] = {}
 
 
-# True if `fname` is among the explicitly specified file names.
-sub isExplicitFilename {
-  my ($fname) = @_;
+def is_explicit_filename(fname: str) -> bool:
+  """True if `fname` is in `filename_table`."""
 
-  return exists $filenameTable{$fname};
-}
+  global filename_table
+  return fname in filename_table
 
 
-sub shouldShowReport {
-  my ($fname) = @_;
+def should_show_report(fname: str, quiet: bool) -> bool:
+  """True if we should show a report for `fname`."""
 
-  if ($quiet == 0) {
-    return 1;
-  }
+  return not quiet or is_explicit_filename(fname)
 
-  if (isExplicitFilename($fname)) {
-    return 1;
-  }
 
-  return 0;
-}
+def quote_command_line(words: List[str]) -> str:
+  """
+  Return a single string that will be interpreted by the shell as the
+  given sequence of words in a command line context.
+  """
+  return " ".join(shlex.quote(word) for word in words)
+
+
+def main() -> None:
+  parser = argparse.ArgumentParser(
+    description="Run gcov and filter its output to remove uninteresting lines."
+  )
+  parser.add_argument(
+    "-q",
+    action="store_true",
+    help="only print stats for explicitly named filenames",
+  )
+  parser.add_argument(
+    "--object-directory",
+    metavar="DIR",
+    default="",
+    help="look for gcno/gcda files in DIR",
+  )
+  parser.add_argument(
+    "--require100",
+    action="store_true",
+    help="require 100%% coverage of listed files",
+  )
+  parser.add_argument(
+    "filenames",
+    metavar="filename.cc",
+    nargs="+",
+    help="source files to run gcov on",
+  )
+
+  args = parser.parse_args()
+
+  quiet: bool = args.q
+  object_directory: str = args.object_directory
+  require100: bool = args.require100
+  filenames: List[str] = args.filenames
+
+  # Make a set (map to True) of explicitly listed file names, where the
+  # names have the ".gcov" extension appended.
+  global filename_table
+  filename_table = {f + ".gcov": True for f in filenames}
+
+  # List of files that were missing coverage, when `require100`.
+  files_missing_coverage: List[str] = []
+
+  # Build the `gcov` invocation command.
+  gcov_command: List[str] = ["gcov"]
+  if object_directory:
+    gcov_command.extend(["--object-directory", object_directory])
+  gcov_command.extend(filenames)
+
+  print(" ".join(gcov_command))
+
+  try:
+    proc = subprocess.run(
+      gcov_command, check=False, text=True, capture_output=True
+    )
+  except Exception as e:
+    sys.exit(f"cannot exec gcov: {e}")
+
+  # Read all of gcov's output before doing anything, because when it
+  # says "Creating ..." it is *not* finished creating that file, hence I
+  # will have a race condition if I try to do it online.
+  gcov_output: List[str] = proc.stdout.splitlines()
+
+  if proc.returncode != 0:
+    print(f"Command failed with code {proc.returncode}:")
+    print(f"  {quote_command_line(gcov_command)}")
+    sys.stdout.write(proc.stderr);
+    sys.exit(2)
+
+  # Check for one condition early.
+  unexpected: List[str] = (
+    [line for line in gcov_output if line.startswith("Unexpected")])
+  if unexpected:
+    print("\n".join(unexpected))
+    print("(perhaps you need to recompile?)")
+    sys.exit(2)
+
+  creatingRE = re.compile(r"^Creating '(.*)'")
+  wordThenColonRE = re.compile(r"^\S+:$")
+  coverageLineRE = re.compile(
+    r"^(\s*)([0-9#=-]+)(\*?):(\s*)([0-9]+):(.*)$")
+    #  ^    ^          ^     ^    ^        ^
+    #  pad1 |          |     pad2 |        code_line
+    #       exec_count unexec_bb  code_line_number_str
+  digitRE = re.compile(r"\d")
+
+  # Process the gcov output.
+  for gcov_output_line in gcov_output:
+    gcov_output_line = gcov_output_line.rstrip("\n")
+
+    # We only react to the gcov stdout that indicates it was processed
+    # a particular source file.
+    m = creatingRE.match(gcov_output_line)
+    if m:
+      fname: str = m.group(1)
+      debugPrint(f"Processing {fname}");
+
+      lines: int = 0                   # total # of executable lines
+      hit: int = 0                     # lines that were executed
+      output_line_num: int = 0         # line number for complaining
+      ignoring: int = 0                # are we in a gcov-begin/end-ignore section?
+      source_line_num: int = -1        # last seen source line number
+      ignore_exn_lines: bool = False   # whether to ignore exception-only lines
+
+      # Lines of rewritten gcov output.
+      output: List[str] = []
+
+      # Read the original gcov output for `fname`.
+      input_lines: List[str] = read_file_lines(fname)
+      for text in input_lines:
+        output_line_num += 1
+        text = text.rstrip("\n")
+
+        if text.startswith("---") or wordThenColonRE.match(text):
+          # These are lines showing additional detail about a line that
+          # generates different functions, like a macro or a C++
+          # template.  Ignore them; I will just look at the overall
+          # info, which comes first.
+          continue
+
+        # Parse the line.
+        m = coverageLineRE.match(text)
+        if not m:
+          die(f"mygcov: {fname}:{output_line_num}: line not in expected format: {text!r}")
+        pad1, exec_count, unexec_bb, pad2, code_line_number_str, code_line = m.groups()
+        code_line_number: int = int(code_line_number_str)
+
+        if code_line_number <= source_line_num:
+          # We are still in the "additional detail" section; skip.
+          continue
+        elif code_line_number == source_line_num + 1:
+          # We have moved onto the next real line.
+          source_line_num = code_line_number
+        else:
+          die(f"mygcov: {fname}:{output_line_num}: was expecting to " +
+              f"see info about line {source_line_num + 1}: {text!r}")
+
+        # ignoring?
+        if ignoring:
+          if "gcov-end-ignore" in code_line:
+            ignoring -= 1
+          exec_count = kill_hashes(exec_count)
+
+        # begin ignoring?
+        elif "gcov-begin-ignore" in code_line:
+          ignoring += 1
+          exec_count = kill_hashes(exec_count)
+
+        # Ignore just this line?
+        elif should_ignore_line(code_line):
+          exec_count = kill_hashes(exec_count)
+
+        # Disable complains in exception-only code?
+        elif "gcov-exception-lines-ignore" in code_line:
+          ignore_exn_lines = True
+
+        # Analyze `exec_count`.
+        elif digitRE.search(exec_count):
+          lines += 1
+          hit += 1
+        elif "#" in exec_count:
+          # executable but not hit
+          lines += 1
+        elif "=" in exec_count:
+          # According to the documentation at
+          # https://gcc.gnu.org/onlinedocs/gcc/Invoking-Gcov.html, a
+          # count of "=====" means the line is not executed but is only
+          # reachable as a result of exception handlers.
+          if ignore_exn_lines:
+            exec_count = kill_hashes(exec_count)
+          else:
+            lines += 1
+        elif exec_count == "-":
+          # line is not executable
+          pass
+        else:
+          warn(f"{fname}:{output_line_num}: execution count not understood: {exec_count}")
+
+        # Print the line, possibly with modified `pad1` and
+        # `exec_count`.
+        output.append(
+          f"{pad1}{exec_count}{unexec_bb}:{pad2}{code_line_number}:{code_line}"
+        )
+
+      # We don't actually write the new file until the end so if there
+      # is a problem with the input, it will still be on disk when we
+      # exit, so the user can look at the file to compare to the error
+      # message we printed.
+      with open(fname, "w") as f:
+        for line_out in output:
+          f.write(line_out + "\n")
+
+      # Print a report on the statistics for this file.
+      if should_show_report(fname, quiet):
+        pct: float = (hit / lines * 100.0) if lines else 0.0
+        print(f"{pct:7.2f}% = {hit:5d} of {lines:5d} lines: {fname}")
+
+        if (
+          is_explicit_filename(fname)
+          and require100
+          and hit < lines
+        ):
+          files_missing_coverage.append(fname)
+
+  if files_missing_coverage:
+    print("The following files do not have 100% coverage:")
+    for fname in files_missing_coverage:
+      print(f"  {fname}")
+    sys.exit(2)
+
+
+if __name__ == "__main__":
+  call_main(main)
 
 
 # EOF

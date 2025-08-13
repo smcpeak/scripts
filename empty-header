@@ -1,30 +1,219 @@
-#!/usr/bin/perl -w
-# write to stdout my usual C++ header template
+#!/usr/bin/env python3
+"""
+Given a filename, write an empty header file with multiple-include
+guards like:
 
-use strict 'subs';
+  // foo.h
+  // (description goes here)
 
-if (@ARGV != 1) {
-  print(<<"EOF");
-usage: $0 <header-name>
-EOF
-  exit(2);
-}
-
-$filename = $ARGV[0];
-
-# version suitable for use as inclusion guard symbol
-$symbol = $filename;
-$symbol =~ tr|-a-z/.|_A-Z__|;
-
-print(<<"EOF")
-// $filename
-// (description goes here)
-
-#ifndef $symbol
-#define $symbol
+  #ifndef DIR_FOO_H
+  #define DIR_FOO_H
 
 
-#endif // $symbol
-EOF
+  #endif // DIR_FOO_H
+
+where DIR is the name of the current directory without path info.  Both
+the directory and file name are uppercased, and all non-alphanumeric
+characters converted to underscores.
+
+However, if the current directory has a subdirectory called "skeleton",
+and there is a file in it whose name matches the specified file name
+when the literal string "module" is treated as a match variable, then
+use the skeleton file instead, substituting each literal occurrence of
+"{module}" for the matching portion of the input file name.
+"""
+
+
+import os
+import sys
+import re
+
+from boilerplate import *
+from typing import Optional, Tuple
+
+
+re_non_alphanumeric = re.compile(r'[^A-Za-z0-9]');
+
+
+def with_underscores(s: str) -> str:
+  """Replace non-alphanumerics in `s` with underscores."""
+
+  return re_non_alphanumeric.sub('_', s)
+
+assert(with_underscores("foo-bar.h") == "foo_bar_h")
+
+
+def make_guard_symbol(directory: str, filename: str) -> str:
+  """
+  Construct a multiple-include header guard symbol for `filename` in
+  `directory`.
+  """
+
+  dir_name: str = os.path.basename(directory)
+  dir_part: str = with_underscores(dir_name).upper()
+  file_part: str = with_underscores(filename).upper()
+  return f"{dir_part}_{file_part}"
+
+
+def search_dir_for_match(skeleton_dir: str, filename: str) -> Optional[Tuple[str, str]]:
+  """
+  Search in `skeleton_dir` for a file whose name matches `filename` when
+  "module" is treated as a match variable.  If one is found, return a
+  (`path`, `binding`) tuple where `path` is the full path to the
+  matching file in `skeleton_dir` and `binding` is the portion of
+  `filename` that matched the "module" substring.  Otherwise return
+  None.
+  """
+
+  res = None
+
+  for entry in os.listdir(skeleton_dir):
+    entry_path = os.path.join(skeleton_dir, entry)
+
+    if not os.path.isfile(entry_path):
+      continue
+
+    # Look for "module" in the entry name.
+    idx = entry.find("module")
+    if idx == -1:
+      continue
+
+    # Extract the strings before and after "module".
+    prefix = entry[:idx]
+    suffix = entry[idx + len("module"):]
+
+    # Check if `filename` matches the `entry` pattern.
+    if filename.startswith(prefix) and filename.endswith(suffix):
+      # Extract the binding in the middle.
+      binding = filename[len(prefix) : len(filename) - len(suffix)]
+
+      # Prefer shorter bindings since they correspond to more precise
+      # matches.
+      if (res is None or
+          len(binding) < len(res[1])):
+        res = (entry_path, binding)
+
+  return res
+
+
+# ChatGPT helped write this function.
+def find_and_use_skeleton(filename: str) -> bool:
+  """
+  Look in the `skeleton` subdirectory (if it exists) to find a file
+  whose name matches `filename` when the literal string "module" is
+  treated as a match variable.  For example, if `filename` is "foo.h",
+  then a file called "skeleton/module.h" matches, with "foo" then being
+  the binding for the match variable.
+
+  If such a match is found, then read the contents of the skeleton file
+  and replace all occurrences within it of "{module}" with the binding
+  string ("foo" in the example).  Write the substituted contents to
+  stdout and return True.
+
+  If a match is not find, look for `skeleton` in successive ancestor
+  directories, stopping at $HOME or the file system root.
+
+  If `skeleton` does not exist or no match is found, return False.
+  """
+
+  # $HOME.
+  home_dir = os.path.expanduser("~")
+
+  # Directory to search in next.
+  search_dir = os.getcwd()
+
+  # Loop to search successive ancestors.
+  while True:
+    # Skeleton directory to inspect at this level.
+    skeleton_dir = os.path.join(search_dir, "skeleton");
+    debugPrint(f"Looking for skeleton in {skeleton_dir}.");
+
+    if os.path.isdir(skeleton_dir):
+
+      res = search_dir_for_match(skeleton_dir, filename)
+      if res is not None:
+        skeleton_file, module = res
+
+        # Read, substitute, write to stdout.
+        with open(skeleton_file, 'r') as f:
+          contents = f.read()
+
+        substituted = contents.replace(
+          "{module}",
+          module)
+
+        substituted = substituted.replace(
+          "{module_with_underscores}",
+          with_underscores(module))
+
+        sys.stdout.write(substituted)
+        return True
+
+    # Stop at $HOME.
+    if search_dir == home_dir:
+      break
+
+    # Move up, stopping at file system root.
+    parent_dir = os.path.dirname(search_dir)
+    if parent_dir == search_dir:
+      break
+    search_dir = parent_dir
+
+  return False
+
+
+def main() -> None:
+  if len(sys.argv) != 2:
+    print(f"Usage: {sys.argv[0]} <header-file-name>")
+    sys.exit(2)
+
+  filename: str = sys.argv[1]
+
+  # See if we can find a skeleton file to use.
+  if find_and_use_skeleton(filename):
+    return
+
+  cwd: str = os.getcwd()
+  guard_symbol: str = make_guard_symbol(cwd, filename)
+
+  # Placeholder description.
+  description = "(description goes here)"
+
+  # Is the name a "-fwd.h" file name?
+  fwdHeaderRE = re.compile(r'^(.*)-fwd(\.h.*)$')
+  m = fwdHeaderRE.match(filename)
+  if m:
+    leftSide = m.group(1)
+    extension = m.group(2)
+    description = f"Forward decls for `{leftSide}{extension}`."
+
+  # Is it an "-ops.h"?
+  isOpsFile = False
+  m = re.match(r'^(.*)-ops(\.h.*)$', filename)
+  if m:
+    leftSide = m.group(1)
+    extension = m.group(2)
+    description = f"Operations for `{leftSide}` module."
+    isOpsFile = True
+
+  print(f"// {filename}")
+  print(f"// {description}")
+  if os.path.exists("license.txt"):
+    print(f"")
+    print(f"// See license.txt for copyright and terms of use.")
+  print(f"")
+  print(f"#ifndef {guard_symbol}")
+  print(f"#define {guard_symbol}")
+  print("")
+  if isOpsFile:
+    print(f"#include \"{leftSide}{extension}\"".ljust(39) +
+          f"// decls for this module")
+    print("")
+  print("")
+  print(f"#endif // {guard_symbol}")
+
+if __name__ == "__main__":
+  call_main(main)
+
 
 # EOF

@@ -2,14 +2,34 @@
 # grep all source code
 
 if [ "x$1" = "x" ]; then
-  echo "usage: $0 [<grep options>] <grep-style regexp>"
+  echo "usage: $0 [--local] [--recurse] [<grep options>] <grep-style regexp>"
   exit 2
+fi
+
+# 2025-08-05: Changed default `local` to true.
+local=true
+
+if [ "x$1" = "x--local" ]; then
+  shift
+  local=true
+fi
+
+if [ "x$1" = "x--recurse" ]; then
+  shift
+  local=false
 fi
 
 if [ -d .svn ]; then
   # This only works when we are in the root of a SVN repo.  For now
   # that is adequate since I rarely use SVN.
   svn ls -R | grep -v '/$' | xargsn grep -n -H "$@"
+  exit 0
+fi
+
+if $local; then
+  # Simplified call that does not recurse into submodules and only looks
+  # in the current directory and below.
+  git ls-files | xargsn grep -n -H "$@"
   exit 0
 fi
 
