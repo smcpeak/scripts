@@ -1,17 +1,38 @@
 #!/bin/sh
 # Run 'make' from the editor.
 
-if [ -e make-from-editor.sh ]; then
-  exec sh make-from-editor.sh
+# Directory to check for the file.
+dir=$(pwd)
 
-elif [ -e Makefile ]; then
-  #exec runecho env LANG=C make -j4
-  exec runecho env LANG=C make
+# Stop at the root (file should not be there).  Also stop if "$dir" is
+# empty because that could mean `pwd` or `dirname` failed.
+while [ "x$dir" != "x/" -a "x$dir" != "x" ]; do
+  fname="$dir/make-from-editor.sh"
+  #echo "run-make-from-editor: Checking: $fname"
 
-else
-  echo "No Makefile or make-from-editor.sh in $(pwd)."
-  exit 2
+  if [ -f "$fname" ]; then
+    echo "run-make-from-editor: Running: sh $fname"
+    exec sh "$fname"
+    exit 0
+  fi
 
-fi
+  if [ "x$dir" = "x$HOME" ]; then
+    echo "run-make-from-editor: Stopped at $HOME." 1>&2
+    break
+  fi
+
+  # Search in parent directory.
+  newdir=$(dirname "$dir")
+
+  # Guard against possible infinite loop.
+  if [ "x$newdir" = "x$dir" ]; then
+    echo "run-make-from-editor: 'dirname $dir' yielded '$newdir'" 1>&2
+    exit 4
+  fi
+  dir="$newdir"
+done
+
+echo "run-make-from-editor: Did not find 'make-from-editor.sh' in $(pwd) or any ancestor directory." 1>&2
+exit 2
 
 # EOF
