@@ -83,23 +83,27 @@ class ClangdClient:
     self.stdin.flush()
     return msg_id
 
-  def _read_response(self, expected_id: int) -> Any:
+  def _read_response(
+    self,
+    expected_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+
     while True:
       header = self.stdout.readline()
       if not header:
-        break
+        return None
       if header.startswith("Content-Length:"):
         length = int(header.split(":")[1].strip())
         # consume empty line
         self.stdout.readline()
         body = self.stdout.read(length)
-        msg = json.loads(body)
-        if msg.get("id") == expected_id:
-          return msg.get("result")
+        msg: Dict[str, Any] = json.loads(body)
+        if expected_id is None or msg.get("id") == expected_id:
+          return msg
 
   def request(self, method: str, params: Optional[Dict[str, Any]]) -> Any:
     msg_id = self._send(method, params)
-    return self._read_response(msg_id)
+    resp = self._read_response(msg_id)
+    return resp.get("result") if resp else None
 
   def notify(self, method: str, params: Dict[str, Any]) -> None:
     msg = {"jsonrpc": "2.0", "method": method, "params": params}
@@ -107,6 +111,12 @@ class ClangdClient:
     header = f"Content-Length: {len(body)}\r\n\r\n"
     self.stdin.write(header + body)
     self.stdin.flush()
+
+  def wait_for_notification(self, method: str) -> Dict[str, Any]:
+    while True:
+      msg = self._read_response(expected_id=None)
+      if msg and msg.get("method") == method:
+        return msg
 
   def shutdown(self) -> None:
     # Request shutdown
@@ -155,6 +165,9 @@ def main() -> None:
         "text": text,
       }
     })
+
+    # Wait for diagnostics before proceeding
+    client.wait_for_notification("textDocument/publishDiagnostics")
 
     symbols = client.request("textDocument/documentSymbol", {
       "textDocument": {"uri": uri_from_path(file_path)}
