@@ -24,7 +24,7 @@ line that has its start location by appending a C++ single-line
 comment with the file and line number of the definition start location,
 in format like:
 
-  // DEFINED AT <file>:<line>
+  // `<symbol>` DEFINED AT <file>:<line>
 
 in "<file>:<line>" format.  It omit the directory of the file name.
 
@@ -38,9 +38,9 @@ For example, if the input file contains:
 then the output might look like:
 
   struct S {
-    int foo(); // DEFINED AT file.cc:34
+    int foo(); // `foo` DEFINED AT file.cc:34
   };
-  void bar(); // DEFINED AT file.cc:132
+  void bar(); // `bar` DEFINED AT file.cc:132
 """
 
 import argparse
@@ -186,6 +186,7 @@ def main() -> None:
       for sym in symbols:
         kind = sym.get("kind")
         if kind in (12, 6):  # 12=Function, 6=Method
+          name = sym.get("name")
           loc = sym["location"]
           decl_uri = loc["uri"]
           decl_line = loc["range"]["start"]["line"]
@@ -200,7 +201,7 @@ def main() -> None:
             def_line = def0["range"]["start"]["line"]
             # Different location => it's just a declaration
             if def_uri != decl_uri or def_line != decl_line:
-              decls.append((decl_line, f"// DEFINED AT {path_from_uri(def_uri)}:{def_line+1}"))
+              decls.append((decl_line, f"// `{name}` DEFINED AT {path_from_uri(def_uri)}:{def_line+1}"))
         if "children" in sym:
           visit(sym["children"])
 
