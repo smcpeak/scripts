@@ -5,6 +5,9 @@ source file, and produces as output (on stdout) the text of that file,
 annotated with the locations of the definitions of all non-definition
 function and method declarations in the file.
 
+Additional files may be specified after the first; they are sent to the
+clangd server to provide context, but only the first file is annotated.
+
 To identify non-definition function and method declarations, and to find
 their definitions, it uses the Language Server Protocol (LSP).  It
 starts a `clangd` child process, and issues LSP queries to it.
@@ -40,6 +43,7 @@ then the output might look like:
   void bar(); // DEFINED AT file.cc:132
 """
 
+import argparse
 import json
 import os
 import subprocess
@@ -97,13 +101,15 @@ class ClangdClient:
         self.stdout.readline()
         body = self.stdout.read(length)
         msg: Dict[str, Any] = json.loads(body)
-        if expected_id is None or msg.get("id") == expected_id:
+        if expected_id is None or msg.get("id") == expected_id or "method" in msg:
           return msg
 
   def request(self, method: str, params: Optional[Dict[str, Any]]) -> Any:
     msg_id = self._send(method, params)
-    resp = self._read_response(msg_id)
-    return resp.get("result") if resp else None
+    while True:
+      resp = self._read_response(msg_id)
+      if resp and resp.get("id") == msg_id:
+        return resp.get("result")
 
   def notify(self, method: str, params: Dict[str, Any]) -> None:
     msg = {"jsonrpc": "2.0", "method": method, "params": params}
@@ -138,12 +144,13 @@ def path_from_uri(uri: str) -> str:
 # --- main logic --------------------------------------------------------------
 
 def main() -> None:
-  if len(sys.argv) != 2:
-    print(f"usage: {sys.argv[0]} FILE", file=sys.stderr)
-    sys.exit(1)
+  parser = argparse.ArgumentParser(description="Annotate C++ source with definition locations.")
+  parser.add_argument("files", nargs="+", help="C++ source files (first is annotated)")
+  args = parser.parse_args()
 
-  file_path = Path(sys.argv[1]).resolve()
-  text = file_path.read_text(encoding="utf-8")
+  file_paths = [Path(f).resolve() for f in args.files]
+  main_file = file_paths[0]
+  text = main_file.read_text(encoding="utf-8")
   lines = text.splitlines()
 
   client = ClangdClient()
@@ -151,26 +158,26 @@ def main() -> None:
   try:
     # Initialize LSP
     client.request("initialize", {
-      "rootUri": uri_from_path(file_path.parent),
+      "rootUri": uri_from_path(main_file.parent),
       "capabilities": {},
     })
     client.notify("initialized", {})
 
-    # Open the file
-    client.notify("textDocument/didOpen", {
-      "textDocument": {
-        "uri": uri_from_path(file_path),
-        "languageId": "cpp",
-        "version": 1,
-        "text": text,
-      }
-    })
+    # Open each file, waiting for diagnostics
+    for fp in file_paths:
+      client.notify("textDocument/didOpen", {
+        "textDocument": {
+          "uri": uri_from_path(fp),
+          "languageId": "cpp",
+          "version": 1,
+          "text": fp.read_text(encoding="utf-8"),
+        }
+      })
+      client.wait_for_notification("textDocument/publishDiagnostics")
 
-    # Wait for diagnostics before proceeding
-    client.wait_for_notification("textDocument/publishDiagnostics")
-
+    # Query symbols for main file
     symbols = client.request("textDocument/documentSymbol", {
-      "textDocument": {"uri": uri_from_path(file_path)}
+      "textDocument": {"uri": uri_from_path(main_file)}
     })
 
     decls: List[Tuple[int, str]] = []
