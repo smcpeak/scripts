@@ -55,7 +55,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # --- LSP client helper ------------------------------------------------------
 
 class ClangdClient:
-  def __init__(self, clangd_cmd: str = "clangd") -> None:
+  def __init__(self, clangd_cmd: str = "clangd", log_file: Optional[Path] = None) -> None:
     # Determine stderr destination
     stderr_path = os.environ.get("CLANGD_STDERR")
     if stderr_path:
@@ -76,6 +76,13 @@ class ClangdClient:
     self.stdin = self.proc.stdin
     self.stdout = self.proc.stdout
     self.id_counter = 0
+    self.log_file = open(log_file, "w") if log_file else None
+
+  def _log(self, direction: str, msg: Dict[str, Any]) -> None:
+    if self.log_file:
+      json.dump({"direction": direction, "msg": msg}, self.log_file, indent=2)
+      self.log_file.write("\n")
+      self.log_file.flush()
 
   def _send(self, method: str, params: Optional[Dict[str, Any]]) -> int:
     self.id_counter += 1
@@ -85,6 +92,7 @@ class ClangdClient:
     header = f"Content-Length: {len(body)}\r\n\r\n"
     self.stdin.write(header + body)
     self.stdin.flush()
+    self._log("send", msg)
     return msg_id
 
   def _read_response(
@@ -101,6 +109,7 @@ class ClangdClient:
         self.stdout.readline()
         body = self.stdout.read(length)
         msg: Dict[str, Any] = json.loads(body)
+        self._log("recv", msg)
         if expected_id is None or msg.get("id") == expected_id or "method" in msg:
           return msg
 
@@ -117,6 +126,7 @@ class ClangdClient:
     header = f"Content-Length: {len(body)}\r\n\r\n"
     self.stdin.write(header + body)
     self.stdin.flush()
+    self._log("send", msg)
 
   def wait_for_notification(self, method: str) -> Dict[str, Any]:
     while True:
@@ -131,6 +141,8 @@ class ClangdClient:
     self.notify("exit", {})
     self.proc.terminate()
     self.proc.wait()
+    if self.log_file:
+      self.log_file.close()
 
 
 # --- utility ----------------------------------------------------------------
@@ -146,6 +158,7 @@ def path_from_uri(uri: str) -> str:
 def main() -> None:
   parser = argparse.ArgumentParser(description="Annotate C++ source with definition locations.")
   parser.add_argument("files", nargs="+", help="C++ source files (first is annotated)")
+  parser.add_argument("--log", dest="log", help="Log JSON messages to file")
   args = parser.parse_args()
 
   file_paths = [Path(f).resolve() for f in args.files]
@@ -153,7 +166,7 @@ def main() -> None:
   text = main_file.read_text(encoding="utf-8")
   lines = text.splitlines()
 
-  client = ClangdClient()
+  client = ClangdClient(log_file=Path(args.log) if args.log else None)
 
   try:
     # Initialize LSP
