@@ -57,7 +57,7 @@ class ClangdClient:
     if stderr_path:
       stderr_file = open(stderr_path, "w")
     else:
-      tmp = tempfile.NamedTemporaryFile(prefix="clangd-", suffix=".log", delete=False, dir="/tmp")
+      tmp = tempfile.NamedTemporaryFile(prefix="clangd-", suffix=".log", delete=True, dir="/tmp")
       stderr_file = open(tmp.name, "w")
 
     self.proc = subprocess.Popen(
