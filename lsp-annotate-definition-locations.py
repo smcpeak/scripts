@@ -50,12 +50,27 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, TextIO, Tuple
+
+
+# Global log file.
+log_file: Optional[TextIO] = None
+
+def log(s: str) -> None:
+  if log_file:
+    log_file.write(s)
+    log_file.write("\n")
+    log_file.flush()
+
+
+# True if we are running Cygwin Python.
+is_cygwin: bool = (sys.platform == "cygwin")
+
 
 # --- LSP client helper ------------------------------------------------------
 
 class ClangdClient:
-  def __init__(self, clangd_cmd: str = "clangd", log_file: Optional[Path] = None) -> None:
+  def __init__(self, clangd_cmd: str = "clangd") -> None:
     # Determine stderr destination
     stderr_path = os.environ.get("CLANGD_STDERR")
     if stderr_path:
@@ -76,7 +91,9 @@ class ClangdClient:
     self.stdin = self.proc.stdin
     self.stdout = self.proc.stdout
     self.id_counter = 0
-    self.log_file = open(log_file, "w") if log_file else None
+
+    global log_file
+    self.log_file = log_file
 
   def _log(self, direction: str, msg: Dict[str, Any]) -> None:
     if self.log_file:
@@ -141,17 +158,27 @@ class ClangdClient:
     self.notify("exit", {})
     self.proc.terminate()
     self.proc.wait()
-    if self.log_file:
-      self.log_file.close()
 
 
 # --- utility ----------------------------------------------------------------
 
+def cygwin_to_mixed_path(src_path: str) -> str:
+  """Convert `path` to a Cygwin "mixed" Windows path."""
+
+  b = subprocess.check_output(['cygpath', '-m', src_path])
+  return b.decode().strip()
+
 def uri_from_path(path: Path) -> str:
-  return "file://" + str(path.resolve())
+  abspath: str = str(path.resolve())
+  if is_cygwin:
+    abspath = cygwin_to_mixed_path(abspath)
+
+  # TODO: This hardcodes the Windows-specific triple slash.
+  return "file:///" + abspath
 
 def path_from_uri(uri: str) -> str:
-  return Path(uri[7:]).name if uri.startswith("file://") else uri
+  # TODO: This also hardcodes the Windows-specific triple slash.
+  return Path(uri[7:]).name if uri.startswith("file:///") else uri
 
 # --- main logic --------------------------------------------------------------
 
@@ -166,13 +193,23 @@ def main() -> None:
   text = main_file.read_text(encoding="utf-8")
   lines = text.splitlines()
 
-  client = ClangdClient(log_file=Path(args.log) if args.log else None)
+  global log_file
+  if args.log:
+    log_file = open(args.log, "w")
+
+  client = ClangdClient()
 
   try:
     # Initialize LSP
     client.request("initialize", {
       "rootUri": uri_from_path(main_file.parent),
-      "capabilities": {},
+      "capabilities": {
+        "textDocument": {
+          "documentSymbol": {
+            "hierarchicalDocumentSymbolSupport": True
+          }
+        }
+      },
     })
     client.notify("initialized", {})
 
@@ -189,32 +226,48 @@ def main() -> None:
       client.wait_for_notification("textDocument/publishDiagnostics")
 
     # Query symbols for main file
+    main_file_uri = uri_from_path(main_file)
     symbols = client.request("textDocument/documentSymbol", {
-      "textDocument": {"uri": uri_from_path(main_file)}
+      "textDocument": {"uri": main_file_uri}
     })
 
     decls: List[Tuple[int, str]] = []
 
     def visit(symbols: List[Dict[str, Any]]) -> None:
+      wanted_symbol_kinds = (
+        6,         # Method
+        9,         # Constructor
+        12,        # Function
+      )
+
       for sym in symbols:
         kind = sym.get("kind")
-        if kind in (12, 6):  # 12=Function, 6=Method
+        if kind in wanted_symbol_kinds:
           name = sym.get("name")
-          loc = sym["location"]
-          decl_uri = loc["uri"]
-          decl_line = loc["range"]["start"]["line"]
+          sel_range = sym["selectionRange"]
+          decl_line = sel_range["start"]["line"]
           # Query definition
+          log(f"Querying definition of `{name}`:")
           defs = client.request("textDocument/definition", {
-            "textDocument": {"uri": decl_uri},
-            "position": loc["range"]["start"],
+            "textDocument": {"uri": main_file_uri},
+            "position": sel_range["start"],
           })
           if defs:
+            if len(defs) > 1:
+              log(f"Multiple ({len(defs)}) definitions found for `{name}`.  Using first.")
             def0 = defs[0]
             def_uri = def0["uri"]
             def_line = def0["range"]["start"]["line"]
             # Different location => it's just a declaration
-            if def_uri != decl_uri or def_line != decl_line:
-              decls.append((decl_line, f"// `{name}` DEFINED AT {path_from_uri(def_uri)}:{def_line+1}"))
+            if def_uri != main_file_uri or def_line != decl_line:
+              def_file = path_from_uri(def_uri)
+              log(f"Definition of `{name}` is at {def_file}:{def_line+1}.")
+              decls.append((decl_line, f"// `{name}` DEFINED AT {def_file}:{def_line+1}"))
+            else:
+              log(f"Definition of `{name}` is at the same line as its declaration, treating decl as defn.")
+          else:
+            log(f"No definitions found for `{name}`.")
+
         if "children" in sym:
           visit(sym["children"])
 
@@ -229,6 +282,8 @@ def main() -> None:
         print(line)
   finally:
     client.shutdown()
+    if log_file:
+      log_file.close()
 
 
 if __name__ == "__main__":
