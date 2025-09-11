@@ -97,7 +97,7 @@ def search_dir_for_match(skeleton_dir: str, filename: str) -> Optional[Tuple[str
 
 
 # ChatGPT helped write this function.
-def find_and_use_skeleton(filename: str) -> bool:
+def find_and_use_skeleton(filename: str, guard_symbol: str) -> bool:
   """
   Look in the `skeleton` subdirectory (if it exists) to find a file
   whose name matches `filename` when the literal string "module" is
@@ -146,6 +146,10 @@ def find_and_use_skeleton(filename: str) -> bool:
           "{module_with_underscores}",
           with_underscores(module))
 
+        substituted = substituted.replace(
+          "{guard_symbol}",
+          guard_symbol)
+
         sys.stdout.write(substituted)
         return True
 
@@ -169,12 +173,12 @@ def main() -> None:
 
   filename: str = sys.argv[1]
 
-  # See if we can find a skeleton file to use.
-  if find_and_use_skeleton(filename):
-    return
-
   cwd: str = os.getcwd()
   guard_symbol: str = make_guard_symbol(cwd, filename)
+
+  # See if we can find a skeleton file to use.
+  if find_and_use_skeleton(filename, guard_symbol):
+    return
 
   # Placeholder description.
   description = "(description goes here)"
