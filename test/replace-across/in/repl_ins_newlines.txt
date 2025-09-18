@@ -1,0 +1,6 @@
+// repl_ins_newlines.txt
+// Replacement should insert newlines.
+
+one two three
+
+// EOF

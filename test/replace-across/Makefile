@@ -54,6 +54,11 @@ check: out/method_to_function.ok
 method_to_function_SOURCE = 'foo->([a-zA-Z0-9_]+)\('
 method_to_function_REPLACE = '\1(foo, '
 
+# The perl script cannot do this one.
+check: out/repl_ins_newlines.ok
+repl_ins_newlines_SOURCE = 'two'
+repl_ins_newlines_REPLACE = 't\nw\n\no'
+
 clean:
 	rm -rf out
 

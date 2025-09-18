@@ -50,7 +50,8 @@ def usage_and_exit(prog: str) -> None:
   This script will interactively prompt to replace 'source-regexp' in
   the listed files with 'replace-string'.  The latter can refer to
   parenthesized elements in the 'source-regexp' using \\1, \\2, etc.
-  The source is Python regexp syntax.
+  It can also use \\n to insert a newline into the replacement.  The
+  source is Python regexp syntax.
 
   Example source/replace pairs:
 
@@ -160,6 +161,8 @@ def print_change_line(line: str) -> None:
       out_parts.append("\\t")
     elif 32 <= c <= 126:
       out_parts.append(ch)
+    elif c == 10:  # newline
+      out_parts.append("$\n+")
     else:
       out_parts.append(f"\\x{c:02X}")
   out_parts.append("$\n")
@@ -168,12 +171,17 @@ def print_change_line(line: str) -> None:
 
 def replacement_text(replace_string: str, groups: Tuple[Optional[str], ...]) -> str:
   ret = replace_string
+
   # Replace up to 9 backreferences \1..\9
   for i in range(9):
     g = groups[i] if i < len(groups) else None
     if g is not None:
       ref = f"\\{i+1}"
       ret = ret.replace(ref, g)
+
+  # Replace "\n" with a newline.
+  ret = ret.replace("\\n", "\n")
+
   return ret
 
 
