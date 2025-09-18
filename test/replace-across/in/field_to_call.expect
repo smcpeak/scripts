@@ -1,0 +1,13 @@
+---- stdout ----
+// field_to_call.txt
+// Some uses of a field to translate.
+
+{
+  foo();     // already a call, no translate
+  x = foo();   // should translate
+}
+
+// EOF
+---- stderr ----
+---- exit status ----
+Exit 0

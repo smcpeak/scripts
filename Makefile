@@ -26,6 +26,7 @@ MYPY_SRCS += convert-comment-syntax.py
 MYPY_SRCS += count-header-lines.py
 MYPY_SRCS += center-header.py
 MYPY_SRCS += mygcov
+MYPY_SRCS += replace-across-files
 MYPY_SRCS += trim-path
 
 out/%.mypy.ok: %

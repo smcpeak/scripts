@@ -1,0 +1,6 @@
+// method_to_function.txt
+// Method call to global function call.
+
+foo->method(stuff)
+
+// EOF

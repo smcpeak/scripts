@@ -1,78 +1,56 @@
-#!/usr/bin/perl -w
-# search and replace with prompting across a set of input files
+#!/usr/bin/env python3
+"""Search and replace with prompting across a set of input files."""
 
-use strict 'subs';
+import os
+import re
+import sys
+import subprocess
 
-# command-line argument state
-$force = 0;               # when true, make all changes w/o prompting
-$quiet = 0;               # when true, don't print proposed changes
-$fileListFname = "";      # name of file containing file names to modify
-$query = 0;               # when true, print but don't make changes
-$queryLimit = -1;         # when this decrements to 0, stop querying and quit
-$contextLines = 2;        # number of context lines to provide
-$gitLsFiles = 0;          # when true, use "git ls-files" to get the files
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
 
-# process options
-while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
-  my $opt = $ARGV[0];
-  shift @ARGV;
 
-  if ($opt eq "-f") {
-    $force = 1;
-    next;
-  }
+# Global state.
+@dataclass
+class Context:
+  # ---- Command line ----
+  # when true, make all changes w/o prompting
+  force: bool = False
 
-  if ($opt eq "-F") {
-    $force = 1;
-    $quiet = 1;
-    next;
-  }
+  # when true, don't print proposed changes
+  quiet: bool = False
 
-  my ($tmp) = ($opt =~ m/^-list=(.+)$/);
-  if (defined($tmp)) {
-    $fileListFname = $tmp;
-    next;
-  }
+  # name of file containing file names to modify
+  file_list_fname: str = ""
 
-  ($tmp) = ($opt =~ m/^-q=(\d+)$/);
-  if (defined($tmp)) {
-    $query = 1;
-    $queryLimit = $tmp;
-    next;
-  }
+  # when true, print but don't make changes
+  query: bool = False
 
-  if ($opt eq "-Q") {
-    $query = 1;
-    $queryLimit = -1;     # will never decrement to 0
-    next;
-  }
+  # when this decrements to 0, stop querying and quit
+  query_limit: int = -1
 
-  ($tmp) = ($opt =~ m/^-c=(\d+)$/);
-  if (defined($tmp)) {
-    $contextLines = $tmp;
-    next;
-  }
+  # number of context lines to provide
+  context_lines: int = 2
 
-  if ($opt eq "-git-ls-files") {
-    $gitLsFiles = 1;
-    next;
-  }
+  # when true, use "git ls-files" to get the files
+  git_ls_files: bool = False
 
-  if ($opt eq "--") {
-    last;
-  }
+  source_regexp: str = ""
+  replace_string: str = ""
 
-  die("unknown option: $opt\n");
-}
+  # ---- Computed as we run ----
+  errors: int = 0
+  modified_files: int = 0
+  quit: bool = False
 
-if (@ARGV < 2) {
-  print(<<"EOF");
-usage: $0 [options] source-regexp replace-string [file [file [...]]]
+
+def usage_and_exit(prog: str) -> None:
+  msg = f"""usage: {prog} [options] source-regexp replace-string [file [file [...]]]
 
   This script will interactively prompt to replace 'source-regexp' in
   the listed files with 'replace-string'.  The latter can refer to
   parenthesized elements in the 'source-regexp' using \\1, \\2, etc.
-  The source is perl regexp syntax.
+  The source is Python regexp syntax.
 
   Example source/replace pairs:
 
@@ -88,178 +66,214 @@ usage: $0 [options] source-regexp replace-string [file [file [...]]]
     -Q             Print (but do not make) all changes.
     -c=<n>         Change the number of context lines.  Default is 2.
     --             Terminate options (allows patterns starting with '-').
-EOF
-
-  exit(2);
-}
-
-# remove source/replace regexps, leaving the (possibly empty) list
-# of filenames in @ARGV
-$sourceRegexp = $ARGV[0];
-$replaceString = $ARGV[1];
-shift @ARGV;
-shift @ARGV;
-
-# state carried across files
-$errors = 0;            # files failed to read
-$modifiedFiles = 0;     # files to which changes have been made
-$quit = 0;              # when true, quit the program
-
-# autoflush b/c of interactive prompting
-$| = 1;
-
-# process -list file first, if specified
-if ($fileListFname) {
-  if (!open(LIST, $fileListFname)) {
-    die("cannot read $fileListFname: $!\n");
-  }
-  while (!$quit && defined($fname = <LIST>)) {
-    chomp($fname);
-    doReplacementsInFile($fname);
-  }
-  close(LIST) or die;
-}
-
-# Process -git-ls-files next.
-if ($gitLsFiles) {
-  my @files = `git ls-files`;
-  for my $fname (@files) {
-    chomp($fname);
-    doReplacementsInFile($fname);
-  }
-}
-
-# now process names specified in @ARGV
-foreach $fname (@ARGV) {
-  doReplacementsInFile($fname);
-  if ($quit) {
-    last;
-  }
-}
-
-if ($errors) {
-  print("failed to read $errors files from the list\n");
-  exit(4);
-}
-
-if ($modifiedFiles) {
-  print("modified $modifiedFiles files\n");
-}
-
-exit(0);
+"""
+  print(msg, end="")
+  sys.exit(2)
 
 
-# do (prompt for, usually) all the replacements in $fname
-sub doReplacementsInFile {
-  ($fname) = (@_);
+def parse_args(argv: List[str]) -> Tuple[Context, List[str]]:
+  ctx = Context()
+  i = 0
 
-  if (-d $fname) {
-    # Assume that a directory got into the list because of -git-ls-files
-    # and it is a submodule.  Do not produce an error.
-    print("skipping directory: $fname\n");
-    return;
-  }
+  # process options
+  files_after_opts: List[str] = []
+  while i < len(argv):
+    arg = argv[i]
+    if not arg.startswith("-") or arg == "-":
+      break
+    i += 1
 
-  if (! -f $fname) {
-    print("not a file: $fname\n");
-    $errors++;
-    return;
-  }
+    if arg == "--":
+      break
 
-  if (! -T $fname) {
-    print("skipping non-text file: $fname\n");
-    return;
-  }
+    if arg == "-f":
+      ctx.force = True
+      continue
 
-  if (! -w $fname) {
-    print("skipping non-writable file: $fname\n");
-    return;
-  }
+    if arg == "-F":
+      ctx.force = True
+      ctx.quiet = True
+      continue
 
-  # Debug option to print the file names only.
-  if ($ENV{"REPLACE_ACROSS_FILES_PRINT_FILES_ONLY"}) {
-    print("$fname\n");
-    return;
-  }
+    if arg.startswith("-list="):
+      ctx.file_list_fname = arg.split("=", 1)[1]
+      continue
+
+    if arg.startswith("-q="):
+      try:
+        ctx.query_limit = int(arg.split("=", 1)[1], 10)
+      except ValueError:
+        print(f"invalid -q value: {arg}", file=sys.stderr)
+        sys.exit(2)
+      ctx.query = True
+      continue
+
+    if arg == "-Q":
+      ctx.query = True
+      ctx.query_limit = -1
+      continue
+
+    if arg.startswith("-c="):
+      try:
+        ctx.context_lines = int(arg.split("=", 1)[1], 10)
+      except ValueError:
+        print(f"invalid -c value: {arg}", file=sys.stderr)
+        sys.exit(2)
+      continue
+
+    if arg == "-git-ls-files":
+      ctx.git_ls_files = True
+      continue
+
+    print(f"unknown option: {arg}", file=sys.stderr)
+    sys.exit(2)
+
+  # Remaining args from i onwards
+  rest = argv[i:]
+  if len(rest) < 2:
+    usage_and_exit(os.path.basename(sys.argv[0]))
+
+  ctx.source_regexp = rest[0]
+  ctx.replace_string = rest[1]
+  files_after_opts = rest[2:]
+  return ctx, files_after_opts
+
+
+def is_text_file(path: str) -> bool:
+  try:
+    with open(path, "rb") as f:
+      chunk = f.read(8192)
+  except OSError:
+    return False
+  if b"\x00" in chunk:
+    return False
+  return True
+
+
+def print_change_line(line: str) -> None:
+  # Expect line to include trailing newline; we ignore it but print a '$' at end.
+  content = line[:-1] if line.endswith("\n") else line
+  out_parts: List[str] = []
+  for ch in content:
+    c = ord(ch)
+    if c == 9:  # tab
+      out_parts.append("\\t")
+    elif 32 <= c <= 126:
+      out_parts.append(ch)
+    else:
+      out_parts.append(f"\\x{c:02X}")
+  out_parts.append("$\n")
+  sys.stdout.write("".join(out_parts))
+
+
+def replacement_text(replace_string: str, groups: Tuple[Optional[str], ...]) -> str:
+  ret = replace_string
+  # Replace up to 9 backreferences \1..\9
+  for i in range(9):
+    g = groups[i] if i < len(groups) else None
+    if g is not None:
+      ref = f"\\{i+1}"
+      ret = ret.replace(ref, g)
+  return ret
+
+
+def do_replacements_in_file(ctx: Context, fname: str, pattern: re.Pattern) -> None:
+  if os.path.isdir(fname):
+    print(f"skipping directory: {fname}")
+    return
+
+  if not os.path.isfile(fname):
+    print(f"not a file: {fname}")
+    ctx.errors += 1
+    return
+
+  if not is_text_file(fname):
+    print(f"skipping non-text file: {fname}")
+    return
+
+  if not os.access(fname, os.W_OK):
+    print(f"skipping non-writable file: {fname}")
+    return
+
+  if os.environ.get("REPLACE_ACROSS_FILES_PRINT_FILES_ONLY"):
+    print(fname)
+    return
 
   # read the file
-  if (!open(IN, $fname)) {
-    print("cannot read $fname: $!\n");
-    $errors++;
-    return;
-  }
-  my @lines = <IN>;
-  close(IN) or die;
+  try:
+    with open(fname, "r", newline="") as f:
+      lines = f.readlines()
+  except OSError as e:
+    print(f"cannot read {fname}: {e}")
+    ctx.errors += 1
+    return
 
-  # state within one file
-  my $replacements = 0;           # replacements made
-  my $quitThisFile = 0;           # when true, stop scanning this file
-  my $forceThisFile = $force;     # force all changes in this file
-  my $firstProposal = 1;          # true until we print the first proposed change
+  replacements = 0
+  quit_this_file = False
+  force_this_file = ctx.force
+  first_proposal = True
 
-  # scan the line looking for things to replace
-  for (my $i=0; $i < @lines && !$quitThisFile; $i++) {
-    my $tmp = $lines[$i];
+  for i in range(len(lines)):
+    if quit_this_file:
+      break
+    original = lines[i]
 
-    # trial replacement
-    if ($tmp =~ s/$sourceRegexp/&replacementText($1,$2,$3,$4,$5,$6,$7,$8,$9)/ge) {
-      if (!$quiet) {
-        if ($firstProposal) {
-          print("--- $fname\n");
-          $firstProposal = 0;
-        }
+    # Perform a trial replacement across the entire line
+    def repl(m: re.Match) -> str:
+      return replacement_text(ctx.replace_string, m.groups())
 
-        # print proposed change with context on either side
-        printf("@@ %d @@\n", $i+1);
+    replaced = pattern.sub(repl, original)
 
-        # context before the change
-        my $j = $i - $contextLines;
-        if ($j < 0) { $j = 0; }
-        while ($j < $i) {
-          printChangeLine(" $lines[$j]");
-          $j++;
-        }
+    if replaced != original:
+      if not ctx.quiet:
+        if first_proposal:
+          print(f"--- {fname}")
+          first_proposal = False
+        print(f"@@ {i+1} @@")
+
+        # context before
+        j = max(0, i - ctx.context_lines)
+        while j < i:
+          print_change_line(" " + lines[j])
+          j += 1
 
         # proposed change
-        printChangeLine("-$lines[$i]");    # old line
-        printChangeLine("+$tmp");          # replacement
+        print_change_line("-" + original)
+        print_change_line("+" + replaced)
 
-        # context after the change
-        $j = $i + 1;
-        while ($j < @lines && $j <= $i + $contextLines) {
-          printChangeLine(" $lines[$j]");
-          $j++;
-        }
-      }
+        # context after
+        j = i + 1
+        upper = min(len(lines) - 1, i + ctx.context_lines)
+        while j < len(lines) and j <= upper:
+          print_change_line(" " + lines[j])
+          j += 1
 
-      if ($query) {
-        $queryLimit--;
-        if ($queryLimit == 0) {
-          $quitThisFile = 1;     # quit program
-          $quit = 1;
-        }
-        next;                    # don't prompt or replace
-      }
+      if ctx.query:
+        if ctx.query_limit != -1:
+          ctx.query_limit -= 1
+          if ctx.query_limit == 0:
+            quit_this_file = True
+            ctx.quit = True
+        continue  # do not modify
+      if force_this_file:
+        lines[i] = replaced
+        replacements += 1
+      else:
+        while True:
+          try:
+            # autoflush before prompt
+            sys.stdout.write("replace (y/n/Y/N/q/!/?)? [y] ")
+            sys.stdout.flush()
+            response = sys.stdin.readline()
+          except Exception:
+            response = ""
+          if not response:
+            print("\ninput EOF, bailing; you cannot pipe in with xargs...")
+            sys.exit(2)
+          response = response.rstrip("\n")
 
-      if ($forceThisFile) {
-        # replace unconditionally
-        $lines[$i] = $tmp;
-        $replacements++;
-      }
-      else {
-        # prompt the user to see if they want to do the replacement
-        while (1) {
-          print("replace (y/n/Y/N/q/!/?)? [y] ");
-
-          my $response = <STDIN>;
-          if (!defined($response)) {
-            print("\ninput EOF, bailing; you cannot pipe in with xargs...\n");
-            exit(2);
-          }
-          chomp($response);
-          if ($response eq "?") {
-            print(<<"EOF");
-commands:
+          if response == "?":
+            help_txt = """commands:
   y - make the proposed change
   n - do not make the proposed change
   Y - make this and all future proposed changes in this file
@@ -267,109 +281,101 @@ commands:
   q - quit this program, making only previously indicated changes
   ! - make this and all future proposed changes
   ? - print this command reference
-EOF
-          }
-          elsif ($response eq "" || $response eq "y") {
-            # do the replacement
-            $lines[$i] = $tmp;
-            $replacements++;
-            last;
-          }
-          elsif ($response eq "n") {
-            # do not replace
-            last;
-          }
-          elsif ($response eq "Y") {
-            # do the replacement
-            $lines[$i] = $tmp;
-            $replacements++;
+"""
+            print(help_txt, end="")
+          elif response == "" or response == "y":
+            lines[i] = replaced
+            replacements += 1
+            break
+          elif response == "n":
+            break
+          elif response == "Y":
+            lines[i] = replaced
+            replacements += 1
+            force_this_file = True
+            break
+          elif response == "N":
+            quit_this_file = True
+            break
+          elif response == "q":
+            quit_this_file = True
+            ctx.quit = True
+            break
+          elif response == "!":
+            lines[i] = replaced
+            replacements += 1
+            force_this_file = True
+            ctx.force = True
+            break
 
-            $forceThisFile = 1;
-            last;
-          }
-          elsif ($response eq "N") {
-            $quitThisFile = 1;
-            last;
-          }
-          elsif ($response eq "q") {
-            $quitThisFile = 1;
-            $quit = 1;
-            last;
-          }
-          elsif ($response eq "!") {
-            # do the replacement
-            $lines[$i] = $tmp;
-            $replacements++;
+  if replacements == 0:
+    return
 
-            # and all future ones
-            $forceThisFile = 1;
-            $force = 1;
-            last;
-          }
-        }
-      }
-    }
-  }
+  try:
+    with open(fname, "w", newline="") as f:
+      f.writelines(lines)
+  except OSError as e:
+    print(f"cannot write {fname}: {e}", file=sys.stderr)
+    sys.exit(1)
 
-  if ($replacements == 0) {
-    # no matches, or the user didn't want to do any replacements
-    return;
-  }
-
-  # write @lines to the file
-  if (!open(OUT, ">$fname")) {
-    die("cannot write $fname: $!\n");
-  }
-  print OUT (@lines);
-  close(OUT) or die("failed to close $fname: $!\n");
-
-  print("$fname: modified $replacements lines\n");
-  $modifiedFiles++;
-}
+  print(f"{fname:}: modified {replacements} lines")
+  ctx.modified_files += 1
 
 
-# compute the replacement text for a single replacement; the main
-# thing to do here is to substitute the backreferences
-sub replacementText {
-  my @pieces = @_;
-  my $ret = $replaceString;
+def main() -> None:
+  ctx, files_from_args = parse_args(sys.argv[1:])
 
-  # now replace up to 9 embedded references to matched pieces
-  for (my $i=0; $i < 9; $i++) {
-    if (defined($pieces[$i])) {
-      my $refNum = $i+1;
-      $ret =~ s/\\$refNum/$pieces[$i]/g;
-    }
-  }
+  # compile pattern
+  try:
+    pattern = re.compile(ctx.source_regexp)
+  except re.error as e:
+    print(f"invalid source-regexp: {e}", file=sys.stderr)
+    sys.exit(2)
 
-  return $ret;
-}
+  # process -list file
+  if ctx.file_list_fname:
+    try:
+      with open(ctx.file_list_fname, "r", newline="") as f:
+        for line in f:
+          if ctx.quit:
+            break
+          fname = line.rstrip("\n")
+          if not fname:
+            continue
+          do_replacements_in_file(ctx, fname, pattern)
+    except OSError as e:
+      print(f"cannot read {ctx.file_list_fname}: {e}", file=sys.stderr)
+      sys.exit(1)
+
+  # process -git-ls-files
+  if ctx.git_ls_files and not ctx.quit:
+    try:
+      proc = subprocess.run(
+        ["git", "ls-files"], check=False, capture_output=True, text=True
+      )
+      files = proc.stdout.splitlines()
+    except Exception:
+      files = []
+    for fname in files:
+      if ctx.quit:
+        break
+      do_replacements_in_file(ctx, fname, pattern)
+
+  # now process files from argv
+  for fname in files_from_args:
+    if ctx.quit:
+      break
+    do_replacements_in_file(ctx, fname, pattern)
+
+  if ctx.errors:
+    print(f"failed to read {ctx.errors} files from the list")
+    sys.exit(4)
+
+  if ctx.modified_files:
+    print(f"modified {ctx.modified_files} files")
+
+  sys.exit(0)
 
 
-# Print a line of text as part of the proposed change.  Handle
-# non-printing characters.  $line is expected to end with a
-# newline, which we ignore.
-sub printChangeLine {
-  my ($line) = @_;
-
-  my @chars = split("", $line);
-  for (my $i=0; $i < scalar(@chars)-1; $i++) {
-    my $c = ord($chars[$i]);
-    if ($c == 9) {                     # tab
-      print("\\t");
-    }
-    elsif (32 <= $c && $c <= 126) {    # printable
-      print($chars[$i]);
-    }
-    else {
-      printf("\\x%02X", $c);            # non-printable
-    }
-  }
-
-  # Print a final '$' like "cat -tev" does so I can easily see
-  # when there is trailing whitespace.
-  print("\$\n");
-}
-
-
-# EOF
+if __name__ == "__main__":
+  main()

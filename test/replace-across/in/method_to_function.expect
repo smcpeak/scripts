@@ -1,0 +1,10 @@
+---- stdout ----
+// method_to_function.txt
+// Method call to global function call.
+
+method(foo, stuff)
+
+// EOF
+---- stderr ----
+---- exit status ----
+Exit 0

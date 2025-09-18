@@ -1,0 +1,8 @@
+a
+b
+foo
+d
+e
+sentence with "foo" in it
+g
+h

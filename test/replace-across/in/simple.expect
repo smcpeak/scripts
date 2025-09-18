@@ -1,0 +1,12 @@
+---- stdout ----
+a
+b
+bar
+d
+e
+sentence with "bar" in it
+g
+h
+---- stderr ----
+---- exit status ----
+Exit 0

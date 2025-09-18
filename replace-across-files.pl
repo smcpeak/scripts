@@ -1,0 +1,375 @@
+#!/usr/bin/perl -w
+# search and replace with prompting across a set of input files
+
+use strict 'subs';
+
+# command-line argument state
+$force = 0;               # when true, make all changes w/o prompting
+$quiet = 0;               # when true, don't print proposed changes
+$fileListFname = "";      # name of file containing file names to modify
+$query = 0;               # when true, print but don't make changes
+$queryLimit = -1;         # when this decrements to 0, stop querying and quit
+$contextLines = 2;        # number of context lines to provide
+$gitLsFiles = 0;          # when true, use "git ls-files" to get the files
+
+# process options
+while (@ARGV > 0 && $ARGV[0] =~ m/^-/) {
+  my $opt = $ARGV[0];
+  shift @ARGV;
+
+  if ($opt eq "-f") {
+    $force = 1;
+    next;
+  }
+
+  if ($opt eq "-F") {
+    $force = 1;
+    $quiet = 1;
+    next;
+  }
+
+  my ($tmp) = ($opt =~ m/^-list=(.+)$/);
+  if (defined($tmp)) {
+    $fileListFname = $tmp;
+    next;
+  }
+
+  ($tmp) = ($opt =~ m/^-q=(\d+)$/);
+  if (defined($tmp)) {
+    $query = 1;
+    $queryLimit = $tmp;
+    next;
+  }
+
+  if ($opt eq "-Q") {
+    $query = 1;
+    $queryLimit = -1;     # will never decrement to 0
+    next;
+  }
+
+  ($tmp) = ($opt =~ m/^-c=(\d+)$/);
+  if (defined($tmp)) {
+    $contextLines = $tmp;
+    next;
+  }
+
+  if ($opt eq "-git-ls-files") {
+    $gitLsFiles = 1;
+    next;
+  }
+
+  if ($opt eq "--") {
+    last;
+  }
+
+  die("unknown option: $opt\n");
+}
+
+if (@ARGV < 2) {
+  print(<<"EOF");
+usage: $0 [options] source-regexp replace-string [file [file [...]]]
+
+  This script will interactively prompt to replace 'source-regexp' in
+  the listed files with 'replace-string'.  The latter can refer to
+  parenthesized elements in the 'source-regexp' using \\1, \\2, etc.
+  The source is perl regexp syntax.
+
+  Example source/replace pairs:
+
+    '\\bfoo\\b(?!\\()' 'foo()'             - turn uses of 'foo' into calls
+    'foo->([a-zA-Z0-9_]+)\\(' '\\1(foo, ' - method to function
+
+  options:
+    -list=<fname>  Use <fname> as list of files (one per line) to modify.
+    -git-ls-files  Use the output of "git ls-files" as the list to modify.
+    -f             Replace without asking.
+    -F             Same as -f, but do not print the changes.
+    -q=<n>         Query mode; print (but do not make) first <n> changes.
+    -Q             Print (but do not make) all changes.
+    -c=<n>         Change the number of context lines.  Default is 2.
+    --             Terminate options (allows patterns starting with '-').
+EOF
+
+  exit(2);
+}
+
+# remove source/replace regexps, leaving the (possibly empty) list
+# of filenames in @ARGV
+$sourceRegexp = $ARGV[0];
+$replaceString = $ARGV[1];
+shift @ARGV;
+shift @ARGV;
+
+# state carried across files
+$errors = 0;            # files failed to read
+$modifiedFiles = 0;     # files to which changes have been made
+$quit = 0;              # when true, quit the program
+
+# autoflush b/c of interactive prompting
+$| = 1;
+
+# process -list file first, if specified
+if ($fileListFname) {
+  if (!open(LIST, $fileListFname)) {
+    die("cannot read $fileListFname: $!\n");
+  }
+  while (!$quit && defined($fname = <LIST>)) {
+    chomp($fname);
+    doReplacementsInFile($fname);
+  }
+  close(LIST) or die;
+}
+
+# Process -git-ls-files next.
+if ($gitLsFiles) {
+  my @files = `git ls-files`;
+  for my $fname (@files) {
+    chomp($fname);
+    doReplacementsInFile($fname);
+  }
+}
+
+# now process names specified in @ARGV
+foreach $fname (@ARGV) {
+  doReplacementsInFile($fname);
+  if ($quit) {
+    last;
+  }
+}
+
+if ($errors) {
+  print("failed to read $errors files from the list\n");
+  exit(4);
+}
+
+if ($modifiedFiles) {
+  print("modified $modifiedFiles files\n");
+}
+
+exit(0);
+
+
+# do (prompt for, usually) all the replacements in $fname
+sub doReplacementsInFile {
+  ($fname) = (@_);
+
+  if (-d $fname) {
+    # Assume that a directory got into the list because of -git-ls-files
+    # and it is a submodule.  Do not produce an error.
+    print("skipping directory: $fname\n");
+    return;
+  }
+
+  if (! -f $fname) {
+    print("not a file: $fname\n");
+    $errors++;
+    return;
+  }
+
+  if (! -T $fname) {
+    print("skipping non-text file: $fname\n");
+    return;
+  }
+
+  if (! -w $fname) {
+    print("skipping non-writable file: $fname\n");
+    return;
+  }
+
+  # Debug option to print the file names only.
+  if ($ENV{"REPLACE_ACROSS_FILES_PRINT_FILES_ONLY"}) {
+    print("$fname\n");
+    return;
+  }
+
+  # read the file
+  if (!open(IN, $fname)) {
+    print("cannot read $fname: $!\n");
+    $errors++;
+    return;
+  }
+  my @lines = <IN>;
+  close(IN) or die;
+
+  # state within one file
+  my $replacements = 0;           # replacements made
+  my $quitThisFile = 0;           # when true, stop scanning this file
+  my $forceThisFile = $force;     # force all changes in this file
+  my $firstProposal = 1;          # true until we print the first proposed change
+
+  # scan the line looking for things to replace
+  for (my $i=0; $i < @lines && !$quitThisFile; $i++) {
+    my $tmp = $lines[$i];
+
+    # trial replacement
+    if ($tmp =~ s/$sourceRegexp/&replacementText($1,$2,$3,$4,$5,$6,$7,$8,$9)/ge) {
+      if (!$quiet) {
+        if ($firstProposal) {
+          print("--- $fname\n");
+          $firstProposal = 0;
+        }
+
+        # print proposed change with context on either side
+        printf("@@ %d @@\n", $i+1);
+
+        # context before the change
+        my $j = $i - $contextLines;
+        if ($j < 0) { $j = 0; }
+        while ($j < $i) {
+          printChangeLine(" $lines[$j]");
+          $j++;
+        }
+
+        # proposed change
+        printChangeLine("-$lines[$i]");    # old line
+        printChangeLine("+$tmp");          # replacement
+
+        # context after the change
+        $j = $i + 1;
+        while ($j < @lines && $j <= $i + $contextLines) {
+          printChangeLine(" $lines[$j]");
+          $j++;
+        }
+      }
+
+      if ($query) {
+        $queryLimit--;
+        if ($queryLimit == 0) {
+          $quitThisFile = 1;     # quit program
+          $quit = 1;
+        }
+        next;                    # don't prompt or replace
+      }
+
+      if ($forceThisFile) {
+        # replace unconditionally
+        $lines[$i] = $tmp;
+        $replacements++;
+      }
+      else {
+        # prompt the user to see if they want to do the replacement
+        while (1) {
+          print("replace (y/n/Y/N/q/!/?)? [y] ");
+
+          my $response = <STDIN>;
+          if (!defined($response)) {
+            print("\ninput EOF, bailing; you cannot pipe in with xargs...\n");
+            exit(2);
+          }
+          chomp($response);
+          if ($response eq "?") {
+            print(<<"EOF");
+commands:
+  y - make the proposed change
+  n - do not make the proposed change
+  Y - make this and all future proposed changes in this file
+  N - make no more changes in this file
+  q - quit this program, making only previously indicated changes
+  ! - make this and all future proposed changes
+  ? - print this command reference
+EOF
+          }
+          elsif ($response eq "" || $response eq "y") {
+            # do the replacement
+            $lines[$i] = $tmp;
+            $replacements++;
+            last;
+          }
+          elsif ($response eq "n") {
+            # do not replace
+            last;
+          }
+          elsif ($response eq "Y") {
+            # do the replacement
+            $lines[$i] = $tmp;
+            $replacements++;
+
+            $forceThisFile = 1;
+            last;
+          }
+          elsif ($response eq "N") {
+            $quitThisFile = 1;
+            last;
+          }
+          elsif ($response eq "q") {
+            $quitThisFile = 1;
+            $quit = 1;
+            last;
+          }
+          elsif ($response eq "!") {
+            # do the replacement
+            $lines[$i] = $tmp;
+            $replacements++;
+
+            # and all future ones
+            $forceThisFile = 1;
+            $force = 1;
+            last;
+          }
+        }
+      }
+    }
+  }
+
+  if ($replacements == 0) {
+    # no matches, or the user didn't want to do any replacements
+    return;
+  }
+
+  # write @lines to the file
+  if (!open(OUT, ">$fname")) {
+    die("cannot write $fname: $!\n");
+  }
+  print OUT (@lines);
+  close(OUT) or die("failed to close $fname: $!\n");
+
+  print("$fname: modified $replacements lines\n");
+  $modifiedFiles++;
+}
+
+
+# compute the replacement text for a single replacement; the main
+# thing to do here is to substitute the backreferences
+sub replacementText {
+  my @pieces = @_;
+  my $ret = $replaceString;
+
+  # now replace up to 9 embedded references to matched pieces
+  for (my $i=0; $i < 9; $i++) {
+    if (defined($pieces[$i])) {
+      my $refNum = $i+1;
+      $ret =~ s/\\$refNum/$pieces[$i]/g;
+    }
+  }
+
+  return $ret;
+}
+
+
+# Print a line of text as part of the proposed change.  Handle
+# non-printing characters.  $line is expected to end with a
+# newline, which we ignore.
+sub printChangeLine {
+  my ($line) = @_;
+
+  my @chars = split("", $line);
+  for (my $i=0; $i < scalar(@chars)-1; $i++) {
+    my $c = ord($chars[$i]);
+    if ($c == 9) {                     # tab
+      print("\\t");
+    }
+    elsif (32 <= $c && $c <= 126) {    # printable
+      print($chars[$i]);
+    }
+    else {
+      printf("\\x%02X", $c);            # non-printable
+    }
+  }
+
+  # Print a final '$' like "cat -tev" does so I can easily see
+  # when there is trailing whitespace.
+  print("\$\n");
+}
+
+
+# EOF
