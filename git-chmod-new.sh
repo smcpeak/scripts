@@ -6,7 +6,7 @@
 # default.
 
 git ls-files --others --exclude-standard | \
-  egrep -i '\.(h[hp]*|c[cp]*|ded|png)$' | \
+  egrep -i '\.(h[hp]*|c[cp]*|ded|png|ev|json|gdvn)$' | \
   xargsn runecho chmod 644
 
 # EOF
