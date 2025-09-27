@@ -1,43 +1,42 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env python3
 # adjust indentation in a program
 
-use strict 'subs';
-  
-if (@ARGV != 2) {
-  print("usage: $0 current-indent-amount desired-indent-amount\n");
-  exit(2);
-}
+import sys
+import re
 
-$current = $ARGV[0];
-$desired = $ARGV[1];
+def numeric(s: str) -> bool:
+  return bool(re.match(r'^\d+$', s))
 
-if (!( numeric($current) && numeric($desired) )) {
-  die("arguments must be numeric\n");
-}
+def main() -> None:
+  if len(sys.argv) != 3:
+    print(f"usage: {sys.argv[0]} current-indent-amount desired-indent-amount")
+    sys.exit(2)
 
-$lineNum = 0;
-while (defined($line = <STDIN>)) {
-  $lineNum++;
-  chomp($line);
-  my ($spaces, $rest) = ($line =~ m/^( *)(.*)$/);
-  my $ind = length($spaces);
-  if ($ind % $current != 0) {
-    print STDERR ("warning: line $lineNum has unexpected indent level $ind\n");
-  }
+  current = sys.argv[1]
+  desired = sys.argv[2]
 
-  $ind = ($ind / $current) * $desired;
-  print(" " x $ind, $rest, "\n");
-}
+  if not (numeric(current) and numeric(desired)):
+    sys.exit("arguments must be numeric")
 
-sub numeric {
-  my ($s) = @_;
-  if ($s =~ m/^\d+$/) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
-}
+  current_amt = int(current)
+  desired_amt = int(desired)
 
+  line_num = 0
+  for line in sys.stdin:
+    line_num += 1
+    line = line.rstrip("\n")
+    match = re.match(r'^( *)(.*)$', line)
+    if not match:
+      continue
 
-# EOF
+    spaces, rest = match.groups()
+    ind = len(spaces)
+    if ind % current_amt != 0:
+      print(f"warning: line {line_num} has unexpected indent level {ind}",
+            file=sys.stderr)
+
+    ind = (ind // current_amt) * desired_amt
+    print(" " * ind + rest)
+
+if __name__ == "__main__":
+  main()
