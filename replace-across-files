@@ -6,7 +6,7 @@ import re
 import sys
 import subprocess
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 
@@ -39,7 +39,7 @@ class Context:
   replace_string: str = ""
 
   # ---- Computed as we run ----
-  errors: int = 0
+  files_with_errors: list[str] = field(default_factory=list)
   modified_files: int = 0
   quit: bool = False
 
@@ -192,7 +192,7 @@ def do_replacements_in_file(ctx: Context, fname: str, pattern: re.Pattern) -> No
 
   if not os.path.isfile(fname):
     print(f"not a file: {fname}")
-    ctx.errors += 1
+    ctx.files_with_errors += [fname]
     return
 
   if not is_text_file(fname):
@@ -213,7 +213,7 @@ def do_replacements_in_file(ctx: Context, fname: str, pattern: re.Pattern) -> No
       lines = f.readlines()
   except OSError as e:
     print(f"cannot read {fname}: {e}")
-    ctx.errors += 1
+    ctx.files_with_errors += [fname]
     return
 
   replacements = 0
@@ -375,9 +375,10 @@ def main() -> None:
       break
     do_replacements_in_file(ctx, fname, pattern)
 
-  if ctx.errors:
-    print(f"failed to read {ctx.errors} files from the list")
-    sys.exit(4)
+  num_errors: int = len(ctx.files_with_errors)
+  if num_errors > 0:
+    print(f"failed to read {num_errors} files: {ctx.files_with_errors}")
+    sys.exit(2)
 
   if ctx.modified_files:
     print(f"modified {ctx.modified_files} files")
