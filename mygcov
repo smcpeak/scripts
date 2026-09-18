@@ -169,6 +169,11 @@ def main() -> None:
     help="require 100%% coverage of listed files",
   )
   parser.add_argument(
+    "--llvm",
+    action="store_true",
+    help="invoke 'llvm-cov gcov' instead of 'gcov'",
+  )
+  parser.add_argument(
     "filenames",
     metavar="filename.cc",
     nargs="+",
@@ -180,6 +185,7 @@ def main() -> None:
   quiet: bool = args.q
   object_directory: str = args.object_directory
   require100: bool = args.require100
+  llvm: bool = args.llvm
   filenames: List[str] = args.filenames
 
   # Make a set (map to True) of explicitly listed file names, where the
@@ -192,6 +198,8 @@ def main() -> None:
 
   # Build the `gcov` invocation command.
   gcov_command: List[str] = ["gcov"]
+  if llvm:
+    gcov_command = ["llvm-cov", "gcov"]
   if object_directory:
     gcov_command.extend(["--object-directory", object_directory])
   gcov_command.extend(filenames)
