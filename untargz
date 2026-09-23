@@ -117,6 +117,9 @@ elsif ($rpmmed) {
   die("sorry, RPM not implemented..\n");
 }
 elsif ($seven7d) {
+  # It does not unpack in the right directory and does not make
+  # executables executable.
+  die("sorry, 7z does not work properly\n");
   $res = system("7z", "x", $archiveAbsolute);
 }
 else {
