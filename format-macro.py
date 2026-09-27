@@ -31,7 +31,7 @@ import argparse              # argparse
 import os                    # os.getenv
 import re                    # re.compile
 import signal                # signal.signal
-import sys                   # sys.argv, sys.stderr, sys.stdin
+import sys                   # sys.argv, sys.stderr, sys.stdin, sys.stdout
 import traceback             # traceback.print_exc
 
 
@@ -86,6 +86,11 @@ def call_main():
 
 
 def main():
+  # Suppress CRs even on Windows.  This program is primarily meant to
+  # operate on source code from within my editor, and I exclusively use
+  # LF line endings.
+  sys.stdout.reconfigure(newline="\n")
+
   # Parse command line.
   parser = argparse.ArgumentParser(
     description="Read in some C/C++ code, write it out with an "+
