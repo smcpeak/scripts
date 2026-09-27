@@ -1,6 +1,6 @@
 #!/bin/sh
 # run htmltidy and report errors only
-                                                      
+
 if [ "$1" = "" ]; then
   echo "usage: $0 filename"
   exit 2
@@ -9,6 +9,6 @@ fi
 filename="$1"
 
 # on my systems, I have put htmltidy into $HOME/bin
-exec htmltidy -e --gnu-emacs true "$1" 2>&1
+exec htmltidy -e -q --gnu-emacs true "$1" 2>&1
 
 # EOF
