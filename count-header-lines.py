@@ -122,7 +122,7 @@ def measure_line_counts(
   return result
 
 
-include_re = re.compile("""
+include_re = re.compile(r"""
   ^\s*\#\s*include\s*           # "#include "
   ["<]                          # opening delimiter
   ([^">]+)                      # 1: file name
