@@ -185,7 +185,7 @@ def replacement_text(replace_string: str, groups: Tuple[Optional[str], ...]) -> 
   return ret
 
 
-def do_replacements_in_file(ctx: Context, fname: str, pattern: re.Pattern) -> None:
+def do_replacements_in_file(ctx: Context, fname: str, pattern: re.Pattern[str]) -> None:
   if os.path.isdir(fname):
     print(f"skipping directory: {fname}")
     return
@@ -227,7 +227,7 @@ def do_replacements_in_file(ctx: Context, fname: str, pattern: re.Pattern) -> No
     original = lines[i]
 
     # Perform a trial replacement across the entire line
-    def repl(m: re.Match) -> str:
+    def repl(m: re.Match[str]) -> str:
       return replacement_text(ctx.replace_string, m.groups())
 
     replaced = pattern.sub(repl, original)
@@ -335,7 +335,7 @@ def main() -> None:
 
   # compile pattern
   try:
-    pattern = re.compile(ctx.source_regexp)
+    pattern: re.Pattern[str] = re.compile(ctx.source_regexp)
   except re.error as e:
     print(f"invalid source-regexp: {e}", file=sys.stderr)
     sys.exit(2)

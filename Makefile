@@ -31,8 +31,7 @@ MYPY_SRCS += convert-comment-syntax.py
 MYPY_SRCS += count-header-lines.py
 MYPY_SRCS += center-header.py
 MYPY_SRCS += mygcov
-# TODO: Fix mypy errors.
-#MYPY_SRCS += replace-across-files
+MYPY_SRCS += replace-across-files
 MYPY_SRCS += trim-path
 MYPY_SRCS += windows-restart-monitor.py
 
