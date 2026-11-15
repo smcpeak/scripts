@@ -20,9 +20,13 @@ CREATE_OUTPUT_DIRECTORY = @mkdir -p $(dir $@)
 .SECONDARY:
 
 
-PYTHON = python
-MYPY = $(PYTHON) -m mypy
+MYPY = mypy
 MYPY_OPTS = --strict
+
+
+# How to run native Windows Python, if we are on Windows.
+WINDOWS_PYTHON = windows-python
+WINDOWS_MYPY = $(WINDOWS_PYTHON) -m mypy
 
 
 # Python scripts to pass to mypy, in alphabetical order.
@@ -33,7 +37,7 @@ MYPY_SRCS += center-header.py
 MYPY_SRCS += mygcov
 MYPY_SRCS += replace-across-files
 MYPY_SRCS += trim-path
-MYPY_SRCS += windows-restart-monitor.py
+
 
 out/%.mypy.ok: %
 	$(CREATE_OUTPUT_DIRECTORY)
@@ -43,6 +47,22 @@ out/%.mypy.ok: %
 out/all-mypy.ok: $(patsubst %,out/%.mypy.ok,$(MYPY_SRCS))
 
 all: out/all-mypy.ok
+
+
+ifneq ($(shell which $(WINDOWS_PYTHON) 2>/dev/null),"")
+
+WINDOWS_MYPY_SRCS += windows-restart-monitor.py
+
+out/%.windows-mypy.ok: %
+	$(CREATE_OUTPUT_DIRECTORY)
+	$(WINDOWS_MYPY) $(MYPY_OPTS) $<
+	touch $@
+
+out/all-windows-mypy.ok: $(patsubst %,out/%.windows-mypy.ok,$(WINDOWS_MYPY_SRCS))
+
+all: out/all-windows-mypy.ok
+
+endif
 
 
 clean:
